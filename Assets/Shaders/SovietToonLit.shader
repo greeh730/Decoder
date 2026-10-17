@@ -164,6 +164,7 @@ Shader "Custom/SovietToonLit"
             #pragma vertex vert
             #pragma fragment frag
             #pragma shader_feature_local _OUTLINE_ON
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -176,6 +177,7 @@ Shader "Custom/SovietToonLit"
             struct Varyings
             {
                 float4 positionCS   : SV_POSITION;
+                float  fogFactor    : TEXCOORD0;
             };
 
             CBUFFER_START(UnityPerMaterial)
@@ -204,23 +206,22 @@ Shader "Custom/SovietToonLit"
                 }
 
                 // Blend normal with object-space vertex radial direction to seal hard 90° box corners
-                float3 radialOS = normalize(input.positionOS.xyz);
+                float len = length(input.positionOS.xyz);
+                float3 radialOS = len > 0.0001 ? (input.positionOS.xyz / len) : input.normalOS;
                 float3 extrudeDirOS = normalize(lerp(input.normalOS, radialOS, _CornerExpand));
                 float3 extrudeDirWS = TransformObjectToWorldDir(extrudeDirOS);
 
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
-                posWS += extrudeDirWS * (_OutlineWidth * 0.0035);
+                float camDist = length(posWS - _WorldSpaceCameraPos);
+
+                // Adaptive distance scaling: keeps outline crisp at distance without
+                // ever expanding enough to breach thin geometry (e.g. doors, covers, paper)
+                float distFactor = clamp(camDist * 0.25, 0.70, 1.35);
+                posWS += extrudeDirWS * (_OutlineWidth * 0.0032 * distFactor);
 
                 float4 posCS = TransformWorldToHClip(posWS);
-
-                // Depth bias: nudge slightly closer to camera in clip space so grazing angles never eat the outline
-                #if UNITY_REVERSED_Z
-                posCS.z += 0.0004 * posCS.w;
-                #else
-                posCS.z -= 0.0004 * posCS.w;
-                #endif
-
                 output.positionCS = posCS;
+                output.fogFactor = ComputeFogFactor(posCS.z);
                 #else
                 output.positionCS = float4(0, 0, -10, 1);
                 #endif
@@ -230,7 +231,9 @@ Shader "Custom/SovietToonLit"
 
             half4 frag(Varyings input) : SV_Target
             {
-                return _OutlineColor;
+                half4 col = _OutlineColor;
+                col.rgb = MixFog(col.rgb, input.fogFactor);
+                return col;
             }
             ENDHLSL
         }
