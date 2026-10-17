@@ -74,6 +74,7 @@ public class PocketWatchController : MonoBehaviour
     {
         Instance = this;
         timeRemaining = countdownDuration;
+        isRaised = false;
         playerController = GetComponentInParent<PlayerController>();
 
         GenerateAudioClips();
@@ -83,6 +84,7 @@ public class PocketWatchController : MonoBehaviour
 
     private void Start()
     {
+        isRaised = false;
         if (watchRig != null)
         {
             watchRig.localPosition = loweredLocalPos;
@@ -909,6 +911,14 @@ public class PocketWatchController : MonoBehaviour
             radarDisplay.texture = radarTex;
         }
         UpdateModeVisuals();
+
+        if (watchRig != null)
+        {
+            watchRig.localPosition = loweredLocalPos;
+            watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+            watchRig.gameObject.SetActive(false);
+        }
+        isRaised = false;
     }
 
     private void DestroyCollider(GameObject go)
