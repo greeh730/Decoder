@@ -68,7 +68,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Vector3 chairPosition = new Vector3(7.83f, 0.02f, 1.95f);
     [SerializeField] private Vector3 chairLookEuler = new Vector3(0f, 85f, 0f);
     [SerializeField] private Vector3 monitorPosition = new Vector3(9.71f, 1.035f, 1.80f);
-    [SerializeField] private Vector3 monitorCamPosition = new Vector3(9.18f, 1.035f, 1.80f);
+    [SerializeField] private Vector3 monitorCamPosition = new Vector3(9.12f, 1.04f, 1.80f);
     [SerializeField] private Vector3 monitorCamEuler = new Vector3(0f, 90f, 0f);
 
     [SerializeField] private float standingEyeHeight = 1.62f;
@@ -296,6 +296,18 @@ public class PlayerController : MonoBehaviour
     public void InspectMonitor()
     {
         if (currentState == PlayerState.InspectingMonitor) return;
+
+        bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
+                              (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
+
+        if (!isServerOnline)
+        {
+            if (MainframeBootQuest.Instance != null)
+            {
+                MainframeBootQuest.Instance.ShowNotification("<color=#FF6666>[ОТКАЗ]</color> Компьютер обесточен! Сначала запустите сервер (холодный пуск ЭВМ).");
+            }
+            return;
+        }
 
         stateBeforeMonitor = currentState;
         currentState = PlayerState.InspectingMonitor;
@@ -683,12 +695,36 @@ public class PlayerController : MonoBehaviour
             }
             else if (distToMonitor < 2.2f)
             {
-                GUI.Box(new Rect(screenW / 2 - 140, screenH - 100, 280, 36), "Нажмите [F] — Приблизить монитор", promptStyle);
+                bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
+                                      (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
+
+                if (isServerOnline)
+                {
+                    promptStyle.normal.textColor = Color.cyan;
+                    GUI.Box(new Rect(screenW / 2 - 150, screenH - 100, 300, 36), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                }
+                else
+                {
+                    promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
+                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 100, 360, 36), "[ Компьютер обесточен — запустите сервер ]", promptStyle);
+                }
             }
         }
         else if (currentState == PlayerState.Sitting)
         {
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 110, 360, 34), "Нажмите [F] — Приблизить монитор", promptStyle);
+            bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
+                                  (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
+
+            if (isServerOnline)
+            {
+                promptStyle.normal.textColor = Color.cyan;
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 110, 360, 34), "Нажмите [F] — Терминал (WIP)", promptStyle);
+            }
+            else
+            {
+                promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 110, 360, 34), "[ Монитор обесточен — запустите сервер ]", promptStyle);
+            }
             promptStyle.normal.textColor = Color.yellow;
             GUI.Box(new Rect(screenW / 2 - 180, screenH - 70, 360, 34), "Нажмите [E] / [Space] / [W,A,S,D] — Встать", promptStyle);
         }
