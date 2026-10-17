@@ -4,11 +4,11 @@ Shader "Custom/SovietToonLit"
     {
         [Header(Base)]
         _BaseColor("Base Color", Color) = (0.8, 0.8, 0.8, 1.0)
-        _BaseMap("Base Map", 2D) = "white" {}
+        _BaseMap("Base Map (Optional)", 2D) = "white" {}
         [Enum(UnityEngine.Rendering.CullMode)] _Cull("Cull Mode (0=Off, 1=Front, 2=Back)", Float) = 0
 
         [Header(Cel Shading)]
-        _ShadowColor("Shadow Tint", Color) = (0.42, 0.50, 0.65, 1.0) // Deep Soviet Navy shadow
+        _ShadowColor("Shadow Tint", Color) = (0.40, 0.48, 0.62, 1.0) // Stylish cool graphic novel shadow
         _ShadowThreshold("Shadow Step Threshold", Range(0.0, 1.0)) = 0.45
         _ShadowSmoothness("Step Softness", Range(0.001, 0.1)) = 0.02
         _AmbientStrength("Ambient Baseline", Range(0.0, 1.0)) = 0.38
@@ -16,7 +16,8 @@ Shader "Custom/SovietToonLit"
         [Header(Outlines)]
         [Toggle(_OUTLINE_ON)] _OutlineOn("Enable Outline", Float) = 1.0
         _OutlineColor("Outline Color (Black Ink)", Color) = (0.04, 0.04, 0.06, 1.0)
-        _OutlineWidth("Outline Thickness", Range(0.0, 10.0)) = 2.5
+        _OutlineWidth("Outline Thickness", Range(0.0, 10.0)) = 2.8
+        _CornerExpand("Hard Corner Expand", Range(0.0, 1.0)) = 0.65
 
         [Header(Emission)]
         [HDR] _EmissionColor("Emission Color", Color) = (0, 0, 0, 1)
@@ -87,6 +88,7 @@ Shader "Custom/SovietToonLit"
                 float _ShadowSmoothness;
                 float _AmbientStrength;
                 float _OutlineWidth;
+                float _CornerExpand;
                 float _OutlineOn;
                 float _Cull;
             CBUFFER_END
@@ -148,7 +150,7 @@ Shader "Custom/SovietToonLit"
         }
 
         // =========================================================================
-        // PASS 2: INVERTED HULL OUTLINE PASS (World space normal extrusion)
+        // PASS 2: CORNER-EXPANDED INVERTED HULL OUTLINE (Angle-Independent)
         // =========================================================================
         Pass
         {
@@ -185,6 +187,7 @@ Shader "Custom/SovietToonLit"
                 float _ShadowSmoothness;
                 float _AmbientStrength;
                 float _OutlineWidth;
+                float _CornerExpand;
                 float _OutlineOn;
                 float _Cull;
             CBUFFER_END
@@ -200,12 +203,24 @@ Shader "Custom/SovietToonLit"
                     return output;
                 }
 
-                // Extrude vertices outward in world space along normal
-                float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
-                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
-                posWS += normalWS * (_OutlineWidth * 0.0025);
+                // Blend normal with object-space vertex radial direction to seal hard 90° box corners
+                float3 radialOS = normalize(input.positionOS.xyz);
+                float3 extrudeDirOS = normalize(lerp(input.normalOS, radialOS, _CornerExpand));
+                float3 extrudeDirWS = TransformObjectToWorldDir(extrudeDirOS);
 
-                output.positionCS = TransformWorldToHClip(posWS);
+                float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
+                posWS += extrudeDirWS * (_OutlineWidth * 0.0035);
+
+                float4 posCS = TransformWorldToHClip(posWS);
+
+                // Depth bias: nudge slightly closer to camera in clip space so grazing angles never eat the outline
+                #if UNITY_REVERSED_Z
+                posCS.z += 0.0004 * posCS.w;
+                #else
+                posCS.z -= 0.0004 * posCS.w;
+                #endif
+
+                output.positionCS = posCS;
                 #else
                 output.positionCS = float4(0, 0, -10, 1);
                 #endif
@@ -221,7 +236,51 @@ Shader "Custom/SovietToonLit"
         }
 
         // =========================================================================
-        // PASS 3: SHADOW CASTER
+        // PASS 3: DEPTH NORMALS PASS (For SSAO and Screen-space effects)
+        // =========================================================================
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+            ZWrite On
+            Cull [_Cull]
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            struct Attributes
+            {
+                float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS   : SV_POSITION;
+                float3 normalWS     : TEXCOORD1;
+            };
+
+            Varyings vert(Attributes input)
+            {
+                Varyings output;
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+                return output;
+            }
+
+            half4 frag(Varyings input) : SV_Target
+            {
+                float3 normalWS = normalize(input.normalWS);
+                return half4(normalWS * 0.5 + 0.5, 0.0);
+            }
+            ENDHLSL
+        }
+
+        // =========================================================================
+        // PASS 4: SHADOW CASTER
         // =========================================================================
         Pass
         {

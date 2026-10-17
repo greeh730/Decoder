@@ -24,7 +24,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: bd7df52f942fbf044b92221d67d7f171, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _OUTLINE_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -116,8 +117,8 @@ Material:
     - _GlossyReflections: 0
     - _Metallic: 0.2
     - _OcclusionStrength: 1
-    - _OutlineOn: 0
-    - _OutlineWidth: 1.6
+    - _OutlineOn: 1
+    - _OutlineWidth: 2.8
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
