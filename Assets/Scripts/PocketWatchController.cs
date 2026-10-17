@@ -50,21 +50,36 @@ public class PocketWatchController : MonoBehaviour
     private readonly Vector3 loweredLocalPos = new Vector3(0.20f, -0.65f, 0.28f);
     private readonly Vector3 loweredLocalRot = new Vector3(55f, -10f, 20f);
 
+    [System.Serializable]
+    private class TrackedGuardBlip
+    {
+        public Vector2 spottedPixel;
+        public Vector2 spottedHeading;
+        public float lastSpottedTime;
+        public float intensity;
+        public bool hasBeenSpotted;
+    }
+
     private Coroutine transitionCoroutine;
     private AudioClip tickClip;
     private AudioClip tockClip;
     private AudioClip switchClip;
+    private AudioClip radarPingClip;
     private bool isTickAlternate = false;
     private int lastReportedSecond = -1;
     private PlayerController playerController;
 
-    // Tactical Radar Texture Buffer
+    // Tactical Radar Sweep & Tracked Enemies Buffer
     private const int RadarTexSize = 128;
     private Texture2D radarTex;
     private Color32[] staticBackgroundPixels;
     private Color32[] dynamicPixels;
     private float radarUpdateTimer = 0f;
     private const float RadarUpdateInterval = 0.04f; // 25 fps radar update
+    private float radarSweepAngle = 0f;
+    private float prevSweepAngle = 0f;
+    private const float RadarSweepSpeed = 2.4f; // ~2.6s per 360-degree sweep
+    private readonly Dictionary<int, TrackedGuardBlip> trackedGuards = new Dictionary<int, TrackedGuardBlip>();
 
     public bool IsRaised => isRaised;
     public bool IsMapMode => isMapMode;
@@ -387,6 +402,20 @@ public class PocketWatchController : MonoBehaviour
             swData[i] = (tone * 0.4f + click) * decay;
         }
         switchClip.SetData(swData, 0);
+
+        // 4. Tactical Radar Ping (Sonar chirp when sweep hits guard)
+        int pingLen = (int)(sampleRate * 0.075f);
+        radarPingClip = AudioClip.Create("RadarPing", pingLen, 1, sampleRate, false);
+        float[] pingData = new float[pingLen];
+        for (int i = 0; i < pingLen; i++)
+        {
+            float t = (float)i / pingLen;
+            float decay = Mathf.Exp(-t * 22f);
+            float tone = Mathf.Sin(2f * Mathf.PI * 1760f * (i / (float)sampleRate)) * 0.7f +
+                         Mathf.Sin(2f * Mathf.PI * 2640f * (i / (float)sampleRate)) * 0.3f;
+            pingData[i] = tone * decay * 0.28f;
+        }
+        radarPingClip.SetData(pingData, 0);
     }
 
     // =========================================================================
@@ -502,25 +531,57 @@ public class PocketWatchController : MonoBehaviour
         // 1. Copy base static corridors
         System.Array.Copy(staticBackgroundPixels, dynamicPixels, staticBackgroundPixels.Length);
 
-        // 2. Rotating radar sweep line effect
-        float sweepAngle = Time.time * 2.8f;
         Vector2 center = new Vector2(RadarTexSize * 0.5f, RadarTexSize * 0.5f);
-        Vector2 sweepDir = new Vector2(Mathf.Cos(sweepAngle), Mathf.Sin(sweepAngle));
-        for (int r = 8; r < 56; r += 2)
+
+        // Advance sweep angle
+        float dt = Time.deltaTime > 0f ? Time.deltaTime : 0.04f;
+        prevSweepAngle = radarSweepAngle;
+        radarSweepAngle = Mathf.Repeat(radarSweepAngle + RadarSweepSpeed * dt, Mathf.PI * 2f);
+
+        // 2. Fading phosphor wake behind leading needle
+        for (int tail = 12; tail >= 1; tail--)
+        {
+            float tailAngle = radarSweepAngle - tail * 0.022f;
+            Vector2 tailDir = new Vector2(Mathf.Cos(tailAngle), Mathf.Sin(tailAngle));
+            float falloff = (float)tail / 12f;
+            byte alpha = (byte)Mathf.RoundToInt(Mathf.Lerp(90f, 12f, falloff));
+            Color32 tailCol = new Color32(35, 120, 75, alpha);
+
+            for (int r = 6; r < 56; r += 2)
+            {
+                Vector2 pt = center + tailDir * r;
+                int sx = Mathf.RoundToInt(pt.x);
+                int sy = Mathf.RoundToInt(pt.y);
+                if (sx >= 0 && sx < RadarTexSize && sy >= 0 && sy < RadarTexSize)
+                {
+                    int idx = sy * RadarTexSize + sx;
+                    Color32 bg = dynamicPixels[idx];
+                    dynamicPixels[idx] = new Color32(
+                        (byte)Mathf.Min(255, bg.r + tailCol.r * alpha / 255),
+                        (byte)Mathf.Min(255, bg.g + tailCol.g * alpha / 255),
+                        (byte)Mathf.Min(255, bg.b + tailCol.b * alpha / 255),
+                        bg.a
+                    );
+                }
+            }
+        }
+
+        // Leading sharp needle line
+        Vector2 sweepDir = new Vector2(Mathf.Cos(radarSweepAngle), Mathf.Sin(radarSweepAngle));
+        Color32 needleCol = new Color32(185, 255, 215, 255);
+        for (int r = 4; r < 56; r++)
         {
             Vector2 pt = center + sweepDir * r;
             int sx = Mathf.RoundToInt(pt.x);
             int sy = Mathf.RoundToInt(pt.y);
             if (sx >= 0 && sx < RadarTexSize && sy >= 0 && sy < RadarTexSize)
             {
-                dynamicPixels[sy * RadarTexSize + sx] = new Color32(110, 255, 175, 230);
+                dynamicPixels[sy * RadarTexSize + sx] = needleCol;
             }
         }
 
-        // 3. Plot Guards (Red Blips)
-        Color32 guardCol = new Color32(255, 45, 45, 255);
-        Color32 guardGlow = new Color32(255, 110, 90, 180);
-
+        // 3. Track and Plot Guards (Positions update ONLY when swept by the needle!)
+        bool justSweptAnyGuard = false;
         var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
         int guardCount = (guards != null) ? guards.Length : 0;
 
@@ -529,15 +590,57 @@ public class PocketWatchController : MonoBehaviour
             foreach (var g in guards)
             {
                 if (g == null) continue;
+                int id = g.gameObject.name.GetHashCode();
                 Vector3 gPos = g.transform.position;
-                Vector2 pix = WorldToRadarPixel(gPos.x, gPos.z);
-                DrawDotOnDynamic(Mathf.RoundToInt(pix.x), Mathf.RoundToInt(pix.y), 2, guardCol, guardGlow);
+                Vector2 livePix = WorldToRadarPixel(gPos.x, gPos.z);
+                Vector2 delta = livePix - center;
+                float targetAngle = Mathf.Atan2(delta.y, delta.x);
+                if (targetAngle < 0f) targetAngle += Mathf.PI * 2f;
 
-                // Direction heading tick
-                Vector2 forwardTick = pix + new Vector2(g.transform.forward.x, g.transform.forward.z) * 4f;
-                int fx = Mathf.Clamp(Mathf.RoundToInt(forwardTick.x), 0, RadarTexSize - 1);
-                int fy = Mathf.Clamp(Mathf.RoundToInt(forwardTick.y), 0, RadarTexSize - 1);
-                dynamicPixels[fy * RadarTexSize + fx] = guardCol;
+                if (!trackedGuards.TryGetValue(id, out var blip))
+                {
+                    blip = new TrackedGuardBlip
+                    {
+                        spottedPixel = livePix,
+                        spottedHeading = new Vector2(g.transform.forward.x, g.transform.forward.z),
+                        lastSpottedTime = Time.time,
+                        intensity = 0.5f,
+                        hasBeenSpotted = true
+                    };
+                    trackedGuards[id] = blip;
+                }
+
+                // Check if needle swept past the guard's position
+                if (WasAngleCrossed(prevSweepAngle, radarSweepAngle, targetAngle))
+                {
+                    blip.spottedPixel = livePix;
+                    blip.spottedHeading = new Vector2(g.transform.forward.x, g.transform.forward.z);
+                    blip.lastSpottedTime = Time.time;
+                    blip.intensity = 1.0f;
+                    justSweptAnyGuard = true;
+                }
+                else
+                {
+                    float elapsed = Time.time - blip.lastSpottedTime;
+                    blip.intensity = Mathf.Clamp01(1.0f - (elapsed / 2.6f) * 0.70f);
+                }
+
+                // Draw at last SPOTTED pixel (frozen in place between sweeps!)
+                Color32 coreCol = Color32.Lerp(new Color32(130, 25, 25, 160), new Color32(255, 45, 45, 255), blip.intensity);
+                Color32 glowCol = Color32.Lerp(new Color32(70, 10, 10, 70), new Color32(255, 120, 100, 200), blip.intensity);
+
+                if (blip.intensity > 0.88f)
+                {
+                    coreCol = new Color32(255, 230, 210, 255); // bright ping flash!
+                }
+
+                DrawDotOnDynamic(Mathf.RoundToInt(blip.spottedPixel.x), Mathf.RoundToInt(blip.spottedPixel.y), 2, coreCol, glowCol);
+
+                // Heading tick
+                Vector2 fwdTick = blip.spottedPixel + blip.spottedHeading * 4f;
+                int fx = Mathf.Clamp(Mathf.RoundToInt(fwdTick.x), 0, RadarTexSize - 1);
+                int fy = Mathf.Clamp(Mathf.RoundToInt(fwdTick.y), 0, RadarTexSize - 1);
+                dynamicPixels[fy * RadarTexSize + fx] = coreCol;
             }
         }
         else
@@ -550,11 +653,53 @@ public class PocketWatchController : MonoBehaviour
                 new Vector3(4.0f, 0f, 3.5f)     // West crawlway
             };
             guardCount = simulatedGuards.Length;
-            foreach (var pos in simulatedGuards)
+            for (int i = 0; i < simulatedGuards.Length; i++)
             {
-                Vector2 pix = WorldToRadarPixel(pos.x, pos.z);
-                DrawDotOnDynamic(Mathf.RoundToInt(pix.x), Mathf.RoundToInt(pix.y), 2, guardCol, guardGlow);
+                int id = 1000 + i;
+                Vector3 pos = simulatedGuards[i];
+                Vector2 livePix = WorldToRadarPixel(pos.x, pos.z);
+                Vector2 delta = livePix - center;
+                float targetAngle = Mathf.Atan2(delta.y, delta.x);
+                if (targetAngle < 0f) targetAngle += Mathf.PI * 2f;
+
+                if (!trackedGuards.TryGetValue(id, out var blip))
+                {
+                    blip = new TrackedGuardBlip
+                    {
+                        spottedPixel = livePix,
+                        spottedHeading = Vector2.up,
+                        lastSpottedTime = Time.time,
+                        intensity = 0.5f,
+                        hasBeenSpotted = true
+                    };
+                    trackedGuards[id] = blip;
+                }
+
+                if (WasAngleCrossed(prevSweepAngle, radarSweepAngle, targetAngle))
+                {
+                    blip.spottedPixel = livePix;
+                    blip.lastSpottedTime = Time.time;
+                    blip.intensity = 1.0f;
+                    justSweptAnyGuard = true;
+                }
+                else
+                {
+                    float elapsed = Time.time - blip.lastSpottedTime;
+                    blip.intensity = Mathf.Clamp01(1.0f - (elapsed / 2.6f) * 0.70f);
+                }
+
+                Color32 coreCol = Color32.Lerp(new Color32(130, 25, 25, 160), new Color32(255, 45, 45, 255), blip.intensity);
+                Color32 glowCol = Color32.Lerp(new Color32(70, 10, 10, 70), new Color32(255, 120, 100, 200), blip.intensity);
+                if (blip.intensity > 0.88f) coreCol = new Color32(255, 230, 210, 255);
+
+                DrawDotOnDynamic(Mathf.RoundToInt(blip.spottedPixel.x), Mathf.RoundToInt(blip.spottedPixel.y), 2, coreCol, glowCol);
             }
+        }
+
+        // Play tactical audio chirp on ping
+        if (justSweptAnyGuard && isRaised && isMapMode && audioSource != null && radarPingClip != null)
+        {
+            audioSource.PlayOneShot(radarPingClip, 0.25f);
         }
 
         // 4. Plot Player (Cyan/Green Blip)
@@ -580,6 +725,18 @@ public class PocketWatchController : MonoBehaviour
         if (radarStatusText != null)
         {
             radarStatusText.text = $"• ОХРАНА: {guardCount} •";
+        }
+    }
+
+    private bool WasAngleCrossed(float prevA, float currA, float targetA)
+    {
+        if (currA >= prevA)
+        {
+            return targetA >= prevA && targetA <= currA;
+        }
+        else
+        {
+            return targetA >= prevA || targetA <= currA;
         }
     }
 
