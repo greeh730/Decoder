@@ -191,6 +191,15 @@ public class PocketWatchController : MonoBehaviour
 
         isRaised = raise;
 
+        if (raise)
+        {
+            UpdateModeVisuals();
+            if (isMapMode)
+            {
+                RenderLiveRadarFrame();
+            }
+        }
+
         if (transitionCoroutine != null) StopCoroutine(transitionCoroutine);
         transitionCoroutine = StartCoroutine(TransitionRoutine(raise));
     }
@@ -250,8 +259,15 @@ public class PocketWatchController : MonoBehaviour
         if (!raise)
         {
             watchRig.gameObject.SetActive(false);
-            isMapMode = false; // Reset to clock face when lowered
+            // Mode is preserved across raise/lower
+        }
+        else
+        {
             UpdateModeVisuals();
+            if (isMapMode)
+            {
+                RenderLiveRadarFrame();
+            }
         }
 
         transitionCoroutine = null;
@@ -314,7 +330,7 @@ public class PocketWatchController : MonoBehaviour
 
     private void PlayTickSound()
     {
-        if (!isRaised || audioSource == null) return;
+        if (!isRaised || isMapMode || audioSource == null) return;
 
         AudioClip clipToPlay = isTickAlternate ? tockClip : tickClip;
         isTickAlternate = !isTickAlternate;
@@ -562,11 +578,6 @@ public class PocketWatchController : MonoBehaviour
         if (radarStatusText != null)
         {
             radarStatusText.text = $"• ОХРАНА: {guardCount} •";
-        }
-        if (radarTimerText != null)
-        {
-            int totalSec = Mathf.FloorToInt(timeRemaining);
-            radarTimerText.text = $"{totalSec / 60:D2}:{totalSec % 60:D2}";
         }
     }
 
@@ -891,20 +902,6 @@ public class PocketWatchController : MonoBehaviour
         headerRt.anchoredPosition = new Vector2(0f, 36f);
         headerRt.sizeDelta = new Vector2(90f, 14f);
 
-        // Bottom Timer Readout
-        var botTimerObj = new GameObject("RadarTimer");
-        botTimerObj.transform.SetParent(radarGroupObj.transform, false);
-        radarTimerText = botTimerObj.AddComponent<Text>();
-        radarTimerText.font = builtinFont;
-        radarTimerText.fontSize = 11;
-        radarTimerText.fontStyle = FontStyle.Bold;
-        radarTimerText.alignment = TextAnchor.MiddleCenter;
-        radarTimerText.color = new Color(0.95f, 0.85f, 0.25f);
-        radarTimerText.text = "15:00";
-        var botRt = botTimerObj.GetComponent<RectTransform>();
-        botRt.anchoredPosition = new Vector2(0f, -36f);
-        botRt.sizeDelta = new Vector2(70f, 14f);
-
         radarGroup = radarGroupObj.transform;
         if (radarTex == null) InitRadarMap();
         if (radarDisplay != null && radarTex != null)
@@ -947,7 +944,7 @@ public class PocketWatchController : MonoBehaviour
             badgeStyle.normal.textColor = new Color(0.35f, 0.95f, 0.55f);
             GUI.backgroundColor = new Color(0.04f, 0.12f, 0.08f, 0.92f);
             GUI.Box(new Rect(sw - 380, sh - 90, 360, 42),
-                $"🗺 ТАКТИЧЕСКИЙ РАДАР [{mins:D2}:{secs:D2}]\n[ЛКМ / ПКМ] — Вернуть циферблат", badgeStyle);
+                "🗺 ТАКТИЧЕСКИЙ РАДАР (СХЕМА НИИ)\n[ЛКМ / ПКМ] — Режим циферблата", badgeStyle);
         }
         else
         {
