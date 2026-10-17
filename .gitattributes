@@ -1,0 +1,43 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Unity text formats
+*.cs diff=csharp text
+*.cginc text
+*.shader text
+*.hlsl text
+*.compute text
+*.mat merge=unityyamlmerge text
+*.anim merge=unityyamlmerge text
+*.unity merge=unityyamlmerge text
+*.prefab merge=unityyamlmerge text
+*.physicsMaterial2D merge=unityyamlmerge text
+*.physicMaterial merge=unityyamlmerge text
+*.asset merge=unityyamlmerge text
+*.meta merge=unityyamlmerge text
+*.controller merge=unityyamlmerge text
+*.uss text
+*.uxml text
+*.json text
+*.inputactions text
+
+# Unity binary formats
+*.bytes binary
+*.dll binary
+*.obj binary
+*.fbx binary
+*.blend binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.psd binary
+*.tif binary
+*.tiff binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.ttf binary
+*.otf binary
+*.fontsettings binary
+*.rns binary
