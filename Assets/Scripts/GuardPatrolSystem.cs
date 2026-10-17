@@ -50,9 +50,19 @@ public class GuardPatrolSystem : MonoBehaviour
     public void SpawnAllGuards()
     {
         // Clean existing
-        foreach (var g in activeGuards)
+        var existingGuards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Include);
+        if (existingGuards != null)
         {
-            if (g != null) Destroy(g.gameObject);
+            foreach (var g in existingGuards)
+            {
+                if (g == null) continue;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) DestroyImmediate(g.gameObject);
+                else Destroy(g.gameObject);
+#else
+                Destroy(g.gameObject);
+#endif
+            }
         }
         activeGuards.Clear();
 
@@ -158,7 +168,6 @@ public class GuardPatrolSystem : MonoBehaviour
         lightsGroup.SetParent(root, false);
 
         float wallH = 3.4f;
-        float wallThick = 0.25f;
 
         // ---------------------------------------------------------
         // 1. CORRIDOR SEGMENTS
