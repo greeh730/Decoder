@@ -298,7 +298,8 @@ public class PocketWatchController : MonoBehaviour
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
 
-        var urpLit = Shader.Find("Universal Render Pipeline/Lit");
+        var urpLit = Shader.Find("Custom/SovietToonLit");
+        if (urpLit == null) urpLit = Shader.Find("Universal Render Pipeline/Lit");
         if (urpLit == null) urpLit = Shader.Find("Standard");
 
         // Materials: antique brushed brass
