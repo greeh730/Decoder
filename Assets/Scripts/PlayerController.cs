@@ -89,6 +89,7 @@ public class PlayerController : MonoBehaviour
     public PlayerState CurrentState => currentState;
     public bool IsSitting => currentState == PlayerState.Sitting;
     public bool IsInspectingMonitor => currentState == PlayerState.InspectingMonitor;
+    public bool IsFirstPerson => isFirstPerson;
 
     private void Awake()
     {
@@ -630,6 +631,7 @@ public class PlayerController : MonoBehaviour
         string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
                            $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
                            $"• <b>Shift</b> — Бег | <b>Space</b> — Прыжок\n" +
+                           $"• <b>T</b> — Карманные часы (таймер)\n" +
                            $"• <b>Мышь</b> — Обзор (Look)\n" +
                            $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
                            $"• <b>Esc</b> — Освободить мышь (клик — захват)";
