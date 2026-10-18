@@ -715,26 +715,28 @@ public class MainframeBootQuest : MonoBehaviour
         if (questAudioSource == null) questAudioSource = GetComponent<AudioSource>();
         if (questAudioSource == null) questAudioSource = gameObject.AddComponent<AudioSource>();
 
+        questAudioSource.playOnAwake = false;
         questAudioSource.spatialBlend = 0.85f;
         questAudioSource.minDistance = 1.0f;
         questAudioSource.maxDistance = 15f;
 
-        humAudioSource = gameObject.AddComponent<AudioSource>();
+        if (humAudioSource == null) humAudioSource = gameObject.AddComponent<AudioSource>();
+        humAudioSource.playOnAwake = false;
         humAudioSource.spatialBlend = 0.85f;
         humAudioSource.minDistance = 1.5f;
         humAudioSource.maxDistance = 14f;
         humAudioSource.loop = true;
-        humAudioSource.volume = 0.55f;
+        humAudioSource.volume = 0.20f;
 
         humLoopClip = CreateTransformerHumClip();
         relayClackClip = CreateRelayClackClip();
-        humAudioSource.clip = humLoopClip;
     }
 
     private void StartTransformerHum()
     {
         if (humAudioSource != null && humLoopClip != null && !humAudioSource.isPlaying)
         {
+            humAudioSource.clip = humLoopClip;
             humAudioSource.Play();
         }
     }
@@ -764,16 +766,14 @@ public class MainframeBootQuest : MonoBehaviour
         for (int i = 0; i < samples; i++)
         {
             float t = (float)i / sampleRate;
-            // 50Hz fundamental power line hum
-            float h50 = Mathf.Sin(2f * Mathf.PI * 50f * t) * 0.45f;
+            // 50Hz fundamental power line hum (deep smooth tone, no white noise)
+            float h50 = Mathf.Sin(2f * Mathf.PI * 50f * t) * 0.40f;
             // 100Hz rectification harmonic
-            float h100 = Mathf.Sin(2f * Mathf.PI * 100f * t) * 0.25f;
+            float h100 = Mathf.Sin(2f * Mathf.PI * 100f * t) * 0.18f;
             // 150Hz odd harmonic
-            float h150 = Mathf.Sin(2f * Mathf.PI * 150f * t) * 0.12f;
-            // Subtle cooling blower noise
-            float fan = (Random.value * 2f - 1f) * 0.04f;
+            float h150 = Mathf.Sin(2f * Mathf.PI * 150f * t) * 0.08f;
 
-            data[i] = (h50 + h100 + h150 + fan);
+            data[i] = (h50 + h100 + h150);
         }
 
         var clip = AudioClip.Create("MainframeHum50Hz", samples, 1, sampleRate, false);

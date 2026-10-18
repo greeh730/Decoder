@@ -80,6 +80,11 @@ public class DiskDriveBay : MonoBehaviour
         Instance = this;
         CreateMaterials();
         GenerateAudioClips();
+        if (driveAudio != null)
+        {
+            driveAudio.playOnAwake = false;
+            driveAudio.Stop();
+        }
     }
 
     private void Start()
@@ -117,7 +122,6 @@ public class DiskDriveBay : MonoBehaviour
 
         UpdateLamps();
         UpdateThermometerNeedle();
-        StartSpindleHum();
     }
 
     private void Update()
@@ -474,12 +478,10 @@ public class DiskDriveBay : MonoBehaviour
 
     private void StartSpindleHum()
     {
-        if (driveAudio != null && spindleHumClip != null && !driveAudio.isPlaying)
+        // Spindle hum and white noise hiss disabled per user request to keep lab quiet and footsteps audible
+        if (driveAudio != null && driveAudio.isPlaying)
         {
-            driveAudio.clip = spindleHumClip;
-            driveAudio.loop = true;
-            driveAudio.volume = 0.45f;
-            driveAudio.Play();
+            driveAudio.Stop();
         }
     }
 
