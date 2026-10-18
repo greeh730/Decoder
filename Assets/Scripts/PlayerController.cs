@@ -59,11 +59,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject visualBody;
 
     [Header("Workstation & Interactions")]
-    [SerializeField] private Vector3 chairPosition = new Vector3(7.83f, 0.02f, 1.95f);
-    [SerializeField] private Vector3 chairLookEuler = new Vector3(0f, 85f, 0f);
-    [SerializeField] private Vector3 monitorPosition = new Vector3(9.71f, 1.035f, 1.80f);
-    [SerializeField] private Vector3 monitorCamPosition = new Vector3(9.12f, 1.04f, 1.80f);
-    [SerializeField] private Vector3 monitorCamEuler = new Vector3(0f, 90f, 0f);
+    [SerializeField] private Vector3 chairPosition = new Vector3(8.30f, 0.02f, 3.95f);
+    [SerializeField] private Vector3 chairLookEuler = new Vector3(0f, 346.34f, 0f);
+    [SerializeField] private Vector3 monitorPosition = new Vector3(8.304f, 1.286f, 4.765f);
+    [SerializeField] private Vector3 monitorCamPosition = new Vector3(8.417f, 1.286f, 4.299f);
+    [SerializeField] private Vector3 monitorCamEuler = new Vector3(0f, 346.34f, 0f);
 
     [SerializeField] private float standingEyeHeight = 1.62f;
     [SerializeField] private float sittingEyeHeight = 1.05f;

@@ -396,7 +396,21 @@ public class MonitorTerminal : MonoBehaviour
     {
         if (screenCanvasGroup != null)
         {
-            screenCanvasGroup.alpha = (isStandby || !isMainframeOnline) ? 0f : (brightnessLevel <= 0.05f ? 0.02f : brightnessLevel);
+            if (!isMainframeOnline)
+            {
+                // Unpowered CRT: Dark glass remains visible with OffScreenPanel!
+                screenCanvasGroup.alpha = 1.0f;
+            }
+            else if (isStandby)
+            {
+                // Standby: dimmed dark screen
+                screenCanvasGroup.alpha = 0.05f;
+            }
+            else
+            {
+                // Online: scaled by user brightness knob (100%, 35%, 0%)
+                screenCanvasGroup.alpha = brightnessLevel <= 0.05f ? 0.03f : brightnessLevel;
+            }
         }
 
         if (screenGlowLight != null)
