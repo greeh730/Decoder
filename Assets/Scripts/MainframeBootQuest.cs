@@ -357,22 +357,7 @@ public class MainframeBootQuest : MonoBehaviour
     {
         if (isTapeInserted)
         {
-            // If already inserted, player is interacting with the inserted tape!
-            if (DiskDriveBay.Instance != null && 
-                (DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Running || 
-                 DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Braking))
-            {
-                DiskDriveBay.Instance.AttemptPullPrematurely();
-                ShowNotification("<color=#FF2222><b>⚡ [ОПАСНОСТЬ 380В!]</b></color> Шпиндель вращается! Нажмите СТОП (Cube.107) и дождитесь зеленого датчика!");
-                return;
-            }
-
-            // Green / stopped: safely extract tape
-            isTapeInserted = false;
-            hasTapeInInventory = true;
-            if (serverTapeProp != null) serverTapeProp.SetActive(false);
-            if (tapeInsertInteractable != null) tapeInsertInteractable.PromptText = "[ЛКМ / E] Вставить бобину с ядром ОС в дисковод";
-            ShowNotification("<color=#00FFAA>[ИЗВЛЕЧЕНО]</color> Бобина магнитной ленты извлечена из дисковода.");
+            ShowNotification("Бобина с ядром ОС уже установлена в накопитель.");
             return;
         }
 
@@ -385,8 +370,12 @@ public class MainframeBootQuest : MonoBehaviour
         hasTapeInInventory = false;
         isTapeInserted = true;
         if (serverTapeProp != null) serverTapeProp.SetActive(true);
-        if (tapeInsertInteractable != null) tapeInsertInteractable.PromptText = "[ЛКМ / E] Бобина магнитной ленты установлена (Нажмите СТОП перед извлечением)";
-        ShowNotification("Бобина магнитной ленты установлена в дисковод серверов.");
+        if (tapeInsertInteractable != null)
+        {
+            tapeInsertInteractable.PromptText = "Бобина с ядром ОС установлена [DECODER-KERNEL]";
+            tapeInsertInteractable.IsInteractable = false;
+        }
+        ShowNotification("Бобина магнитной ленты установлена в накопитель ЭВМ.");
     }
 
     public void ToggleAddressSwitch(int index)
@@ -581,6 +570,11 @@ public class MainframeBootQuest : MonoBehaviour
         // 5. Tape props
         if (lockerTapeProp != null) lockerTapeProp.SetActive(!hasTapeInInventory && !isTapeInserted);
         if (serverTapeProp != null) serverTapeProp.SetActive(isTapeInserted);
+        if (tapeInsertInteractable != null && isTapeInserted)
+        {
+            tapeInsertInteractable.PromptText = "Бобина с ядром ОС установлена [DECODER-KERNEL]";
+            tapeInsertInteractable.IsInteractable = false;
+        }
 
         // 6. Front panel switches
         UpdateFrontPanelSwitches();
@@ -592,8 +586,12 @@ public class MainframeBootQuest : MonoBehaviour
         {
             if (switchTransforms != null && i < switchTransforms.Length && switchTransforms[i] != null)
             {
-                float pitch = addressSwitches[i] ? 290f : 240f;
-                switchTransforms[i].localRotation = Quaternion.Euler(pitch, 0f, 0f);
+                // Toggle matches user reference: 0° OFF -> 30° ON, lowered on Y from 1.718m to 1.710m
+                float xAngle = addressSwitches[i] ? 30f : 0f;
+                switchTransforms[i].localRotation = Quaternion.Euler(xAngle, 133f, 329f);
+                var pos = switchTransforms[i].localPosition;
+                pos.y = addressSwitches[i] ? 1.710f : 1.718f;
+                switchTransforms[i].localPosition = pos;
             }
             if (switchLeds != null && i < switchLeds.Length && switchLeds[i] != null)
             {
