@@ -44,13 +44,14 @@ public class PocketWatchController : MonoBehaviour
     [SerializeField] private Text radarTimerText;
     [SerializeField] private Text radarStatusText;
     [SerializeField] private AudioSource audioSource;
+    [SerializeField] private GameObject handsWithWatchPrefab;
 
     // Camera relative positions for 1st person view
-    private readonly Vector3 raisedLocalPos = new Vector3(0.09f, -0.060f, 0.22f);
-    private readonly Vector3 raisedLocalRot = new Vector3(12f, 16f, 1f);
+    private readonly Vector3 raisedLocalPos = new Vector3(0.1131f, -0.4601f, 0.3684f);
+    private readonly Vector3 raisedLocalRot = new Vector3(357.1935f, 89.3630f, 282.7943f);
 
-    private readonly Vector3 loweredLocalPos = new Vector3(0.20f, -0.65f, 0.28f);
-    private readonly Vector3 loweredLocalRot = new Vector3(55f, -10f, 20f);
+    private readonly Vector3 loweredLocalPos = new Vector3(0.1631f, -1.0101f, 0.4184f);
+    private readonly Vector3 loweredLocalRot = new Vector3(27.1935f, 99.3630f, 297.7943f);
 
     [System.Serializable]
     private class TrackedGuardBlip
@@ -242,8 +243,72 @@ public class PocketWatchController : MonoBehaviour
         }
     }
 
+    public void ResolveReferences()
+    {
+        var cam = GetComponentInChildren<Camera>();
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return;
+
+        if (watchRig == null)
+        {
+            var rig = cam.transform.Find("PocketWatchRig");
+            if (rig != null) watchRig = rig;
+        }
+
+        if (watchRig != null)
+        {
+            if (watchBody == null)
+            {
+                var watchChild = watchRig.Find("watch_silver_closed");
+                watchBody = watchChild != null ? watchChild : watchRig;
+            }
+
+            if (watchBody != null)
+            {
+                if (clockFaceGroup == null)
+                {
+                    clockFaceGroup = watchBody.Find("ClockFaceGroup");
+                }
+                if (radarGroup == null)
+                {
+                    radarGroup = watchBody.Find("TacticalRadarGroup");
+                }
+            }
+
+            if (radarGroup != null && radarDisplay == null)
+            {
+                var d = radarGroup.Find("RadarDisplayScreen");
+                if (d != null) radarDisplay = d.GetComponent<RawImage>();
+            }
+
+            if (clockFaceGroup != null && countdownText == null)
+            {
+                var t = clockFaceGroup.Find("CountdownReadout");
+                if (t != null) countdownText = t.GetComponent<Text>();
+            }
+
+            if (radarGroup != null && radarTimerText == null)
+            {
+                var t = radarGroup.Find("RadarTimer");
+                if (t != null) radarTimerText = t.GetComponent<Text>();
+            }
+
+            if (radarGroup != null && radarStatusText == null)
+            {
+                var t = radarGroup.Find("RadarHeader");
+                if (t != null) radarStatusText = t.GetComponent<Text>();
+            }
+
+            if (audioSource == null)
+            {
+                audioSource = watchRig.GetComponent<AudioSource>();
+            }
+        }
+    }
+
     private void UpdateModeVisuals()
     {
+        ResolveReferences();
         if (clockFaceGroup != null) clockFaceGroup.gameObject.SetActive(!isMapMode);
         if (radarGroup != null) radarGroup.gameObject.SetActive(isMapMode);
     }
@@ -314,7 +379,7 @@ public class PocketWatchController : MonoBehaviour
             }
             else
             {
-                countdownText.color = new Color(0.55f, 0.08f, 0.08f);
+                countdownText.color = new Color(0.15f, 1.0f, 0.5f);
             }
         }
 
@@ -527,8 +592,12 @@ public class PocketWatchController : MonoBehaviour
 
     public void RenderLiveRadarFrame()
     {
-        if (radarTex == null) return;
+        if (radarTex == null) InitRadarMap();
         if (staticBackgroundPixels == null) InitRadarMap();
+        if (radarDisplay != null && radarDisplay.texture != radarTex)
+        {
+            radarDisplay.texture = radarTex;
+        }
 
         // 1. Copy base static corridors
         System.Array.Copy(staticBackgroundPixels, dynamicPixels, staticBackgroundPixels.Length);
@@ -817,291 +886,168 @@ public class PocketWatchController : MonoBehaviour
             DestroyImmediate(existing.gameObject);
         }
 
-        // 1. Root Rig under Camera
-        var rigObj = new GameObject("PocketWatchRig");
+        // 1. Instantiate the Hands with Watch FBX model
+        GameObject modelPrefab = handsWithWatchPrefab;
+        if (modelPrefab == null)
+        {
+#if UNITY_EDITOR
+            modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/hands with a watch.fbx");
+#endif
+        }
+
+        GameObject rigObj;
+        if (modelPrefab != null)
+        {
+#if UNITY_EDITOR
+            rigObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(modelPrefab);
+#else
+            rigObj = Instantiate(modelPrefab);
+#endif
+            rigObj.name = "PocketWatchRig";
+        }
+        else
+        {
+            rigObj = new GameObject("PocketWatchRig");
+        }
+
         rigObj.transform.SetParent(cam.transform, false);
         watchRig = rigObj.transform;
+        watchRig.localScale = Vector3.one * 0.55f;
         watchRig.localPosition = loweredLocalPos;
         watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
 
-        audioSource = rigObj.AddComponent<AudioSource>();
+        audioSource = rigObj.GetComponent<AudioSource>();
+        if (audioSource == null) audioSource = rigObj.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
 
-        var toonLit = Shader.Find("Custom/SovietToonLit");
-        if (toonLit == null) toonLit = Shader.Find("Universal Render Pipeline/Lit");
-
-        // Materials: antique brushed brass
-        var goldMat = new Material(toonLit);
-        goldMat.SetColor("_BaseColor", new Color(0.82f, 0.65f, 0.28f));
-        goldMat.SetFloat("_OutlineWidth", 1.8f);
-
-        var darkSteelMat = new Material(toonLit);
-        darkSteelMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.15f));
-        darkSteelMat.SetFloat("_OutlineWidth", 1.5f);
-
-        var redNeedleMat = new Material(toonLit);
-        redNeedleMat.SetColor("_BaseColor", new Color(0.85f, 0.12f, 0.12f));
-
-        var coatMat = new Material(toonLit);
-        coatMat.SetColor("_BaseColor", new Color(0.12f, 0.14f, 0.16f)); // Dark wool sleeve
-
-        var gloveMat = new Material(toonLit);
-        gloveMat.SetColor("_BaseColor", new Color(0.32f, 0.25f, 0.20f)); // Vintage leather glove
-
-        var ivoryMat = new Material(toonLit);
-        ivoryMat.SetColor("_BaseColor", new Color(0.96f, 0.94f, 0.88f)); // Ivory enamel dial
-
-        // 2. Arm & Hand (Forearm and leather-gloved hand supporting the watch)
-        var armGroup = new GameObject("ArmAndHand").transform;
-        armGroup.SetParent(watchRig, false);
-
-        // Sleeve
-        var sleeve = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        sleeve.name = "Sleeve";
-        DestroyCollider(sleeve);
-        sleeve.transform.SetParent(armGroup, false);
-        sleeve.transform.localPosition = new Vector3(0.04f, -0.16f, -0.12f);
-        sleeve.transform.localRotation = Quaternion.Euler(42f, 15f, -18f);
-        sleeve.transform.localScale = new Vector3(0.085f, 0.18f, 0.085f);
-        sleeve.GetComponent<MeshRenderer>().sharedMaterial = coatMat;
-
-        // Glove Palm (curved underneath the watch)
-        var palm = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        palm.name = "GlovePalm";
-        DestroyCollider(palm);
-        palm.transform.SetParent(armGroup, false);
-        palm.transform.localPosition = new Vector3(0.00f, -0.042f, 0.022f);
-        palm.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
-        palm.transform.localScale = new Vector3(0.082f, 0.024f, 0.085f);
-        palm.GetComponent<MeshRenderer>().sharedMaterial = gloveMat;
-
-        // Thumb curving on the left rim
-        var thumb = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        thumb.name = "GloveThumb";
-        DestroyCollider(thumb);
-        thumb.transform.SetParent(armGroup, false);
-        thumb.transform.localPosition = new Vector3(-0.046f, -0.016f, 0.008f);
-        thumb.transform.localRotation = Quaternion.Euler(12f, 15f, 25f);
-        thumb.transform.localScale = new Vector3(0.018f, 0.034f, 0.018f);
-        thumb.GetComponent<MeshRenderer>().sharedMaterial = gloveMat;
-
-        // 3. Watch Body
-        var bodyObj = new GameObject("WatchBody");
-        bodyObj.transform.SetParent(watchRig, false);
-        watchBody = bodyObj.transform;
-        watchBody.localPosition = Vector3.zero;
-        watchBody.localRotation = Quaternion.identity;
-
-        // Outer Brass Back Case (wider to form the golden bezel rim)
-        var backCase = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        backCase.name = "BackCase";
-        DestroyCollider(backCase);
-        backCase.transform.SetParent(watchBody, false);
-        backCase.transform.localPosition = new Vector3(0f, 0f, 0.008f);
-        backCase.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        backCase.transform.localScale = new Vector3(0.086f, 0.010f, 0.086f);
-        backCase.GetComponent<MeshRenderer>().sharedMaterial = goldMat;
-
-        // Top Winding Crown (at 12 o'clock)
-        var crown = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        crown.name = "WindingCrown";
-        DestroyCollider(crown);
-        crown.transform.SetParent(watchBody, false);
-        crown.transform.localPosition = new Vector3(0f, 0.048f, 0f);
-        crown.transform.localRotation = Quaternion.identity;
-        crown.transform.localScale = new Vector3(0.013f, 0.009f, 0.013f);
-        crown.GetComponent<MeshRenderer>().sharedMaterial = goldMat;
-
-        // Top Loop Ring (for chain)
-        var loop = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        loop.name = "ChainLoop";
-        DestroyCollider(loop);
-        loop.transform.SetParent(watchBody, false);
-        loop.transform.localPosition = new Vector3(0f, 0.057f, 0f);
-        loop.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-        loop.transform.localScale = new Vector3(0.018f, 0.003f, 0.018f);
-        loop.GetComponent<MeshRenderer>().sharedMaterial = goldMat;
-
-        // 4. Dial Face (Base circular disc)
-        var dialObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        dialObj.name = "DialFace";
-        DestroyCollider(dialObj);
-        dialObj.transform.SetParent(watchBody, false);
-        dialObj.transform.localPosition = new Vector3(0f, 0f, -0.003f);
-        dialObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        dialObj.transform.localScale = new Vector3(0.076f, 0.001f, 0.076f);
-        dialObj.GetComponent<MeshRenderer>().sharedMaterial = ivoryMat;
-
-        // ==========================================
-        // 5. CLOCK FACE MODE CONTAINER
-        // ==========================================
-        var clockGroupObj = new GameObject("ClockFaceGroup");
-        clockGroupObj.transform.SetParent(watchBody, false);
-        clockFaceGroup = clockGroupObj.transform;
-
-        // 12 Hour Ticks
-        var ticksGroup = new GameObject("HourTicks").transform;
-        ticksGroup.SetParent(clockFaceGroup, false);
-        ticksGroup.localPosition = new Vector3(0f, 0f, -0.0042f);
-
-        var tickMat = new Material(toonLit);
-        tickMat.SetColor("_BaseColor", new Color(0.15f, 0.10f, 0.05f));
-
-        for (int i = 0; i < 12; i++)
-        {
-            float angle = i * 30f * Mathf.Deg2Rad;
-            float r = 0.032f;
-            var dot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            dot.name = "Tick_" + i;
-            DestroyCollider(dot);
-            dot.transform.SetParent(ticksGroup, false);
-            dot.transform.localPosition = new Vector3(Mathf.Sin(angle) * r, Mathf.Cos(angle) * r, 0f);
-            dot.transform.localRotation = Quaternion.Euler(0f, 0f, -i * 30f);
-            bool isCardinal = (i % 3 == 0);
-            dot.transform.localScale = isCardinal ? new Vector3(0.0022f, 0.006f, 0.0005f) : new Vector3(0.0014f, 0.0038f, 0.0005f);
-            dot.GetComponent<MeshRenderer>().sharedMaterial = tickMat;
-        }
-
-        // Dial UI Canvas (Countdown text aperture)
-        var canvasObj = new GameObject("DialCanvas");
-        canvasObj.transform.SetParent(clockFaceGroup, false);
-        canvasObj.transform.localPosition = new Vector3(0f, 0f, -0.0048f);
-        canvasObj.transform.localRotation = Quaternion.identity;
-
-        var canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        var rt = canvasObj.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(100f, 100f);
-        rt.localScale = new Vector3(0.00065f, 0.00065f, 1f);
+        // Locate the watch mesh
+        var watchChild = watchRig.Find("watch_silver_closed");
+        watchBody = watchChild != null ? watchChild : watchRig;
 
         var builtinFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        // Small aperture background plate
-        var plateObj = new GameObject("ApertureFrame");
-        plateObj.transform.SetParent(canvasObj.transform, false);
-        var plateImg = plateObj.AddComponent<Image>();
-        plateImg.color = new Color(0.92f, 0.88f, 0.78f, 0.95f);
-        var plateRt = plateObj.GetComponent<RectTransform>();
-        plateRt.anchoredPosition = new Vector2(0f, -22f);
-        plateRt.sizeDelta = new Vector2(58f, 22f);
+        // 2. CLOCK FACE / DIGITAL DISPLAY CONTAINER
+        var clockGroupObj = new GameObject("ClockFaceGroup");
+        clockGroupObj.transform.SetParent(watchBody, false);
+        clockGroupObj.transform.localPosition = new Vector3(0f, 0f, 0.00049f);
+        clockGroupObj.transform.localRotation = Quaternion.identity;
+        clockFaceGroup = clockGroupObj.transform;
 
-        // Countdown text
+        var clockCanvas = clockGroupObj.AddComponent<Canvas>();
+        clockCanvas.renderMode = RenderMode.WorldSpace;
+        var clockRt = clockGroupObj.GetComponent<RectTransform>();
+        clockRt.sizeDelta = new Vector2(100f, 100f);
+        clockRt.localScale = new Vector3(-0.000014f, 0.000014f, 1f); // Invert X to prevent mirroring
+
+        // Beveled LCD background screen
+        var bgObj = new GameObject("ScreenBg");
+        bgObj.transform.SetParent(clockGroupObj.transform, false);
+        var bgImg = bgObj.AddComponent<Image>();
+        bgImg.color = new Color(0.04f, 0.10f, 0.06f, 0.98f);
+        var bgRt = bgObj.GetComponent<RectTransform>();
+        bgRt.sizeDelta = new Vector2(72f, 72f);
+
+        // Header: "• ЭЛЕКТРОНИКА •"
+        var headerObj = new GameObject("TimerHeader");
+        headerObj.transform.SetParent(clockGroupObj.transform, false);
+        var headerTxt = headerObj.AddComponent<Text>();
+        headerTxt.font = builtinFont;
+        headerTxt.fontSize = 11;
+        headerTxt.fontStyle = FontStyle.Bold;
+        headerTxt.alignment = TextAnchor.MiddleCenter;
+        headerTxt.color = new Color(0.2f, 0.85f, 0.45f);
+        headerTxt.text = "• ЭЛЕКТРОНИКА •";
+        var headerRt = headerObj.GetComponent<RectTransform>();
+        headerRt.anchoredPosition = new Vector2(0f, 18f);
+        headerRt.sizeDelta = new Vector2(70f, 16f);
+
+        // Main Countdown Display: "14:59"
         var timerObj = new GameObject("CountdownReadout");
-        timerObj.transform.SetParent(canvasObj.transform, false);
+        timerObj.transform.SetParent(clockGroupObj.transform, false);
         countdownText = timerObj.AddComponent<Text>();
         countdownText.font = builtinFont;
-        countdownText.fontSize = 17;
+        countdownText.fontSize = 22;
         countdownText.fontStyle = FontStyle.Bold;
         countdownText.alignment = TextAnchor.MiddleCenter;
-        countdownText.color = new Color(0.55f, 0.08f, 0.08f);
+        countdownText.verticalOverflow = VerticalWrapMode.Overflow;
+        countdownText.color = new Color(0.15f, 1.0f, 0.5f);
         countdownText.text = "15:00";
         var timerRt = timerObj.GetComponent<RectTransform>();
-        timerRt.anchoredPosition = new Vector2(0f, -22f);
-        timerRt.sizeDelta = new Vector2(58f, 22f);
+        timerRt.anchoredPosition = new Vector2(0f, 0f);
+        timerRt.sizeDelta = new Vector2(70f, 26f);
 
-        // Mechanical Hands
-        var handsGroup = new GameObject("HandsPivot");
-        handsGroup.transform.SetParent(clockFaceGroup, false);
-        handsGroup.transform.localPosition = new Vector3(0f, 0f, -0.0055f);
+        // Subtext: "• КГБ СССР •"
+        var subObj = new GameObject("TimerSubtext");
+        subObj.transform.SetParent(clockGroupObj.transform, false);
+        var subTxt = subObj.AddComponent<Text>();
+        subTxt.font = builtinFont;
+        subTxt.fontSize = 9;
+        subTxt.fontStyle = FontStyle.Bold;
+        subTxt.alignment = TextAnchor.MiddleCenter;
+        subTxt.color = new Color(0.2f, 0.75f, 0.4f, 0.85f);
+        subTxt.text = "• КГБ СССР •";
+        var subRt = subObj.GetComponent<RectTransform>();
+        subRt.anchoredPosition = new Vector2(0f, -18f);
+        subRt.sizeDelta = new Vector2(70f, 14f);
 
-        // Center Pin
-        var centerPin = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        centerPin.name = "CenterPin";
-        DestroyCollider(centerPin);
-        centerPin.transform.SetParent(handsGroup.transform, false);
-        centerPin.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        centerPin.transform.localScale = new Vector3(0.006f, 0.002f, 0.006f);
-        centerPin.GetComponent<MeshRenderer>().sharedMaterial = goldMat;
-
-        // Hour Hand
-        var hhPivot = new GameObject("HourHandPivot");
-        hhPivot.transform.SetParent(handsGroup.transform, false);
-        hourHand = hhPivot.transform;
-        var hhMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        hhMesh.name = "HourMesh";
-        DestroyCollider(hhMesh);
-        hhMesh.transform.SetParent(hhPivot.transform, false);
-        hhMesh.transform.localPosition = new Vector3(0f, 0.010f, 0f);
-        hhMesh.transform.localScale = new Vector3(0.0035f, 0.020f, 0.0006f);
-        hhMesh.GetComponent<MeshRenderer>().sharedMaterial = darkSteelMat;
-
-        // Minute Hand
-        var mhPivot = new GameObject("MinuteHandPivot");
-        mhPivot.transform.SetParent(handsGroup.transform, false);
-        minuteHand = mhPivot.transform;
-        var mhMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        mhMesh.name = "MinuteMesh";
-        DestroyCollider(mhMesh);
-        mhMesh.transform.SetParent(mhPivot.transform, false);
-        mhMesh.transform.localPosition = new Vector3(0f, 0.015f, -0.0004f);
-        mhMesh.transform.localScale = new Vector3(0.0024f, 0.030f, 0.0006f);
-        mhMesh.GetComponent<MeshRenderer>().sharedMaterial = darkSteelMat;
-
-        // Second Hand (Thin red needle)
-        var shPivot = new GameObject("SecondHandPivot");
-        shPivot.transform.SetParent(handsGroup.transform, false);
-        secondHand = shPivot.transform;
-        var shMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        shMesh.name = "SecondMesh";
-        DestroyCollider(shMesh);
-        shMesh.transform.SetParent(shPivot.transform, false);
-        shMesh.transform.localPosition = new Vector3(0f, 0.016f, -0.0008f);
-        shMesh.transform.localScale = new Vector3(0.0013f, 0.034f, 0.0005f);
-        shMesh.GetComponent<MeshRenderer>().sharedMaterial = redNeedleMat;
-
-        // Counterweight
-        var shCounter = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        shCounter.name = "SecondCounterweight";
-        DestroyCollider(shCounter);
-        shCounter.transform.SetParent(shPivot.transform, false);
-        shCounter.transform.localPosition = new Vector3(0f, -0.007f, -0.0008f);
-        shCounter.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        shCounter.transform.localScale = new Vector3(0.004f, 0.0006f, 0.004f);
-        shCounter.GetComponent<MeshRenderer>().sharedMaterial = redNeedleMat;
-
-        // ==========================================
-        // 6. TACTICAL RADAR MAP CONTAINER
-        // ==========================================
+        // 3. TACTICAL RADAR CONTAINER
         var radarGroupObj = new GameObject("TacticalRadarGroup");
         radarGroupObj.transform.SetParent(watchBody, false);
-        radarGroupObj.transform.localPosition = new Vector3(0f, 0f, -0.0050f);
+        radarGroupObj.transform.localPosition = new Vector3(0f, 0f, 0.00050f);
+        radarGroupObj.transform.localRotation = Quaternion.identity;
         radarGroup = radarGroupObj.transform;
 
         var radarCanvas = radarGroupObj.AddComponent<Canvas>();
         radarCanvas.renderMode = RenderMode.WorldSpace;
         var rCanvasRt = radarGroupObj.GetComponent<RectTransform>();
-        rCanvasRt.sizeDelta = new Vector2(120f, 120f);
-        rCanvasRt.localScale = new Vector3(0.00060f, 0.00060f, 1f);
+        rCanvasRt.sizeDelta = new Vector2(100f, 100f);
+        rCanvasRt.localScale = new Vector3(-0.000014f, 0.000014f, 1f);
 
-        // Circular Radar Screen (RawImage displaying dynamic texture)
+        // Radar RawImage Display
         var displayObj = new GameObject("RadarDisplayScreen");
         displayObj.transform.SetParent(radarGroupObj.transform, false);
         radarDisplay = displayObj.AddComponent<RawImage>();
         var dispRt = displayObj.GetComponent<RectTransform>();
         dispRt.anchoredPosition = Vector2.zero;
-        dispRt.sizeDelta = new Vector2(110f, 110f);
+        dispRt.sizeDelta = new Vector2(70f, 70f);
 
-        // Top Status Header Text
-        var headerObj = new GameObject("RadarHeader");
-        headerObj.transform.SetParent(radarGroupObj.transform, false);
-        radarStatusText = headerObj.AddComponent<Text>();
+        // Top Radar Header
+        var rHeaderObj = new GameObject("RadarHeader");
+        rHeaderObj.transform.SetParent(radarGroupObj.transform, false);
+        radarStatusText = rHeaderObj.AddComponent<Text>();
         radarStatusText.font = builtinFont;
         radarStatusText.fontSize = 9;
         radarStatusText.fontStyle = FontStyle.Bold;
         radarStatusText.alignment = TextAnchor.MiddleCenter;
         radarStatusText.color = new Color(0.35f, 0.95f, 0.55f);
-        radarStatusText.text = "• СЕКТОР СБ •";
-        var headerRt = headerObj.GetComponent<RectTransform>();
-        headerRt.anchoredPosition = new Vector2(0f, 36f);
-        headerRt.sizeDelta = new Vector2(90f, 14f);
+        radarStatusText.text = "• РАДАР СБ •";
+        var rHeaderRt = rHeaderObj.GetComponent<RectTransform>();
+        rHeaderRt.anchoredPosition = new Vector2(0f, 24f);
+        rHeaderRt.sizeDelta = new Vector2(70f, 12f);
 
-        radarGroup = radarGroupObj.transform;
+        // Bottom Radar Timer
+        var rTimerObj = new GameObject("RadarTimer");
+        rTimerObj.transform.SetParent(radarGroupObj.transform, false);
+        radarTimerText = rTimerObj.AddComponent<Text>();
+        radarTimerText.font = builtinFont;
+        radarTimerText.fontSize = 9;
+        radarTimerText.fontStyle = FontStyle.Bold;
+        radarTimerText.alignment = TextAnchor.MiddleCenter;
+        radarTimerText.color = new Color(0.35f, 0.95f, 0.55f);
+        radarTimerText.text = "15:00";
+        var rTimerRt = rTimerObj.GetComponent<RectTransform>();
+        rTimerRt.anchoredPosition = new Vector2(0f, -24f);
+        rTimerRt.sizeDelta = new Vector2(70f, 12f);
+
         if (radarTex == null) InitRadarMap();
         if (radarDisplay != null && radarTex != null)
         {
             radarDisplay.texture = radarTex;
         }
+
+        clockGroupObj.SetActive(!isMapMode);
+        radarGroupObj.SetActive(isMapMode);
         UpdateModeVisuals();
 
         if (watchRig != null)
@@ -1153,7 +1099,7 @@ public class PocketWatchController : MonoBehaviour
             badgeStyle.normal.textColor = (timeRemaining <= 60f) ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.95f, 0.75f);
             GUI.backgroundColor = new Color(0.12f, 0.09f, 0.06f, 0.92f);
             GUI.Box(new Rect(sw - 380, sh - 90, 360, 42),
-                $"⏱ КАРМАННЫЕ ЧАСЫ [{mins:D2}:{secs:D2}]\n[ЛКМ / ПКМ] — Режим карты (Радар)", badgeStyle);
+                $"⏱ НАРУЧНЫЕ ЧАСЫ [{mins:D2}:{secs:D2}]\n[ЛКМ / ПКМ] — Режим карты (Радар)", badgeStyle);
         }
 
         GUI.backgroundColor = Color.white;

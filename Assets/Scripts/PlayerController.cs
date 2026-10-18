@@ -963,7 +963,7 @@ public class PlayerController : MonoBehaviour
                                $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
                                $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
                                $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
-                               $"• <b>T</b> — Карманные часы (таймер / радар)\n" +
+                               $"• <b>T</b> — Наручные часы (таймер / радар)\n" +
                                $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
                                $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
                                $"• <b>Esc</b> — Освободить мышь (клик — захват)";
