@@ -66,10 +66,19 @@ public class SpyMiniGames : MonoBehaviour
 
     // --- Sub-game data states ---
 
-    // 1. Turing
-    private int[] turingTape = new int[8];
-    private int turingHeadIndex = 0;
-    private int turingSelectedRule = 1; // 1: ? -> 1, R; 2: ? -> 0, R
+    // 1. Turing Machine State
+    private readonly char[] turingInitialTape = { '_', '1', '0', '1', '1', '_' };
+    private readonly char[] turingTargetTape  = { '_', '1', '1', '0', '0', '_' };
+    private char[] turingTape = new char[6];
+    private int turingHeadIndex = 1;
+    private int turingCurrentState = 0; // 0 = q0 (Seek LSB), 1 = q1 (Increment), 2 = HALT
+    private int turingStepCount = 0;
+    private bool turingIsRunning = false;
+    private Coroutine turingRunCoroutine = null;
+    private string turingLastActionNote = "Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для пошагового теста.";
+    private int turingActiveRuleIndex = -1; // 0..5
+    private int turingSelectedSlot = 0; // 0..5
+    private int[] turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 }; // Jumbled initial values
 
     // 2. Frequency
     private int freqShift = 4;
@@ -222,12 +231,18 @@ public class SpyMiniGames : MonoBehaviour
         switch (type)
         {
             case GameType.TuringTape:
-                gameTitleText.text = "╔════ МАШИНА ТЬЮРИНГА: ПЕРФОЛЕНТА ЯДРА ════╗";
-                gameDescriptionText.text = "Заполните пропуски [?] на перфоленте. [Стрелки Влево/Вправо] — выбор правила. [Enter/Пробел] — запустить каретку.";
-                turingTape = new int[] { 1, 0, -1, 1, 0, -1, 1, 1 };
-                turingHeadIndex = 0;
-                turingSelectedRule = 1;
-                btnActionText.text = "[ПУСК КАРЕТКИ]";
+                gameTitleText.text = "╔════ МАШИНА ТЬЮРИНГА: ДВОИЧНЫЙ ИНКРЕМЕНТ ЯДРА ════╗";
+                gameDescriptionText.text = "Прибавьте 1 к двоичному числу (1011 + 1 = 1100). Настройте микрокод переноса в состоянии q1.";
+                btnActionText.text = "[ ПУСК [ENTER] ]";
+                turingTape = (char[])turingInitialTape.Clone();
+                turingHeadIndex = 1;
+                turingCurrentState = 0;
+                turingStepCount = 0;
+                turingIsRunning = false;
+                turingActiveRuleIndex = -1;
+                turingLastActionNote = "Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для шага.";
+                turingSelectedSlot = 0;
+                turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 }; // Jumbled initial configuration
                 UpdateTuringDisplay();
                 break;
 
@@ -321,57 +336,262 @@ public class SpyMiniGames : MonoBehaviour
     {
         if (dynamicDisplayText == null) return;
 
-        string tapeStr = "";
+        // 1. Initial and Target Tape
+        string initTapeStr = "";
+        string targTapeStr = "";
+        string currTapeStr = "";
+
         for (int i = 0; i < turingTape.Length; i++)
         {
-            string val = turingTape[i] == -1 ? "?" : turingTape[i].ToString();
+            initTapeStr += $"[{turingInitialTape[i]}] ";
+            targTapeStr += $"[{turingTargetTape[i]}] ";
             if (i == turingHeadIndex)
-                tapeStr += $"<b><color=#00FFAA>[ ▼{val}▼ ]</color></b> ";
+                currTapeStr += $"<b><color=#00FFAA>►[{turingTape[i]}]◄</color></b> ";
             else
-                tapeStr += $"[ {val} ] ";
+                currTapeStr += $" [{turingTape[i]}]  ";
         }
 
-        string ruleStr = turingSelectedRule == 1 ? "<b><color=#00FFAA>► ПРАВИЛО 1: ЕСЛИ ?, ЗАПИСАТЬ [1] И ВПРАВО ◄</color></b>\n  ПРАВИЛО 2: ЕСЛИ ?, ЗАПИСАТЬ [0] И ВПРАВО" :
-                                                   "  ПРАВИЛО 1: ЕСЛИ ?, ЗАПИСАТЬ [1] И ВПРАВО\n<b><color=#00FFAA>► ПРАВИЛО 2: ЕСЛИ ?, ЗАПИСАТЬ [0] И ВПРАВО ◄</color></b>";
+        // 2. Carriage Head Pointer
+        string stateLabel = turingCurrentState == 0 ? "q0" : (turingCurrentState == 1 ? "q1" : "HALT");
+        string stateCol   = turingCurrentState == 0 ? "#66CCFF" : (turingCurrentState == 1 ? "#FFAA33" : "#00FF88");
 
+        string spacePad = new string(' ', Mathf.Clamp(turingHeadIndex * 6, 0, 40));
+        string carriageVisual =
+            $"  ЯЧЕЙКИ:        #0    #1    #2    #3    #4    #5\n" +
+            $"  КАРЕТКА:   {spacePad}<b><color={stateCol}>┌──────┐</color></b>  (Такт: {turingStepCount}/25, Состояние: <color={stateCol}>{stateLabel}</color>)\n" +
+            $"             {spacePad}<b><color={stateCol}>│ {stateLabel.PadRight(4)} │</color></b>\n" +
+            $"             {spacePad}<b><color={stateCol}>└──┬───┘</color></b>\n" +
+            $"             {spacePad}<b><color={stateCol}>   ▼   </color></b>\n" +
+            $"  ПЕРФОЛЕНТА: {currTapeStr}";
+
+        // 3. Configurable slots
+        string[] writeOptions = { "0", "1", "_" };
+        string[] moveOptions  = { "← ВЛЕВО", "→ ВПРАВО", "• СТОП" };
+        string[] stateOptions = { "q0", "q1", "HALT" };
+
+        string FormatSlot(int slotIndex, string val)
+        {
+            if (slotIndex == turingSelectedSlot)
+                return $"<b><color=#FFFF00>►[ {val} ]◄</color></b>";
+            else
+                return $"<color=#00FFAA>[ {val} ]</color>";
+        }
+
+        string slot0 = FormatSlot(0, writeOptions[turingSlotValues[0]]);
+        string slot1 = FormatSlot(1, moveOptions[turingSlotValues[1]]);
+        string slot2 = FormatSlot(2, stateOptions[turingSlotValues[2]]);
+
+        string slot3 = FormatSlot(3, writeOptions[turingSlotValues[3]]);
+        string slot4 = FormatSlot(4, moveOptions[turingSlotValues[4]]);
+        string slot5 = FormatSlot(5, stateOptions[turingSlotValues[5]]);
+
+        // Active rule markers
+        string r0Mark = turingActiveRuleIndex == 0 ? "<b><color=#FFFF33>►</color></b>" : " ";
+        string r1Mark = turingActiveRuleIndex == 1 ? "<b><color=#FFFF33>►</color></b>" : " ";
+        string r2Mark = turingActiveRuleIndex == 2 ? "<b><color=#FFFF33>►</color></b>" : " ";
+        string r3Mark = turingActiveRuleIndex == 3 ? "<b><color=#FFFF33>►</color></b>" : " ";
+        string r4Mark = turingActiveRuleIndex == 4 ? "<b><color=#FFFF33>►</color></b>" : " ";
+        string r5Mark = turingActiveRuleIndex == 5 ? "<b><color=#FFFF33>►</color></b>" : " ";
+
+        string tableVisual =
+            $"<color=#66CCAA>ТАБЛИЦА МИКРОКОДА (ПЕРЕХОДЫ СОСТОЯНИЙ ЭВМ):</color>\n" +
+            $"   СОСТ │ ЧИТАЕТ │  ЗАПИСЬ  │   НАПРАВЛЕНИЕ   │  ПЕРЕХОД В  │ ПРИМЕЧАНИЕ\n" +
+            $"  ──────┼────────┼──────────┼─────────────────┼─────────────┼─────────────────────────\n" +
+            $"  {r0Mark} q0   │   0    │    0     │    → ВПРАВО     │     q0      │ Поиск младшего разряда\n" +
+            $"  {r1Mark} q0   │   1    │    1     │    → ВПРАВО     │     q0      │ Поиск младшего разряда\n" +
+            $"  {r2Mark} q0   │   _    │    _     │    ← ВЛЕВО      │     q1      │ Край числа ──► шаг на LSB\n" +
+            $"  ──────┼────────┼──────────┼─────────────────┼─────────────┼─────────────────────────\n" +
+            $"  {r3Mark} q1   │   1    │{slot0.PadRight(10)}│ {slot1.PadRight(16)}│ {slot2.PadRight(12)}│ <b>1+1=0 (перенос влево!)</b>\n" +
+            $"  {r4Mark} q1   │   0    │{slot3.PadRight(10)}│ {slot4.PadRight(16)}│ {slot5.PadRight(12)}│ <b>0+1=1 (останов!)</b>\n" +
+            $"  {r5Mark} q1   │   _    │    1     │    • СТОП       │    HALT     │ Перенос за старший бит";
+
+        // Assemble screen
         dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>ПЕРФОЛЕНТА ЯДРА «ВЕКТОР-2»:</color></size>\n\n" +
-            $"    {tapeStr}\n\n" +
-            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"<size=18>ВЫБОР МИКРОКОДОВОГО ПРАВИЛА УПРАВЛЕНИЯ ГОЛОВКОЙ:</size>\n\n" +
-            $"{ruleStr}\n\n" +
-            $"<color=#FFFF66>[ПРОБЕЛ / ENTER] — Запустить цикл считывания перфоленты</color>";
+            $"<color=#88CCAA>ИСХОДНОЕ ЧИСЛО:</color> {initTapeStr} (11 в двоичной)   │   <color=#00FFAA>ЦЕЛЕВОЙ КЛЮЧ ЯДРА:</color> {targTapeStr} (12 = 11 + 1)\n\n" +
+            $"{carriageVisual}\n" +
+            $"  <color=#FFFF88>► {turingLastActionNote}</color>\n\n" +
+            $"{tableVisual}\n\n" +
+            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг (STEP)  │  [ENTER] Пуск  │  [R] Сброс</color>";
+
+        if (btnActionText != null)
+        {
+            btnActionText.text = turingIsRunning ? "[ ПАУЗА [ENTER] ]" : "[ ПУСК КАРЕТКИ [ENTER] ]";
+        }
     }
 
-    public void StepTuringMachine()
+    public void StepTuringSingle()
     {
+        if (turingCurrentState == 2)
+        {
+            CheckTuringGoal();
+            return;
+        }
+
+        if (turingStepCount >= 25)
+        {
+            turingIsRunning = false;
+            PlayFail();
+            turingLastActionNote = "<color=#FF3333>ОШИБКА: Превышен лимит тактов (25)! Каретка зациклилась.</color>";
+            if (statusFeedbackText != null)
+                statusFeedbackText.text = "<color=#FF3333><b>[ЗАЦИКЛИВАНИЕ] Каретка застряла! Нажмите [R] для сброса.</b></color>";
+            UpdateTuringDisplay();
+            return;
+        }
+
+        if (turingHeadIndex < 0 || turingHeadIndex >= turingTape.Length)
+        {
+            turingIsRunning = false;
+            PlayFail();
+            turingLastActionNote = "<color=#FF3333>ОШИБКА: Каретка сошла с перфоленты за пределы буфера!</color>";
+            if (statusFeedbackText != null)
+                statusFeedbackText.text = "<color=#FF3333><b>[ВЫХОД ЗА ПРЕДЕЛЫ ЛЕНТЫ] Нажмите [R] для сброса.</b></color>";
+            UpdateTuringDisplay();
+            return;
+        }
+
+        char readSymbol = turingTape[turingHeadIndex];
+        char writeSymbol = readSymbol;
+        int moveDir = 0;
+        int nextState = turingCurrentState;
+        int ruleIndex = -1;
+
+        if (turingCurrentState == 0) // q0: Seek right edge
+        {
+            if (readSymbol == '0')
+            {
+                writeSymbol = '0'; moveDir = 1; nextState = 0; ruleIndex = 0;
+            }
+            else if (readSymbol == '1')
+            {
+                writeSymbol = '1'; moveDir = 1; nextState = 0; ruleIndex = 1;
+            }
+            else if (readSymbol == '_')
+            {
+                writeSymbol = '_'; moveDir = -1; nextState = 1; ruleIndex = 2;
+            }
+        }
+        else if (turingCurrentState == 1) // q1: Increment
+        {
+            char[] writes = { '0', '1', '_' };
+            int[] moves = { -1, 1, 0 }; // Left, Right, Stop
+            int[] states = { 0, 1, 2 }; // q0, q1, HALT
+
+            if (readSymbol == '1')
+            {
+                ruleIndex = 3;
+                writeSymbol = writes[turingSlotValues[0]];
+                moveDir = moves[turingSlotValues[1]];
+                nextState = states[turingSlotValues[2]];
+            }
+            else if (readSymbol == '0')
+            {
+                ruleIndex = 4;
+                writeSymbol = writes[turingSlotValues[3]];
+                moveDir = moves[turingSlotValues[4]];
+                nextState = states[turingSlotValues[5]];
+            }
+            else if (readSymbol == '_')
+            {
+                writeSymbol = '1'; moveDir = 0; nextState = 2; ruleIndex = 5;
+            }
+        }
+
+        turingActiveRuleIndex = ruleIndex;
+        turingStepCount++;
+
+        // Apply write
+        turingTape[turingHeadIndex] = writeSymbol;
+        PlayClick();
+
+        string stateNameBefore = turingCurrentState == 0 ? "q0" : "q1";
+        string stateNameAfter  = nextState == 0 ? "q0" : (nextState == 1 ? "q1" : "HALT");
+        string moveName = moveDir == -1 ? "← ВЛЕВО" : (moveDir == 1 ? "→ ВПРАВО" : "• СТОП");
+
+        turingLastActionNote = $"Такт #{turingStepCount}: [{stateNameBefore}] прочитал '{readSymbol}' ──► записал '{writeSymbol}', сдвиг {moveName}, перешел в [{stateNameAfter}]";
+
+        // Apply move and state
+        turingHeadIndex += moveDir;
+        turingCurrentState = nextState;
+
+        UpdateTuringDisplay();
+
+        if (turingCurrentState == 2)
+        {
+            CheckTuringGoal();
+        }
+    }
+
+    public void RunTuringContinuous()
+    {
+        if (turingIsRunning)
+        {
+            turingIsRunning = false;
+            if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
+            turingLastActionNote = "Выполнение приостановлено оператором.";
+            UpdateTuringDisplay();
+            return;
+        }
+
+        turingIsRunning = true;
+        if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
+        turingRunCoroutine = StartCoroutine(TuringRunLoop());
+    }
+
+    private IEnumerator TuringRunLoop()
+    {
+        while (turingIsRunning && turingCurrentState != 2 && turingStepCount < 25)
+        {
+            StepTuringSingle();
+            yield return new WaitForSeconds(0.22f);
+        }
+        turingIsRunning = false;
+        UpdateTuringDisplay();
+    }
+
+    public void ResetTuringTape()
+    {
+        if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
+        turingIsRunning = false;
+        turingTape = (char[])turingInitialTape.Clone();
+        turingHeadIndex = 1;
+        turingCurrentState = 0;
+        turingStepCount = 0;
+        turingActiveRuleIndex = -1;
+        turingLastActionNote = "Каретка возвращена на ячейку #1 (q0). Готова к тесту.";
         PlayRelay();
-        StartCoroutine(RunTuringRoutine());
+        if (statusFeedbackText != null)
+            statusFeedbackText.text = "<color=#00FFAA>[СИСТЕМА СБРОШЕНА] Нажмите [ПРОБЕЛ] для шага или [ENTER] для пуска.</color>";
+        UpdateTuringDisplay();
     }
 
-    private IEnumerator RunTuringRoutine()
+    private void CheckTuringGoal()
     {
+        turingIsRunning = false;
+        bool match = true;
         for (int i = 0; i < turingTape.Length; i++)
         {
-            turingHeadIndex = i;
-            PlayClick();
-            if (turingTape[i] == -1)
+            if (turingTape[i] != turingTargetTape[i])
             {
-                turingTape[i] = (turingSelectedRule == 1) ? 1 : 0;
+                match = false;
+                break;
             }
-            UpdateTuringDisplay();
-            yield return new WaitForSeconds(0.18f);
         }
 
-        // Check success: Correct sequence has 1s in filled slots
-        if (turingTape[2] == 1 && turingTape[5] == 1)
+        if (match)
         {
-            OnGameSuccess("КОНТРОЛЬНАЯ СУММА СОВПАЛА! ЯДРО «ДЕКОДЕР_V2.BIN» РАСШИФРОВАНО!");
+            turingLastActionNote = "<color=#00FF88>★ ТАКТ ЗАВЕРШЕН (HALT). РЕЗУЛЬТАТ СОВПАЛ С ЦЕЛЕВЫМ КЛЮЧОМ!</color>";
+            OnGameSuccess("КРИПТОГРАФИЧЕСКИЙ ИНКРЕМЕНТ УСПЕШЕН! ЯДРО «ДЕКОДЕР_V2.BIN» РАСШИФРОВАНО.");
         }
         else
         {
-            OnGameFailed("ОШИБКА ДВОИЧНОЙ СУММЫ! ПРАВИЛО НЕ СООТВЕТСТВУЕТ СТАНДАРТУ ГОСТ.");
+            PlayFail();
+            string cur = new string(turingTape);
+            string tgt = new string(turingTargetTape);
+            turingLastActionNote = $"<color=#FF5555>ОСТАНОВ: Результат '{cur}' не совпадает с целью '{tgt}'!</color>";
+            if (statusFeedbackText != null)
+                statusFeedbackText.text = "<color=#FF3333><b>[НЕСООТВЕТСТВИЕ КЛЮЧА] Нажмите [R] для сброса и скорректируйте микрокод.</b></color>";
         }
+        UpdateTuringDisplay();
     }
 
     // --- Mini-Game 2: Frequency Analysis ---
@@ -727,15 +947,43 @@ public class SpyMiniGames : MonoBehaviour
         switch (currentGame)
         {
             case GameType.TuringTape:
-                if (IsKey(KeyCode.LeftArrow) || IsKey(KeyCode.RightArrow))
+                if (IsKey(KeyCode.UpArrow))
                 {
-                    turingSelectedRule = (turingSelectedRule == 1) ? 2 : 1;
+                    if (turingSelectedSlot >= 3) turingSelectedSlot -= 3;
+                    else turingSelectedSlot = (turingSelectedSlot - 1 + 6) % 6;
                     PlayClick();
                     UpdateTuringDisplay();
                 }
-                else if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
+                else if (IsKey(KeyCode.DownArrow))
                 {
-                    StepTuringMachine();
+                    if (turingSelectedSlot < 3) turingSelectedSlot += 3;
+                    else turingSelectedSlot = (turingSelectedSlot + 1) % 6;
+                    PlayClick();
+                    UpdateTuringDisplay();
+                }
+                else if (IsKey(KeyCode.LeftArrow))
+                {
+                    turingSlotValues[turingSelectedSlot] = (turingSlotValues[turingSelectedSlot] - 1 + 3) % 3;
+                    PlayClick();
+                    UpdateTuringDisplay();
+                }
+                else if (IsKey(KeyCode.RightArrow))
+                {
+                    turingSlotValues[turingSelectedSlot] = (turingSlotValues[turingSelectedSlot] + 1) % 3;
+                    PlayClick();
+                    UpdateTuringDisplay();
+                }
+                else if (IsKey(KeyCode.Space))
+                {
+                    StepTuringSingle();
+                }
+                else if (IsKey(KeyCode.Return))
+                {
+                    RunTuringContinuous();
+                }
+                else if (IsKey(KeyCode.R))
+                {
+                    ResetTuringTape();
                 }
                 break;
 
@@ -868,7 +1116,7 @@ public class SpyMiniGames : MonoBehaviour
     {
         switch (currentGame)
         {
-            case GameType.TuringTape: StepTuringMachine(); break;
+            case GameType.TuringTape: RunTuringContinuous(); break;
             case GameType.FrequencyAnalysis:
                 if (freqShift == freqTargetShift) OnGameSuccess("ШИФР ПОДСТАНОВКИ ВЗЛОМАН!");
                 else OnGameFailed("НЕВЕРНЫЙ СДВИГ ФАЗЫ!");
@@ -941,6 +1189,8 @@ public class SpyMiniGames : MonoBehaviour
     public void CancelMiniGame()
     {
         isGameActive = false;
+        if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
+        turingIsRunning = false;
         PlayClick();
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(false);
         onGameFinishedCallback?.Invoke(false);
@@ -973,6 +1223,7 @@ public class SpyMiniGames : MonoBehaviour
             case KeyCode.W: return kb.wKey.wasPressedThisFrame;
             case KeyCode.S: return kb.sKey.wasPressedThisFrame;
             case KeyCode.F: return kb.fKey.wasPressedThisFrame;
+            case KeyCode.R: return kb.rKey.wasPressedThisFrame;
             case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
             case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;
             case KeyCode.Alpha3: return kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame;
