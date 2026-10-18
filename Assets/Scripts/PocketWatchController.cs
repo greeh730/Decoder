@@ -46,12 +46,32 @@ public class PocketWatchController : MonoBehaviour
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private GameObject handsWithWatchPrefab;
 
-    // Camera relative positions for 1st person view
-    private readonly Vector3 raisedLocalPos = new Vector3(0.1131f, -0.4601f, 0.3684f);
-    private readonly Vector3 raisedLocalRot = new Vector3(357.1935f, 89.3630f, 282.7943f);
+    [Header("First-Person Transform & Hands Settings")]
+    [Tooltip("Масштаб 3D модели рук в камере")]
+    [SerializeField] [Range(0.2f, 1.5f)] private float modelScale = 0.55f;
+    [Tooltip("Позиция руки перед глазами (поднята)")]
+    [SerializeField] private Vector3 raisedLocalPos = new Vector3(0.1131f, -0.4601f, 0.3684f);
+    [Tooltip("Угол поворота руки перед глазами (поднята)")]
+    [SerializeField] private Vector3 raisedLocalRot = new Vector3(357.1935f, 89.3630f, 282.7943f);
+    [Tooltip("Позиция руки внизу (опущена)")]
+    [SerializeField] private Vector3 loweredLocalPos = new Vector3(0.1631f, -1.0101f, 0.4184f);
+    [Tooltip("Угол поворота руки внизу (опущена)")]
+    [SerializeField] private Vector3 loweredLocalRot = new Vector3(27.1935f, 99.3630f, 297.7943f);
+    [Tooltip("Скорость анимации подъема руки (в секундах)")]
+    [SerializeField] [Range(0.1f, 1.0f)] private float raiseDuration = 0.32f;
 
-    private readonly Vector3 loweredLocalPos = new Vector3(0.1631f, -1.0101f, 0.4184f);
-    private readonly Vector3 loweredLocalRot = new Vector3(27.1935f, 99.3630f, 297.7943f);
+    [Header("Display Text & Colors")]
+    [SerializeField] private string clockHeader = "• ЭЛЕКТРОНИКА •";
+    [SerializeField] private string clockSubtext = "• КГБ СССР •";
+    [SerializeField] private Color phosphorGreen = new Color(0.15f, 1.0f, 0.5f);
+
+    [Header("Radar Tuning")]
+    [Tooltip("Скорость оборота стрелки радара")]
+    [SerializeField] [Range(0.5f, 6.0f)] private float radarSweepSpeed = 2.4f;
+
+    [Header("Audio Tuning")]
+    [SerializeField] [Range(0f, 1f)] private float tickVolume = 0.40f;
+    [SerializeField] [Range(0f, 1f)] private float switchVolume = 0.55f;
 
     [System.Serializable]
     private class TrackedGuardBlip
@@ -82,7 +102,6 @@ public class PocketWatchController : MonoBehaviour
     private const float RadarUpdateInterval = 0.04f; // 25 fps radar update
     private float radarSweepAngle = 0f;
     private float prevSweepAngle = 0f;
-    private const float RadarSweepSpeed = 2.4f; // ~2.6s per 360-degree sweep
     private readonly Dictionary<int, TrackedGuardBlip> trackedGuards = new Dictionary<int, TrackedGuardBlip>();
 
     public bool IsRaised => isRaised;
@@ -113,6 +132,55 @@ public class PocketWatchController : MonoBehaviour
 
         UpdateWatchHands(timeRemaining);
         UpdateModeVisuals();
+    }
+
+    private void OnValidate()
+    {
+        if (watchRig != null)
+        {
+            watchRig.localScale = Vector3.one * modelScale;
+            if (isRaised)
+            {
+                watchRig.localPosition = raisedLocalPos;
+                watchRig.localRotation = Quaternion.Euler(raisedLocalRot);
+            }
+            else
+            {
+                watchRig.localPosition = loweredLocalPos;
+                watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+            }
+        }
+
+        if (countdownText != null && timeRemaining > 60f)
+        {
+            countdownText.color = phosphorGreen;
+        }
+    }
+
+    [ContextMenu("Preview Raised Watch in Scene")]
+    public void PreviewRaisedInScene()
+    {
+        ResolveReferences();
+        if (watchRig != null)
+        {
+            watchRig.gameObject.SetActive(true);
+            watchRig.localScale = Vector3.one * modelScale;
+            watchRig.localPosition = raisedLocalPos;
+            watchRig.localRotation = Quaternion.Euler(raisedLocalRot);
+        }
+    }
+
+    [ContextMenu("Preview Lowered Watch in Scene")]
+    public void PreviewLoweredInScene()
+    {
+        ResolveReferences();
+        if (watchRig != null)
+        {
+            watchRig.gameObject.SetActive(false);
+            watchRig.localScale = Vector3.one * modelScale;
+            watchRig.localPosition = loweredLocalPos;
+            watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+        }
     }
 
     private void Update()
@@ -233,7 +301,7 @@ public class PocketWatchController : MonoBehaviour
         if (audioSource != null && switchClip != null)
         {
             audioSource.pitch = isMapMode ? 1.15f : 0.95f;
-            audioSource.PlayOneShot(switchClip, 0.55f);
+            audioSource.PlayOneShot(switchClip, switchVolume);
         }
 
         UpdateModeVisuals();
@@ -342,7 +410,7 @@ public class PocketWatchController : MonoBehaviour
         Vector3 targetPos = raise ? raisedLocalPos : loweredLocalPos;
         Quaternion targetRot = Quaternion.Euler(raise ? raisedLocalRot : loweredLocalRot);
 
-        float duration = 0.32f;
+        float duration = raiseDuration;
         float elapsed = 0f;
 
         while (elapsed < duration)
@@ -437,7 +505,7 @@ public class PocketWatchController : MonoBehaviour
         isTickAlternate = !isTickAlternate;
 
         audioSource.pitch = Random.Range(0.98f, 1.02f);
-        audioSource.PlayOneShot(clipToPlay, 0.40f);
+        audioSource.PlayOneShot(clipToPlay, tickVolume);
     }
 
     private void GenerateAudioClips()
@@ -682,7 +750,7 @@ public class PocketWatchController : MonoBehaviour
         // Advance sweep angle
         float dt = Time.deltaTime > 0f ? Time.deltaTime : 0.04f;
         prevSweepAngle = radarSweepAngle;
-        radarSweepAngle = Mathf.Repeat(radarSweepAngle + RadarSweepSpeed * dt, Mathf.PI * 2f);
+        radarSweepAngle = Mathf.Repeat(radarSweepAngle + radarSweepSpeed * dt, Mathf.PI * 2f);
 
         // 2. Fading phosphor wake behind leading needle
         for (int tail = 12; tail >= 1; tail--)
@@ -987,7 +1055,7 @@ public class PocketWatchController : MonoBehaviour
 
         rigObj.transform.SetParent(cam.transform, false);
         watchRig = rigObj.transform;
-        watchRig.localScale = Vector3.one * 0.55f;
+        watchRig.localScale = Vector3.one * modelScale;
         watchRig.localPosition = loweredLocalPos;
         watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
 
@@ -1034,8 +1102,8 @@ public class PocketWatchController : MonoBehaviour
         headerTxt.alignment = TextAnchor.MiddleCenter;
         headerTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
         headerTxt.verticalOverflow = VerticalWrapMode.Overflow;
-        headerTxt.color = new Color(0.25f, 0.85f, 0.45f);
-        headerTxt.text = "• ЭЛЕКТРОНИКА •";
+        headerTxt.color = phosphorGreen * 0.9f;
+        headerTxt.text = clockHeader;
         var headerRt = headerObj.GetComponent<RectTransform>();
         headerRt.anchoredPosition = new Vector2(0f, 18f);
         headerRt.sizeDelta = new Vector2(70f, 12f);
@@ -1050,7 +1118,7 @@ public class PocketWatchController : MonoBehaviour
         countdownText.alignment = TextAnchor.MiddleCenter;
         countdownText.horizontalOverflow = HorizontalWrapMode.Overflow;
         countdownText.verticalOverflow = VerticalWrapMode.Overflow;
-        countdownText.color = new Color(0.15f, 1.0f, 0.5f);
+        countdownText.color = phosphorGreen;
         countdownText.text = "15:00";
         var timerRt = timerObj.GetComponent<RectTransform>();
         timerRt.anchoredPosition = new Vector2(0f, 0f);
@@ -1066,8 +1134,8 @@ public class PocketWatchController : MonoBehaviour
         subTxt.alignment = TextAnchor.MiddleCenter;
         subTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
         subTxt.verticalOverflow = VerticalWrapMode.Overflow;
-        subTxt.color = new Color(0.2f, 0.75f, 0.4f, 0.85f);
-        subTxt.text = "• КГБ СССР •";
+        subTxt.color = phosphorGreen * 0.8f;
+        subTxt.text = clockSubtext;
         var subRt = subObj.GetComponent<RectTransform>();
         subRt.anchoredPosition = new Vector2(0f, -18f);
         subRt.sizeDelta = new Vector2(70f, 12f);
