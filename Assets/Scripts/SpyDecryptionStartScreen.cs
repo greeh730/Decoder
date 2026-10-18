@@ -104,7 +104,7 @@ public class SpyDecryptionStartScreen : MonoBehaviour
     {
         if (promptText == null) return;
         string cursor = cursorVisible ? "█" : " ";
-        promptText.text = $"<color=#{ColorUtility.ToHtmlStringRGB(phosphorHot)}>► [ НАЖМИТЕ [ПРОБЕЛ] / [ЛКМ] ДЛЯ СНЯТИЯ ЗАЩИТЫ И ВХОДА В ДЕШИФРАТОР {cursor} ]</color>";
+        promptText.text = $"<color=#{ColorUtility.ToHtmlStringRGB(phosphorHot)}>► [ НАЖМИТЕ [ПРОБЕЛ] / [ЛКМ] ДЛЯ ВХОДА В РАБОЧУЮ СРЕДУ СИСТЕМЫ {cursor} ]</color>";
     }
 
     private void UpdateMissionData()
@@ -112,13 +112,13 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         if (missionDataText == null) return;
 
         missionDataText.text =
-            "<b><color=#00FFAA>/// РАЗВЕДДАННЫЕ ОБЪЕКТА ///</color></b>\n" +
-            "• ОБЪЕКТ: <color=#FFFFFF>ВОЕННО-НАУЧНАЯ БАЗА «ЗЕНИТ»</color>\n" +
-            "• ДИСЛОКАЦИЯ: <color=#99FFCC>ПОДЗЕМНЫЙ БУНКЕР // СЕКТОР-7 (ЭВМ)</color>\n" +
-            "• ОПЕРАЦИЯ: <color=#FFFF66>ПЕРЕХВАТ СТРАТЕГИЧЕСКИХ ДАННЫХ</color>\n" +
-            "• НОСИТЕЛЬ: <color=#99FFCC>СМЕННЫЙ ПАКЕТ ДИСКОВ ЕС-5061 (29 МБ)</color>\n" +
-            "• СТАТУС: <color=#00FF88>[ ВНЕДРЕНИЕ УСПЕШНО // ТРЕВОГИ НЕТ ]</color>\n" +
-            "• ДОПУСК: <color=#FF5555>[ ОСОБАЯ ПАПКА // СОВЕРШЕННО СЕКРЕТНО ]</color>";
+            "<b><color=#00FFAA>/// КОНФИГУРАЦИЯ СИСТЕМЫ ///</color></b>\n" +
+            "• ПРОЦЕССОР: <color=#FFFFFF>БИС К1801ВМ2 (16-БИТ, 8.0 МГц)</color>\n" +
+            "• ПАМЯТЬ: <color=#99FFCC>64 КБ БАЗОВАЯ // 512 КБ ОЗУ [ТЕСТ: ОК]</color>\n" +
+            "• ДИСКОВОД: <color=#FFFF66>ЕС-5061 (ПАКЕТ 29 МБ) [ТОМ 01 // ГОТОВ]</color>\n" +
+            "• КАНАЛ СВЯЗИ: <color=#99FFCC>1200 БОД [ОБМЕН ДАННЫМИ: В НОРМЕ]</color>\n" +
+            "• ОПЕРАЦИОННАЯ СИСТЕМА: <color=#00FF88>«ВЕКТОР-ОС» РЕДАКЦИЯ 3.2</color>\n" +
+            "• АВТОРИЗАЦИЯ: <color=#99FFCC>ДЕЖУРНЫЙ ИНЖЕНЕР [ТАБЕЛЬ №104]</color>";
     }
 
     private void UpdateTelemetryData()
@@ -126,20 +126,20 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         if (telemetryDataText == null) return;
 
         telemetryDataText.text =
-            "<b><color=#00FFAA>/// ТЕЛЕМЕТРИЯ ШИФРОКАНАЛА ///</color></b>\n" +
-            $"• НЕСУЩАЯ ЧАСТОТА: <color=#FFFFFF>142.850 МГц</color> [СИГНАЛ: <color=#00FF88>{signalPercent}%</color>]\n" +
-            $"• ПЕРЕХВАЧЕНО ПАКЕТОВ: <color=#00FFAA>{packetCount:N0}</color> БЛОКОВ\n" +
-            "• БУФЕР ОЗУ: <color=#99FFCC>64 Кб [ПОТОК СТАБИЛЕН]</color>\n" +
-            "• КОНТРОЛЬНАЯ СУММА: <color=#88DDCC>CRC-32: 0x9FA20B14 [OK]</color>\n" +
-            "• АРХИВ БАЗЫ: <color=#FFCC00>[ ЗАШИФРОВАН КЛЮЧОМ ГОСТ-28147 ]</color>\n" +
-            "• СИСТЕМА ДЕШИФРАЦИИ: <color=#00FFAA>ГОТОВА К ИНИЦИАЛИЗАЦИИ</color>";
+            "<b><color=#00FFAA>/// ТЕЛЕМЕТРИЯ ПОДСИСТЕМ ///</color></b>\n" +
+            $"• МЕЙНФРЕЙМ ВЕКТОР-1: [ <color=#00FF88>ПИТАНИЕ СТАБИЛЬНО // ОНЛАЙН</color> ]\n" +
+            $"• СЕКТОРОВ ОБРАБОТАНО: <color=#00FFAA>{packetCount:N0}</color> БЛОКОВ [СТАБИЛЬНО]\n" +
+            "• ДАТЧИКИ ТЕМПЕРАТУРЫ: ШПИНДЕЛЬ ЕС-5061 [<color=#00FF88>30°C // В НОРМЕ</color>]\n" +
+            "• МОНИТОР ЭЛТ: ВЫСОКОЕ НАПРЯЖЕНИЕ [ 15 кВ // 50 Гц ]\n" +
+            "• БУФЕР ВВОДА-ВЫВОДА: [ <color=#88DDCC>64 КБ СВОБОДНО // ГОТОВ К ЧТЕНИЮ</color> ]\n" +
+            "• ГОТОВНОСТЬ К РАБОТЕ: <color=#00FFAA>[ СИСТЕМА ИНИЦИАЛИЗИРОВАНА ]</color>";
     }
 
     public void OnStartScreenClicked()
     {
         PlayKeyBeep();
         MainframeBootQuest.Instance?.ShowNotification(
-            "<color=#00FFAA>[ДЕКОДЕР]</color> Инициализация ключа... Стартовый экран подтвержден.");
+            "<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка рабочей среды оператора...");
     }
 
     private void GenerateAudioClips()

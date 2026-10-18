@@ -1,8 +1,7 @@
 import math
 from PIL import Image, ImageDraw, ImageFont
 
-# Dimensions
-# Color palette (Phosphor Cyan-Green on Deep Dark CRT)
+# Dimensions & Authentic Monochrome Phosphor Palette
 BG = (3, 22, 15, 255)
 DARK_TINT = (6, 35, 24, 255)
 DIM_GREEN = (15, 90, 60, 255)
@@ -12,16 +11,19 @@ HOT_CYAN = (160, 255, 220, 255)
 
 font_path = "C:/Windows/Fonts/consola.ttf"
 try:
+    font_tiny = ImageFont.truetype(font_path, 13)
     font_small = ImageFont.truetype(font_path, 16)
     font_mid = ImageFont.truetype(font_path, 22)
     font_large = ImageFont.truetype(font_path, 32)
+    font_logo = ImageFont.truetype(font_path, 60)
 except:
-    font_small = font_mid = font_large = ImageFont.load_default()
+    font_tiny = font_small = font_mid = font_large = font_logo = ImageFont.load_default()
 
 # -------------------------------------------------------------
-# 1. SPY DOSSIER AVATAR (360 x 380)
+# 1. INSTITUTE OPERATOR AVATAR (360 x 380)
+# Matches reference: A friendly Soviet computer operator / engineer in lab coat
 # -------------------------------------------------------------
-def create_avatar():
+def create_operator_avatar():
     w, h = 360, 380
     img = Image.new("RGBA", (w, h), BG)
     draw = ImageDraw.Draw(img)
@@ -30,85 +32,90 @@ def create_avatar():
     draw.rectangle([4, 4, w - 5, h - 5], outline=MID_GREEN, width=2)
     draw.rectangle([8, 8, w - 9, h - 9], outline=DIM_GREEN, width=1)
 
-    # Corner brackets (military dossier reticle)
-    corner_len = 20
-    draw.line([(4, 4), (4 + corner_len, 4)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(4, 4), (4, 4 + corner_len)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(w - 5, 4), (w - 5 - corner_len, 4)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(w - 5, 4), (w - 5, 4 + corner_len)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(4, h - 5), (4 + corner_len, h - 5)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(4, h - 5), (4, h - 5 - corner_len)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(w - 5, h - 5), (w - 5 - corner_len, h - 5)], fill=BRIGHT_CYAN, width=3)
-    draw.line([(w - 5, h - 5), (w - 5, h - 5 - corner_len)], fill=BRIGHT_CYAN, width=3)
+    # Corner brackets (registration marks)
+    corner_len = 18
+    for (bx, by, dx, dy) in [(4, 4, 1, 1), (w - 5, 4, -1, 1), (4, h - 5, 1, -1), (w - 5, h - 5, -1, -1)]:
+        draw.line([(bx, by), (bx + dx * corner_len, by)], fill=BRIGHT_CYAN, width=3)
+        draw.line([(bx, by), (bx, by + dy * corner_len)], fill=BRIGHT_CYAN, width=3)
 
     # Top header text
     draw.rectangle([10, 10, w - 10, 38], fill=DARK_TINT)
-    draw.text((20, 14), "ДОСЬЕ: АГЕНТ «ДЕКОДЕР»", font=font_small, fill=BRIGHT_CYAN)
+    draw.text((20, 14), "НИИЭВМ // ОПЕРАТОР ВЦ", font=font_small, fill=BRIGHT_CYAN)
 
-    # Photo frame area (18, 46) to (w-18, h-50)
+    # Portrait frame (20, 46) to (w - 20, h - 54)
     px0, py0, px1, py1 = 20, 46, w - 20, h - 54
     draw.rectangle([px0, py0, px1, py1], outline=MID_GREEN, width=1)
 
-    # Background grid / scanlines inside photo area
+    # Background grid / scanlines inside photo frame
     for y in range(py0 + 4, py1, 8):
         draw.line([(px0 + 1, y), (px1 - 1, y)], fill=(5, 38, 26, 255), width=1)
     for x in range(px0 + 20, px1, 30):
         draw.line([(x, py0 + 1), (x, py1 - 1)], fill=(5, 38, 26, 255), width=1)
 
-    # Draw stylized 1-bit spy silhouette (hat, turned collar, dark glasses, trenchcoat)
     cx = (px0 + px1) // 2
-    # Fedora hat crown
-    hat_top = py0 + 35
-    draw.polygon([(cx - 45, hat_top + 35), (cx - 35, hat_top), (cx + 35, hat_top), (cx + 45, hat_top + 35)], fill=MID_GREEN)
-    draw.polygon([(cx - 30, hat_top + 33), (cx - 25, hat_top + 5), (cx + 25, hat_top + 5), (cx + 30, hat_top + 33)], fill=HOT_CYAN)
-    # Hat ribbon
-    draw.rectangle([cx - 42, hat_top + 28, cx + 42, hat_top + 34], fill=BRIGHT_CYAN)
-    # Hat brim
-    draw.ellipse([cx - 75, hat_top + 28, cx + 75, hat_top + 46], fill=BRIGHT_CYAN)
+    # Hair / Head of the engineer
+    hair_top = py0 + 40
+    draw.ellipse([cx - 48, hair_top, cx + 48, hair_top + 90], fill=MID_GREEN)
+    # Forehead & face
+    face_top = hair_top + 25
+    draw.ellipse([cx - 38, face_top, cx + 38, face_top + 75], fill=BRIGHT_CYAN)
+    # Hair part on top
+    draw.chord([cx - 46, hair_top, cx + 46, hair_top + 45], 180, 360, fill=DIM_GREEN)
 
-    # Face & glasses
-    face_top = hat_top + 42
-    draw.polygon([(cx - 35, face_top), (cx + 35, face_top), (cx + 30, face_top + 55), (cx - 30, face_top + 55)], fill=MID_GREEN)
-    # Dark espionage sunglasses
-    draw.rectangle([cx - 32, face_top + 12, cx - 6, face_top + 28], fill=DARK_TINT, outline=BRIGHT_CYAN, width=2)
-    draw.rectangle([cx + 6, face_top + 12, cx + 32, face_top + 28], fill=DARK_TINT, outline=BRIGHT_CYAN, width=2)
-    draw.line([(cx - 6, face_top + 18), (cx + 6, face_top + 18)], fill=BRIGHT_CYAN, width=2)
-    # Glint on glasses
-    draw.line([(cx - 28, face_top + 15), (cx - 18, face_top + 25)], fill=HOT_CYAN, width=2)
-    draw.line([(cx + 10, face_top + 15), (cx + 20, face_top + 25)], fill=HOT_CYAN, width=2)
+    # Round retro Soviet glasses (like scientific engineer)
+    glass_y = face_top + 28
+    draw.ellipse([cx - 30, glass_y, cx - 6, glass_y + 24], outline=DARK_TINT, fill=HOT_CYAN, width=2)
+    draw.ellipse([cx + 6, glass_y, cx + 30, glass_y + 24], outline=DARK_TINT, fill=HOT_CYAN, width=2)
+    draw.line([(cx - 6, glass_y + 12), (cx + 6, glass_y + 12)], fill=DARK_TINT, width=2)
+    # Eyes behind glasses
+    draw.rectangle([cx - 20, glass_y + 8, cx - 14, glass_y + 14], fill=DARK_TINT)
+    draw.rectangle([cx + 14, glass_y + 8, cx + 20, glass_y + 14], fill=DARK_TINT)
+    # Glasses highlight
+    draw.line([(cx - 26, glass_y + 4), (cx - 18, glass_y + 12)], fill=BG, width=2)
+    draw.line([(cx + 10, glass_y + 4), (cx + 18, glass_y + 12)], fill=BG, width=2)
 
-    # Nose & mouth shadow
-    draw.line([(cx, face_top + 28), (cx - 3, face_top + 38), (cx + 2, face_top + 38)], fill=HOT_CYAN, width=2)
-    draw.line([(cx - 12, face_top + 46), (cx + 12, face_top + 46)], fill=DIM_GREEN, width=2)
+    # Friendly smile & nose
+    draw.line([(cx, glass_y + 18), (cx - 3, glass_y + 30), (cx + 2, glass_y + 30)], fill=DIM_GREEN, width=2)
+    draw.arc([cx - 16, glass_y + 30, cx + 16, glass_y + 45], 20, 160, fill=DARK_TINT, width=2)
 
-    # Trenchcoat collar popped up
-    neck_y = face_top + 55
-    draw.polygon([(cx - 30, neck_y), (cx + 30, neck_y), (cx + 20, neck_y + 25), (cx - 20, neck_y + 25)], fill=DIM_GREEN)
-    # Left collar flap
-    draw.polygon([(cx - 25, neck_y - 10), (cx - 70, neck_y + 40), (cx - 20, neck_y + 70), (cx - 10, neck_y + 30)], fill=BRIGHT_CYAN)
-    # Right collar flap
-    draw.polygon([(cx + 25, neck_y - 10), (cx + 70, neck_y + 40), (cx + 20, neck_y + 70), (cx + 10, neck_y + 30)], fill=BRIGHT_CYAN)
-    # Coat shoulders
-    draw.polygon([(cx - 120, py1), (cx - 80, neck_y + 35), (cx + 80, neck_y + 35), (cx + 120, py1)], fill=MID_GREEN)
-    draw.line([(cx, neck_y + 35), (cx, py1)], fill=BRIGHT_CYAN, width=2)
+    # White Laboratory Coat (Халат инженера)
+    neck_y = face_top + 72
+    draw.rectangle([cx - 18, neck_y, cx + 18, neck_y + 20], fill=BRIGHT_CYAN)
+    # Shirt collar & tie
+    draw.polygon([(cx - 12, neck_y), (cx + 12, neck_y), (cx, neck_y + 18)], fill=DIM_GREEN)
+    draw.polygon([(cx - 5, neck_y + 14), (cx + 5, neck_y + 14), (cx + 7, neck_y + 40), (cx - 7, neck_y + 40)], fill=DARK_TINT)
 
-    # Crosshair reticle over portrait
-    draw.line([(cx, py0 + 20), (cx, py0 + 35)], fill=BRIGHT_CYAN, width=1)
-    draw.line([(cx, py1 - 35), (cx, py1 - 20)], fill=BRIGHT_CYAN, width=1)
-    draw.line([(px0 + 20, (py0 + py1) // 2), (px0 + 35, (py0 + py1) // 2)], fill=BRIGHT_CYAN, width=1)
-    draw.line([(px1 - 35, (py0 + py1) // 2), (px1 - 20, (py0 + py1) // 2)], fill=BRIGHT_CYAN, width=1)
+    # White lab coat shoulders & lapels
+    draw.polygon([(cx - 120, py1), (cx - 65, neck_y + 10), (cx + 65, neck_y + 10), (cx + 120, py1)], fill=HOT_CYAN)
+    # Coat lapels
+    draw.polygon([(cx - 60, neck_y + 10), (cx - 20, neck_y + 55), (cx - 45, neck_y + 55)], fill=BRIGHT_CYAN)
+    draw.polygon([(cx + 60, neck_y + 10), (cx + 20, neck_y + 55), (cx + 45, neck_y + 55)], fill=BRIGHT_CYAN)
+    draw.line([(cx, neck_y + 40), (cx, py1)], fill=MID_GREEN, width=2)
+
+    # Pocket with pens
+    pocket_x = cx + 35
+    pocket_y = neck_y + 50
+    draw.rectangle([pocket_x, pocket_y, pocket_x + 35, pocket_y + 40], outline=MID_GREEN, fill=BRIGHT_CYAN, width=1)
+    # Two pens sticking out
+    draw.line([(pocket_x + 10, pocket_y - 10), (pocket_x + 10, pocket_y)], fill=DARK_TINT, width=3)
+    draw.line([(pocket_x + 22, pocket_y - 8), (pocket_x + 22, pocket_y)], fill=DIM_GREEN, width=3)
+
+    # Badge on coat: "ТАБЕЛЬ 104"
+    draw.rectangle([cx - 75, pocket_y + 5, cx - 25, pocket_y + 35], fill=DARK_TINT, outline=MID_GREEN, width=1)
+    draw.text((cx - 70, pocket_y + 10), "№ 104", font=font_tiny, fill=BRIGHT_CYAN)
 
     # Bottom status bar
     draw.rectangle([10, h - 46, w - 10, h - 10], fill=DARK_TINT)
-    draw.text((20, h - 38), "СТАТУС: ВНЕДРЕНИЕ НА БАЗУ", font=font_small, fill=HOT_CYAN)
+    draw.text((20, h - 38), "ДОСТУП: ДЕЖУРНЫЙ ИНЖЕНЕР", font=font_small, fill=HOT_CYAN)
 
     img.save("Assets/Textures/CRT/SpyDossierAvatar.png")
-    print("Avatar saved!")
+    print("Operator avatar saved!")
 
 # -------------------------------------------------------------
-# 2. SPY BASE SCHEMATIC (300 x 380)
+# 2. MAINFRAME SERVER COMPLEX ILLUSTRATION (300 x 380)
+# Matches reference: Tall right panel with computing machine illustration
 # -------------------------------------------------------------
-def create_schematic():
+def create_mainframe_schematic():
     w, h = 300, 380
     img = Image.new("RGBA", (w, h), BG)
     draw = ImageDraw.Draw(img)
@@ -125,9 +132,9 @@ def create_schematic():
 
     # Header
     draw.rectangle([10, 10, w - 10, 38], fill=DARK_TINT)
-    draw.text((18, 14), "ОБЪЕКТ: БАЗА «ЗЕНИТ»", font=font_small, fill=BRIGHT_CYAN)
+    draw.text((18, 14), "КОМПЛЕКС: ЕС ЭВМ-5061", font=font_small, fill=BRIGHT_CYAN)
 
-    # Area box
+    # Frame area
     sx0, sy0, sx1, sy1 = 18, 46, w - 18, h - 54
     draw.rectangle([sx0, sy0, sx1, sy1], outline=MID_GREEN, width=1)
 
@@ -137,61 +144,61 @@ def create_schematic():
     for x in range(sx0 + 10, sx1, 20):
         draw.line([(x, sy0 + 1), (x, sy1 - 1)], fill=(5, 38, 26, 255), width=1)
 
-    # Radar Circle in upper half
-    rcx, rcy = (sx0 + sx1) // 2, sy0 + 90
-    draw.ellipse([rcx - 65, rcy - 65, rcx + 65, rcy + 65], outline=DIM_GREEN, width=1)
-    draw.ellipse([rcx - 45, rcy - 45, rcx + 45, rcy + 45], outline=MID_GREEN, width=1)
-    draw.ellipse([rcx - 20, rcy - 20, rcx + 20, rcy + 20], outline=BRIGHT_CYAN, width=1)
-    draw.line([(rcx - 70, rcy), (rcx + 70, rcy)], fill=DIM_GREEN, width=1)
-    draw.line([(rcx, rcy - 70), (rcx, rcy + 70)], fill=DIM_GREEN, width=1)
+    # Draw authentic Soviet Server Cabinet illustration
+    rack_x0, rack_y0, rack_x1, rack_y1 = sx0 + 20, sy0 + 15, sx1 - 20, sy1 - 20
+    draw.rectangle([rack_x0, rack_y0, rack_x1, rack_y1], outline=BRIGHT_CYAN, width=2, fill=(8, 45, 32, 255))
 
-    # Radar sweep line
-    draw.line([(rcx, rcy), (rcx + 45, rcy - 45)], fill=HOT_CYAN, width=2)
-    # Radar blips
-    draw.rectangle([rcx + 25, rcy - 30, rcx + 29, rcy - 26], fill=HOT_CYAN)
-    draw.rectangle([rcx - 35, rcy + 20, rcx - 31, rcy + 24], fill=BRIGHT_CYAN)
+    # Rack Title plate
+    draw.rectangle([rack_x0 + 10, rack_y0 + 8, rack_x1 - 10, rack_y0 + 26], fill=DARK_TINT, outline=MID_GREEN, width=1)
+    draw.text((rack_x0 + 25, rack_y0 + 10), "ЭВМ «ВЕКТОР-1»", font=font_tiny, fill=HOT_CYAN)
 
-    # Lower section: Underground bunker layout cross section
-    by0 = rcy + 80
-    draw.text((sx0 + 8, by0), "УРОВЕНЬ -3: ВЫЧИСЛИТЕЛЬ", font=font_small, fill=BRIGHT_CYAN)
+    # Upper Bay: Magnetic Tape Drives (Два бобинных накопителя)
+    tape_y = rack_y0 + 36
+    draw.rectangle([rack_x0 + 10, tape_y, rack_x1 - 10, tape_y + 80], outline=MID_GREEN, fill=DARK_TINT, width=1)
+    # Left spool
+    draw.ellipse([rack_x0 + 22, tape_y + 12, rack_x0 + 78, tape_y + 68], outline=BRIGHT_CYAN, width=2)
+    draw.ellipse([rack_x0 + 38, tape_y + 28, rack_x0 + 62, tape_y + 52], fill=HOT_CYAN)
+    # Right spool
+    draw.ellipse([rack_x1 - 78, tape_y + 12, rack_x1 - 22, tape_y + 68], outline=BRIGHT_CYAN, width=2)
+    draw.ellipse([rack_x1 - 62, tape_y + 28, rack_x1 - 38, tape_y + 52], fill=HOT_CYAN)
+    # Tape threading path
+    draw.line([(rack_x0 + 50, tape_y + 68), (rack_x0 + 90, tape_y + 74), (rack_x1 - 90, tape_y + 74), (rack_x1 - 50, tape_y + 68)], fill=HOT_CYAN, width=2)
 
-    # Bunker rooms layout
-    room_y = by0 + 24
-    # Corridor
-    draw.rectangle([sx0 + 10, room_y + 15, sx1 - 10, room_y + 35], outline=DIM_GREEN, width=1)
-    # Room 1 (Tape Storage)
-    draw.rectangle([sx0 + 15, room_y - 10, sx0 + 75, room_y + 15], outline=MID_GREEN, width=1)
-    draw.text((sx0 + 20, room_y - 6), "ЛЕНТЫ", font=font_small, fill=DIM_GREEN)
-    # Room 2 (Active Terminal - Current player position!)
-    draw.rectangle([sx0 + 90, room_y - 18, sx0 + 175, room_y + 15], outline=HOT_CYAN, width=2, fill=(10, 50, 35, 255))
-    draw.text((sx0 + 96, room_y - 14), "ЭВМ [ВЫ]", font=font_small, fill=HOT_CYAN)
-    # Blinking marker
-    draw.ellipse([sx0 + 130, room_y + 2, sx0 + 138, room_y + 10], fill=HOT_CYAN)
-    # Room 3 (Generator)
-    draw.rectangle([sx0 + 190, room_y - 10, sx1 - 15, room_y + 15], outline=MID_GREEN, width=1)
-    draw.text((sx0 + 195, room_y - 6), "СИЛА", font=font_small, fill=DIM_GREEN)
+    # Middle Bay: Register LED Matrix & Switches (Индикаторный регистр)
+    led_y = tape_y + 90
+    draw.rectangle([rack_x0 + 10, led_y, rack_x1 - 10, led_y + 50], outline=MID_GREEN, fill=DARK_TINT, width=1)
+    draw.text((rack_x0 + 16, led_y + 4), "РЕГИСТР СОСТОЯНИЯ:", font=font_tiny, fill=DIM_GREEN)
+    # 8 Register LEDs
+    led_start_x = rack_x0 + 18
+    for i in range(8):
+        lx = led_start_x + i * 23
+        col = HOT_CYAN if (i % 2 == 0 or i == 5) else DIM_GREEN
+        draw.ellipse([lx, led_y + 22, lx + 14, led_y + 36], fill=col, outline=BRIGHT_CYAN, width=1)
 
-    # Radio frequency wave at bottom
-    wave_y = sy1 - 25
-    pts = []
-    for x in range(sx0 + 10, sx1 - 10, 4):
-        wy = wave_y + int(math.sin((x - sx0) * 0.15) * 8)
-        pts.append((x, wy))
-    for i in range(len(pts) - 1):
-        draw.line([pts[i], pts[i+1]], fill=HOT_CYAN, width=2)
-    draw.text((sx0 + 10, sy1 - 42), "СИГНАЛ: 142.85 MHz // OK", font=font_small, fill=BRIGHT_CYAN)
+    # Lower Bay: Removable Disk Cartridge Pack (Съемный пакет дисков ЕС-5061)
+    disk_y = led_y + 60
+    draw.rectangle([rack_x0 + 10, disk_y, rack_x1 - 10, disk_y + 46], outline=BRIGHT_CYAN, fill=DARK_TINT, width=2)
+    draw.rectangle([rack_x0 + 25, disk_y + 10, rack_x1 - 25, disk_y + 36], outline=HOT_CYAN, fill=MID_GREEN, width=1)
+    draw.text((rack_x0 + 35, disk_y + 15), "ДИСКОВОД ЕС-5061", font=font_tiny, fill=HOT_CYAN)
 
-    # Footer
+    # Bottom ventilation louvers
+    vent_y = disk_y + 52
+    for vy in range(vent_y, rack_y1 - 10, 6):
+        draw.line([(rack_x0 + 20, vy), (rack_x1 - 20, vy)], fill=DIM_GREEN, width=1)
+
+    # Footer status
     draw.rectangle([10, h - 46, w - 10, h - 10], fill=DARK_TINT)
-    draw.text((18, h - 38), "СЕКТОР-7 // ТРЕВОГИ НЕТ", font=font_small, fill=HOT_CYAN)
+    draw.text((18, h - 38), "МОДУЛЬ ВЦ // ОНЛАЙН", font=font_small, fill=HOT_CYAN)
 
     img.save("Assets/Textures/CRT/SpyBaseRadarSchematic.png")
-    print("Schematic saved!")
+    print("Mainframe schematic saved!")
 
 # -------------------------------------------------------------
-# 3. DECODER ARROW LOGO (560 x 380)
+# 3. VECTOR SYSTEM LOGO (560 x 380)
+# Matches reference: Top word, big horizontal arrow, bottom word
+# Official Operating System boot splash: ВЕКТОР <=======> СИСТЕМА
 # -------------------------------------------------------------
-def create_arrow_logo():
+def create_system_logo():
     w, h = 560, 380
     img = Image.new("RGBA", (w, h), BG)
     draw = ImageDraw.Draw(img)
@@ -206,24 +213,17 @@ def create_arrow_logo():
         draw.line([(bx, by), (bx + dx * corner_len, by)], fill=BRIGHT_CYAN, width=3)
         draw.line([(bx, by), (bx, by + dy * corner_len)], fill=BRIGHT_CYAN, width=3)
 
-    # Sub-header: System classification
-    draw.text((w // 2 - 130, 24), "/// СИСТЕМА ДЕШИФРАЦИИ ///", font=font_small, fill=MID_GREEN)
+    # Sub-header: Official OS classification
+    draw.text((w // 2 - 150, 24), "/// ОПЕРАЦИОННАЯ СИСТЕМА ЭВМ ///", font=font_small, fill=MID_GREEN)
 
-    # Top Hero Word: Д Е К О Д Е Р (Geometric blocky vector lettering)
-    # We draw large bold vector letters matching the reference aesthetic
+    # Top Hero Word: В Е К Т О Р
     top_y = 65
-    title_text = "ДЕКОДЕР"
-    try:
-        font_logo = ImageFont.truetype(font_path, 64)
-    except:
-        font_logo = font_large
-
-    # Center text
+    title_text = "ВЕКТОР"
     bbox = draw.textbbox((0, 0), title_text, font=font_logo)
     tw = bbox[2] - bbox[0]
     tx = (w - tw) // 2
 
-    # Draw glow behind text
+    # Phosphor glow behind text
     for offset in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
         draw.text((tx + offset[0], top_y + offset[1]), title_text, font=font_logo, fill=DIM_GREEN)
     draw.text((tx, top_y), title_text, font=font_logo, fill=HOT_CYAN)
@@ -233,7 +233,7 @@ def create_arrow_logo():
 
     # ---------------------------------------------------------
     # CENTER HERO ELEMENT: THE GIANT BIDIRECTIONAL ARROW
-    # Matching the reference image: <===================>
+    # Matches reference image: <===================>
     # ---------------------------------------------------------
     arrow_y = h // 2
     arrow_left = 35
@@ -241,27 +241,14 @@ def create_arrow_logo():
     arrow_thickness = 18
     head_size = 38
 
-    # Arrow left tip: (arrow_left, arrow_y)
-    # Arrow right tip: (arrow_right, arrow_y)
-    
-    # Outer glow / shadow of the arrow
-    # Double horizontal shaft rails
     rail_top = arrow_y - arrow_thickness // 2
     rail_bot = arrow_y + arrow_thickness // 2
 
     # Fill center shaft
     draw.rectangle([arrow_left + head_size, rail_top, arrow_right - head_size, rail_bot], fill=MID_GREEN)
-    # Bright inner core
     draw.rectangle([arrow_left + head_size + 4, rail_top + 4, arrow_right - head_size - 4, rail_bot - 4], fill=HOT_CYAN)
 
     # Left Arrowhead polygon
-    left_arrow_pts = [
-        (arrow_left, arrow_y),
-        (arrow_left + head_size, arrow_y - head_size),
-        (arrow_left + head_size, rail_top),
-        (arrow_left + head_size, rail_bot),
-        (arrow_left + head_size, arrow_y + head_size)
-    ]
     draw.polygon([(arrow_left, arrow_y), (arrow_left + head_size, arrow_y - head_size), (arrow_left + head_size, arrow_y + head_size)], fill=BRIGHT_CYAN)
     draw.polygon([(arrow_left + 6, arrow_y), (arrow_left + head_size - 4, arrow_y - head_size + 10), (arrow_left + head_size - 4, arrow_y + head_size - 10)], fill=HOT_CYAN)
 
@@ -274,16 +261,16 @@ def create_arrow_logo():
         draw.line([(x, rail_top - 4), (x, rail_bot + 4)], fill=BG, width=3)
         draw.line([(x, rail_top - 3), (x, rail_bot + 3)], fill=HOT_CYAN, width=1)
 
-    # Arrow caption in center
-    badge_w = 190
+    # Arrow caption in center: "ШИНА ДАННЫХ"
+    badge_w = 200
     draw.rectangle([w // 2 - badge_w // 2, arrow_y - 12, w // 2 + badge_w // 2, arrow_y + 12], fill=BG, outline=BRIGHT_CYAN, width=2)
-    draw.text((w // 2 - 80, arrow_y - 8), "КАНАЛ СВЯЗИ", font=font_small, fill=HOT_CYAN)
+    draw.text((w // 2 - 82, arrow_y - 8), "ШИНА ДАННЫХ", font=font_small, fill=HOT_CYAN)
 
     # ---------------------------------------------------------
-    # Bottom Hero Word: П Е Р Е Х В А Т (Matching "ZAG" from reference)
+    # Bottom Hero Word: С И С Т Е М А
     # ---------------------------------------------------------
     bot_y = arrow_y + 45
-    bot_text = "ПЕРЕХВАТ"
+    bot_text = "СИСТЕМА"
     bbox_bot = draw.textbbox((0, 0), bot_text, font=font_logo)
     btw = bbox_bot[2] - bbox_bot[0]
     btx = (w - btw) // 2
@@ -296,11 +283,11 @@ def create_arrow_logo():
     draw.line([(btx - 15, bot_y - 8), (btx + btw + 15, bot_y - 8)], fill=MID_GREEN, width=2)
 
     # Sub-footer: Protocol info
-    draw.text((w // 2 - 145, h - 35), "ПРОТОКОЛ: ШИФРООБМЕН ЕС-5061", font=font_small, fill=MID_GREEN)
+    draw.text((w // 2 - 165, h - 35), "ВЕРСИЯ 3.2 // РЕДАКЦИЯ 1982 ГОДА", font=font_small, fill=MID_GREEN)
 
     img.save("Assets/Textures/CRT/DecoderArrowLogo.png")
-    print("Arrow logo saved!")
+    print("System logo saved!")
 
-create_avatar()
-create_schematic()
-create_arrow_logo()
+create_operator_avatar()
+create_mainframe_schematic()
+create_system_logo()
