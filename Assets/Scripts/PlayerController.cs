@@ -67,6 +67,7 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] private float standingEyeHeight = 1.62f;
     [SerializeField] private float sittingEyeHeight = 1.05f;
+    [SerializeField] private float maxInteractionDistance = 3.5f;
     [SerializeField] private MonitorTerminal monitorTerminal;
 
     [Header("UI Feedback")]
@@ -227,8 +228,15 @@ public class PlayerController : MonoBehaviour
         if (playerCamera == null) return;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        if (Physics.Raycast(ray, out RaycastHit hit, 2.8f))
+        RaycastHit[] hits = Physics.RaycastAll(ray, maxInteractionDistance);
+        if (hits == null || hits.Length == 0) return;
+
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        // 1. Check Draggable cartridges and Potentiometer knobs first
+        for (int i = 0; i < hits.Length; i++)
         {
+            var hit = hits[i];
             var cartridge = hit.collider.GetComponentInParent<CartridgeDraggable>();
             if (cartridge != null && !cartridge.IsCompleted)
             {
@@ -250,6 +258,7 @@ public class PlayerController : MonoBehaviour
                     isDraggingCartridge = true;
                     return;
                 }
+                break;
             }
 
             var knob = hit.collider.GetComponentInParent<PotentiometerKnob>();
@@ -270,17 +279,24 @@ public class PlayerController : MonoBehaviour
                     isDraggingKnob = true;
                     return;
                 }
+                break;
             }
+        }
 
+        // 2. Check WorldInteractables along ray (allows penetrating thin outer frames)
+        for (int i = 0; i < hits.Length; i++)
+        {
+            var hit = hits[i];
             var interactable = hit.collider.GetComponentInParent<WorldInteractable>();
             if (interactable != null && hit.distance <= interactable.MaxDistance)
             {
                 currentInteractable = interactable;
-                if (interactable.IsInteractable && WasKeyPressed(KeyCode.E))
+                if (interactable.IsInteractable && (WasKeyPressed(KeyCode.E) || IsMouseButtonPressed()))
                 {
                     interactable.Interact();
                     return;
                 }
+                break;
             }
         }
     }

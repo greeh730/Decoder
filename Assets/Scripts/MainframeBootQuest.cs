@@ -109,8 +109,55 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void Start()
     {
+        BindInteractables();
         UpdateAllVisuals();
         ShowNotification("ЭВМ обесточена. Найдите документацию в шкафчике или осмотрите щиток.");
+    }
+
+    private void BindInteractables()
+    {
+        if (breakerInteractable != null)
+        {
+            breakerInteractable.onInteract.RemoveListener(ToggleBreaker);
+            breakerInteractable.onInteract.AddListener(ToggleBreaker);
+        }
+        if (filamentInteractable != null)
+        {
+            filamentInteractable.onInteract.RemoveListener(ToggleFilament);
+            filamentInteractable.onInteract.AddListener(ToggleFilament);
+        }
+        if (hvInteractable != null)
+        {
+            hvInteractable.onInteract.RemoveListener(ToggleHighVoltage);
+            hvInteractable.onInteract.AddListener(ToggleHighVoltage);
+        }
+        if (iplInteractable != null)
+        {
+            iplInteractable.onInteract.RemoveListener(PressIPL);
+            iplInteractable.onInteract.AddListener(PressIPL);
+        }
+        if (switchInteractables != null)
+        {
+            for (int i = 0; i < switchInteractables.Length; i++)
+            {
+                int idx = i;
+                if (switchInteractables[i] != null)
+                {
+                    switchInteractables[i].onInteract.RemoveAllListeners();
+                    switchInteractables[i].onInteract.AddListener(() => ToggleAddressSwitch(idx));
+                }
+            }
+        }
+        if (tapePickupInteractable != null)
+        {
+            tapePickupInteractable.onInteract.RemoveListener(TakeTape);
+            tapePickupInteractable.onInteract.AddListener(TakeTape);
+        }
+        if (manualInteractable != null)
+        {
+            manualInteractable.onInteract.RemoveListener(OpenManual);
+            manualInteractable.onInteract.AddListener(OpenManual);
+        }
     }
 
     private void Update()
