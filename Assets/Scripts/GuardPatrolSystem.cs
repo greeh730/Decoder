@@ -449,6 +449,15 @@ public class GuardPawn : MonoBehaviour
     private float waitTimer = 0f;
     private bool isWaiting = false;
 
+    // Stealth & Suspicion
+    private float suspicion = 0f; // 0.0 to 1.0
+    private readonly Vector3 labDoorPos = new Vector3(12.0f, 0.0f, 2.43f);
+    private float lastAlertNotifyTime = -10f;
+
+    public float Suspicion => suspicion;
+    public bool IsInvestigating => suspicion > 0.35f;
+    public bool IsHighAlert => suspicion >= 0.80f;
+
     public void Initialize(GuardPatrolSystem.PatrolRoute assignedRoute, float speed, float turnSpd)
     {
         route = assignedRoute;
@@ -458,6 +467,115 @@ public class GuardPawn : MonoBehaviour
     }
 
     private void Update()
+    {
+        UpdateStealthDetection();
+
+        if (suspicion >= 0.80f)
+        {
+            // High Alert: Guard marches straight to the lab door to investigate!
+            InvestigateDoorHighAlert();
+            return;
+        }
+
+        if (suspicion > 0.35f)
+        {
+            // Suspicious: Guard slows down and peers towards the lab door
+            InvestigateDoorSuspicious();
+            return;
+        }
+
+        // Standard Waypoint Patrol
+        PatrolWaypoints();
+    }
+
+    private void UpdateStealthDetection()
+    {
+        float distToDoor = Vector3.Distance(transform.position, labDoorPos);
+
+        // 1. Acoustic detection (Mainframe hum & fan noise)
+        bool isNoiseActive = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsNoiseActive;
+        float noiseRad = MainframeBootQuest.Instance != null ? MainframeBootQuest.Instance.NoiseRadius : 0f;
+        bool hearsNoise = isNoiseActive && distToDoor <= noiseRad;
+
+        // 2. Optical detection (CRT screen green glow leaking under door into corridor)
+        bool isLightActive = MonitorTerminal.Instance != null && MonitorTerminal.Instance.IsLightEmitting;
+        float lightDist = MonitorTerminal.Instance != null ? MonitorTerminal.Instance.LightEmissionDistance : 0f;
+        // The main corridor is along X = 13.5 from Z = -8 to Z = 16
+        bool inMainHallway = Mathf.Abs(transform.position.x - 13.5f) < 2.5f && transform.position.z >= -8f && transform.position.z <= 16f;
+        bool seesLight = isLightActive && inMainHallway && distToDoor <= lightDist;
+
+        // 3. Accumulate suspicion
+        if (hearsNoise && seesLight)
+        {
+            suspicion += 0.70f * Time.deltaTime;
+        }
+        else if (hearsNoise)
+        {
+            float prox = 1.0f - Mathf.Clamp01(distToDoor / noiseRad);
+            suspicion += (0.35f + prox * 0.35f) * Time.deltaTime;
+        }
+        else if (seesLight)
+        {
+            float brightness = MonitorTerminal.Instance != null ? MonitorTerminal.Instance.BrightnessLevel : 1.0f;
+            suspicion += (brightness > 0.6f ? 0.28f : 0.12f) * Time.deltaTime;
+        }
+        else
+        {
+            // Calm decay when silent & dark
+            suspicion = Mathf.Max(0f, suspicion - 0.18f * Time.deltaTime);
+        }
+
+        suspicion = Mathf.Clamp01(suspicion);
+
+        // Trigger notification once on entering high alert
+        if (suspicion >= 0.80f && Time.time - lastAlertNotifyTime > 8.0f)
+        {
+            lastAlertNotifyTime = Time.time;
+            if (MainframeBootQuest.Instance != null)
+            {
+                MainframeBootQuest.Instance.ShowNotification("<color=#FF3333>[⚠ ОХРАНА У ДВЕРИ!]</color> «Кто там шумит в вычислительном зале?! Откройте!»");
+            }
+        }
+    }
+
+    private void InvestigateDoorHighAlert()
+    {
+        Vector3 toDoor = labDoorPos - transform.position;
+        toDoor.y = 0f;
+        float dist = toDoor.magnitude;
+
+        if (dist > 1.2f)
+        {
+            // Walk toward door
+            Quaternion lookRot = Quaternion.LookRotation(toDoor.normalized);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRot, turnSpeed * Time.deltaTime);
+            transform.position += transform.forward * (walkSpeed * 1.15f) * Time.deltaTime;
+        }
+        else
+        {
+            // Face door and knock
+            Quaternion lookRot = Quaternion.LookRotation(Vector3.left); // Face into the room (West)
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRot, turnSpeed * Time.deltaTime);
+        }
+    }
+
+    private void InvestigateDoorSuspicious()
+    {
+        Vector3 toDoor = labDoorPos - transform.position;
+        toDoor.y = 0f;
+
+        // Turn towards door while walking slowly
+        if (toDoor.sqrMagnitude > 0.01f)
+        {
+            Quaternion lookRot = Quaternion.LookRotation(toDoor.normalized);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRot, (turnSpeed * 0.7f) * Time.deltaTime);
+        }
+
+        // Creep forward slowly
+        transform.position += transform.forward * (walkSpeed * 0.35f) * Time.deltaTime;
+    }
+
+    private void PatrolWaypoints()
     {
         if (route == null || route.waypoints == null || route.waypoints.Count == 0) return;
 

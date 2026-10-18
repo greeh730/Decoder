@@ -33,9 +33,15 @@ public class MonitorTerminal : MonoBehaviour
     [SerializeField] private Light screenGlowLight;
     [SerializeField] private AudioSource terminalAudio;
 
+    [Header("Brightness & Potentiometer Knob")]
+    [SerializeField] private float brightnessLevel = 1.0f; // 1.0f (100%), 0.35f (35%), 0.0f (0%)
+    [SerializeField] private Transform brightnessKnob;
+    [SerializeField] private CanvasGroup screenCanvasGroup;
+
     private bool isRoomLightOn = true;
     private bool isZoomedIn = false;
     private bool isMainframeOnline = false;
+    private bool isStandby = false;
     private float cursorBlinkTimer = 0f;
     private bool cursorVisible = true;
     private Coroutine crtTestCoroutine;
@@ -45,9 +51,15 @@ public class MonitorTerminal : MonoBehaviour
     private AudioClip crtStartupClip;
     private AudioClip keyClickClip;
     private AudioClip alertClip;
+    private AudioClip potentiometerClickClip;
 
     public bool IsZoomedIn => isZoomedIn;
     public bool IsMainframeOnline => isMainframeOnline;
+    public bool IsStandby => isStandby;
+    public float BrightnessLevel => brightnessLevel;
+
+    public bool IsLightEmitting => isMainframeOnline && !isStandby && brightnessLevel > 0.05f && (roomLight == null || !roomLight.enabled);
+    public float LightEmissionDistance => IsLightEmitting ? 22.0f : 0f;
 
     private void Awake()
     {
@@ -83,8 +95,21 @@ public class MonitorTerminal : MonoBehaviour
             if (terminalAudio == null) terminalAudio = gameObject.AddComponent<AudioSource>();
         }
 
+        if (screenCanvasGroup == null)
+        {
+            screenCanvasGroup = GetComponent<CanvasGroup>();
+            if (screenCanvasGroup == null) screenCanvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
+
+        if (brightnessKnob == null && transform.parent != null)
+        {
+            var knobTr = transform.parent.Find("BrightnessKnob");
+            if (knobTr != null) brightnessKnob = knobTr;
+        }
+
         GenerateAudioClips();
         SetupWipButtons();
+        ApplyBrightnessVisuals();
     }
 
     private void Start()
@@ -285,6 +310,75 @@ public class MonitorTerminal : MonoBehaviour
         }
     }
 
+    public void CycleBrightness()
+    {
+        if (brightnessLevel > 0.7f) SetBrightness(0.35f);
+        else if (brightnessLevel > 0.2f) SetBrightness(0.0f);
+        else SetBrightness(1.0f);
+    }
+
+    public void SetBrightness(float level)
+    {
+        brightnessLevel = Mathf.Clamp01(level);
+        ApplyBrightnessVisuals();
+
+        PlayPotentiometerClick();
+
+        string pct = Mathf.RoundToInt(brightnessLevel * 100f) + "%";
+        string desc = brightnessLevel <= 0.05f ? "0% [МАСКИРОВКА / ТЕМНОТА]" :
+                      (brightnessLevel < 0.6f ? $"{pct} [ПРИГЛУШЕННО]" : $"{pct} [СТАНДАРТ / ЯРКО]");
+
+        if (isZoomedIn)
+        {
+            AddLog($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор потенциометра: {desc}");
+        }
+        else if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification($"Яркость экрана ЭЛТ: {desc}");
+        }
+    }
+
+    public void ApplyBrightnessVisuals()
+    {
+        if (screenCanvasGroup != null)
+        {
+            screenCanvasGroup.alpha = (isStandby || !isMainframeOnline) ? 0f : (brightnessLevel <= 0.05f ? 0.02f : brightnessLevel);
+        }
+
+        if (screenGlowLight != null)
+        {
+            bool lightActive = isMainframeOnline && !isStandby && brightnessLevel > 0.05f;
+            screenGlowLight.enabled = lightActive;
+            screenGlowLight.intensity = 0.85f * brightnessLevel;
+        }
+
+        if (brightnessKnob != null)
+        {
+            float angle = Mathf.Lerp(-60f, 60f, brightnessLevel);
+            brightnessKnob.localRotation = Quaternion.Euler(0f, 0f, angle);
+        }
+    }
+
+    public void SetStandbyState(bool standby)
+    {
+        isStandby = standby;
+        ApplyBrightnessVisuals();
+
+        if (standby)
+        {
+            if (screenGlowLight != null) screenGlowLight.enabled = false;
+        }
+    }
+
+    private void PlayPotentiometerClick()
+    {
+        if (terminalAudio != null && potentiometerClickClip != null)
+        {
+            terminalAudio.pitch = Random.Range(0.9f, 1.1f);
+            terminalAudio.PlayOneShot(potentiometerClickClip, 0.45f);
+        }
+    }
+
     private void HandleKeyboardShortcuts()
     {
 #if ENABLE_INPUT_SYSTEM
@@ -295,12 +389,14 @@ public class MonitorTerminal : MonoBehaviour
             if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) ShowWipModules();
             if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) RunCrtTest();
             if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) ToggleRoomLight();
+            if (kb.bKey.wasPressedThisFrame) CycleBrightness();
         }
 #else
         if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) ShowRoadmap();
         if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) ShowWipModules();
         if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) RunCrtTest();
         if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) ToggleRoomLight();
+        if (Input.GetKeyDown(KeyCode.B)) CycleBrightness();
 #endif
     }
 
@@ -400,6 +496,9 @@ public class MonitorTerminal : MonoBehaviour
 
         // 3. Alert / rejection sound
         alertClip = CreateAlertSound();
+
+        // 4. Potentiometer detent click
+        potentiometerClickClip = CreatePotentiometerClickSound();
     }
 
     private AudioClip CreateCrtStartupSound()
@@ -458,6 +557,27 @@ public class MonitorTerminal : MonoBehaviour
         }
 
         var clip = AudioClip.Create("AlertBuzz", samples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
+
+    private AudioClip CreatePotentiometerClickSound()
+    {
+        int sampleRate = 44100;
+        int samples = (int)(sampleRate * 0.045f);
+        float[] data = new float[samples];
+
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / samples;
+            float click = Mathf.Sin(2f * Mathf.PI * 920f * (float)i / sampleRate);
+            float click2 = Mathf.Sin(2f * Mathf.PI * 1480f * (float)i / sampleRate) * 0.4f;
+            float noise = (Random.value * 2f - 1f) * 0.35f;
+            float env = Mathf.Exp(-t * 28f);
+            data[i] = (click + click2 + noise) * env * 0.6f;
+        }
+
+        var clip = AudioClip.Create("PotentiometerClick", samples, 1, sampleRate, false);
         clip.SetData(data, 0);
         return clip;
     }

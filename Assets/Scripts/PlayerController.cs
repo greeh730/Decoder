@@ -226,6 +226,14 @@ public class PlayerController : MonoBehaviour
             InspectMonitor();
             return;
         }
+
+        // Adjust monitor brightness while standing near desk (B)
+        if (distToMonitor < 2.5f && WasKeyPressed(KeyCode.B))
+        {
+            if (monitorTerminal != null) monitorTerminal.CycleBrightness();
+            else if (MonitorTerminal.Instance != null) MonitorTerminal.Instance.CycleBrightness();
+            return;
+        }
     }
 
     private void CheckInteractionPromptsSitting()
@@ -241,6 +249,14 @@ public class PlayerController : MonoBehaviour
         if (WasKeyPressed(KeyCode.F))
         {
             InspectMonitor();
+            return;
+        }
+
+        // Adjust monitor brightness with potentiometer knob while sitting (B)
+        if (WasKeyPressed(KeyCode.B))
+        {
+            if (monitorTerminal != null) monitorTerminal.CycleBrightness();
+            else if (MonitorTerminal.Instance != null) MonitorTerminal.Instance.CycleBrightness();
             return;
         }
     }
@@ -534,6 +550,7 @@ public class PlayerController : MonoBehaviour
             case KeyCode.Escape: return kb.escapeKey.wasPressedThisFrame;
             case KeyCode.V: return kb.vKey.wasPressedThisFrame;
             case KeyCode.C: return kb.cKey.wasPressedThisFrame;
+            case KeyCode.B: return kb.bKey.wasPressedThisFrame;
             default: return false;
         }
 #else
@@ -622,7 +639,7 @@ public class PlayerController : MonoBehaviour
         GUI.color = Color.white;
 
         // Top-left status box
-        GUILayout.BeginArea(new Rect(15, 15, 420, 150));
+        GUILayout.BeginArea(new Rect(15, 15, 430, 185));
         var boxStyle = new GUIStyle(GUI.skin.box)
         {
             alignment = TextAnchor.UpperLeft,
@@ -640,11 +657,54 @@ public class PlayerController : MonoBehaviour
         };
 
         string viewModeText = isFirstPerson ? "1-е лицо" : "3-е лицо";
+
+        // Acoustic stealth status
+        string noiseText = "0 dB [ОБЕСТОЧЕНО]";
+        string noiseColor = "#888888";
+        if (MainframeBootQuest.Instance != null)
+        {
+            if (MainframeBootQuest.Instance.IsNoiseActive)
+            {
+                noiseText = "72 dB [ГУЛ 50Hz // СЛЫШНО 5.5м]";
+                noiseColor = "#FF5555";
+            }
+            else if (MainframeBootQuest.Instance.CurrentStage == BootStage.HotStandby)
+            {
+                noiseText = "0 dB [ГОТОВНОСТЬ // БЕСШУМНО]";
+                noiseColor = "#00FFAA";
+            }
+        }
+
+        // Optical stealth status
+        string lightText = "0% [ТЕМНОТА]";
+        string lightColor = "#00FFAA";
+        var term = monitorTerminal != null ? monitorTerminal : MonitorTerminal.Instance;
+        if (term != null && term.IsMainframeOnline && !term.IsStandby)
+        {
+            if (term.BrightnessLevel > 0.6f)
+            {
+                lightText = "100% [ДАЛЬНИЙ ЛУЧ // 22 МЕТРА]";
+                lightColor = "#FFCC00";
+            }
+            else if (term.BrightnessLevel > 0.05f)
+            {
+                lightText = "35% [ПРИГЛУШЕН]";
+                lightColor = "#FFFF66";
+            }
+            else
+            {
+                lightText = "0% [МАСКИРОВКА // ТЕМНО]";
+                lightColor = "#00FFAA";
+            }
+        }
+
         string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
+                           $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
+                           $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
                            $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
                            $"• <b>Shift</b> — Бег | <b>Space</b> — Прыжок\n" +
-                           $"• <b>T</b> — Карманные часы (таймер)\n" +
-                           $"• <b>Мышь</b> — Обзор (Look)\n" +
+                           $"• <b>T</b> — Карманные часы (таймер / радар)\n" +
+                           $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
                            $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
                            $"• <b>Esc</b> — Освободить мышь (клик — захват)";
 
@@ -718,20 +778,24 @@ public class PlayerController : MonoBehaviour
             if (isServerOnline)
             {
                 promptStyle.normal.textColor = Color.cyan;
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 110, 360, 34), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "Нажмите [F] — Терминал (WIP)", promptStyle);
             }
             else
             {
                 promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 110, 360, 34), "[ Монитор обесточен — запустите сервер ]", promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "[ Монитор обесточен — запустите сервер ]", promptStyle);
             }
+
+            promptStyle.normal.textColor = new Color(0.4f, 1.0f, 0.8f);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 95, 360, 32), "Нажмите [B] — Регулятор яркости (маскировка)", promptStyle);
+
             promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 70, 360, 34), "Нажмите [E] / [Space] / [W,A,S,D] — Встать", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), "Нажмите [E] / [Space] / [W,A,S,D] — Встать", promptStyle);
         }
         else if (currentState == PlayerState.InspectingMonitor)
         {
             promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 160, screenH - 60, 320, 36), "Нажмите [ESC] или [F] — Отойти от монитора", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
         }
     }
 }

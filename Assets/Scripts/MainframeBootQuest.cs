@@ -15,7 +15,8 @@ public enum BootStage
     HighVoltageOn,
     ReadyForIPL,
     SystemBooting,
-    SystemOnline
+    SystemOnline,
+    HotStandby
 }
 
 /// <summary>
@@ -86,6 +87,13 @@ public class MainframeBootQuest : MonoBehaviour
     public bool IsReadingManual => isReadingManual;
     public bool HasTape => hasTapeInInventory;
 
+    public bool IsNoiseActive => (currentStage == BootStage.SystemOnline || currentStage == BootStage.SystemBooting);
+    public float NoiseRadius => IsNoiseActive ? 5.5f : 0f;
+
+    private AudioSource humAudioSource;
+    private AudioClip humLoopClip;
+    private AudioClip relayClackClip;
+
     private void Awake()
     {
         Instance = this;
@@ -96,6 +104,7 @@ public class MainframeBootQuest : MonoBehaviour
         addressSwitches = new bool[4] { false, false, false, false };
 
         CreateMaterials();
+        SetupAudio();
     }
 
     private void Start()
@@ -233,6 +242,32 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleHighVoltage()
     {
+        if (currentStage == BootStage.SystemOnline)
+        {
+            // Enter Hot Standby: Cut HV, cut hum, keep filaments warm!
+            currentStage = BootStage.HotStandby;
+            StopTransformerHum();
+            PlayRelaySound();
+            if (monitorTerminal != null) monitorTerminal.SetStandbyState(true);
+            ShowNotification("<color=#FFCC00>[ГОТОВНОСТЬ]</color> Высокое напряжение снято (Standby). ЭВМ обесшумлена, накал активен.");
+            UpdateAllVisuals();
+            return;
+        }
+
+        if (currentStage == BootStage.HotStandby)
+        {
+            // Fast resume in 0.4s!
+            currentStage = BootStage.SystemOnline;
+            PlayRelaySound();
+            StartTransformerHum();
+            if (monitorTerminal != null) monitorTerminal.SetStandbyState(false);
+            if (registerBlinkCoroutine != null) StopCoroutine(registerBlinkCoroutine);
+            registerBlinkCoroutine = StartCoroutine(RegisterBlinkRoutine());
+            ShowNotification("<color=#00FF88>[ОНЛАЙН]</color> Анодное напряжение подано. ЭВМ мгновенно в строю.");
+            UpdateAllVisuals();
+            return;
+        }
+
         if (currentStage < BootStage.FilamentReady)
         {
             ShowNotification("[ОПАСНОСТЬ] Нельзя подавать анодное напряжение на холодные лампы!");
@@ -242,6 +277,7 @@ public class MainframeBootQuest : MonoBehaviour
         if (currentStage == BootStage.FilamentReady)
         {
             currentStage = BootStage.HighVoltageOn;
+            PlayRelaySound();
             ShowNotification("Высокое напряжение подано. Вычислительный блок активирован.");
             UpdateAllVisuals();
         }
@@ -346,6 +382,8 @@ public class MainframeBootQuest : MonoBehaviour
         yield return new WaitForSeconds(2.8f);
 
         currentStage = BootStage.SystemOnline;
+        PlayRelaySound();
+        StartTransformerHum();
         ShowNotification("★★ СИСТЕМА УСПЕШНО ЗАПУЩЕНА! Подойдите к монитору на столе.");
 
         if (monitorTerminal != null)
@@ -361,7 +399,7 @@ public class MainframeBootQuest : MonoBehaviour
 
     private IEnumerator RegisterBlinkRoutine()
     {
-        while (currentStage >= BootStage.SystemBooting)
+        while (currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline)
         {
             if (registerLeds != null)
             {
@@ -375,6 +413,15 @@ public class MainframeBootQuest : MonoBehaviour
                 }
             }
             yield return new WaitForSeconds(Random.Range(0.06f, 0.14f));
+        }
+
+        // Extinguish LEDs in standby or off
+        if (registerLeds != null)
+        {
+            foreach (var r in registerLeds)
+            {
+                if (r != null) r.sharedMaterial = ledOffMat;
+            }
         }
     }
 
@@ -427,13 +474,25 @@ public class MainframeBootQuest : MonoBehaviour
         }
 
         // 3. High Voltage
+        bool hvActive = (currentStage >= BootStage.HighVoltageOn && currentStage != BootStage.HotStandby);
         if (hvSwitch != null)
         {
-            hvSwitch.localRotation = Quaternion.Euler(currentStage >= BootStage.HighVoltageOn ? -35f : 35f, 0f, 0f);
+            hvSwitch.localRotation = Quaternion.Euler(hvActive ? -35f : 35f, 0f, 0f);
         }
         if (hvStatusLed != null)
         {
-            hvStatusLed.sharedMaterial = currentStage >= BootStage.HighVoltageOn ? ledGreenMat : ledOffMat;
+            hvStatusLed.sharedMaterial = hvActive ? ledGreenMat : (currentStage == BootStage.HotStandby ? ledYellowMat : ledOffMat);
+        }
+        if (hvInteractable != null)
+        {
+            if (currentStage == BootStage.SystemOnline)
+                hvInteractable.PromptText = "Нажмите [E] — Снять анодное напряжение (Горячий резерв / Standby)";
+            else if (currentStage == BootStage.HotStandby)
+                hvInteractable.PromptText = "Нажмите [E] — Подать анодное напряжение (Быстрый запуск ЭВМ)";
+            else if (currentStage == BootStage.FilamentReady)
+                hvInteractable.PromptText = "Нажмите [E] — Подать высокое напряжение (HV)";
+            else
+                hvInteractable.PromptText = "Тумблер высокого напряжения (HV)";
         }
 
         // 4. Tube glow
@@ -575,5 +634,97 @@ public class MainframeBootQuest : MonoBehaviour
 
         GUILayout.EndArea();
         GUI.backgroundColor = Color.white;
+    }
+
+    private void SetupAudio()
+    {
+        if (questAudioSource == null) questAudioSource = GetComponent<AudioSource>();
+        if (questAudioSource == null) questAudioSource = gameObject.AddComponent<AudioSource>();
+
+        questAudioSource.spatialBlend = 0.85f;
+        questAudioSource.minDistance = 1.0f;
+        questAudioSource.maxDistance = 15f;
+
+        humAudioSource = gameObject.AddComponent<AudioSource>();
+        humAudioSource.spatialBlend = 0.85f;
+        humAudioSource.minDistance = 1.5f;
+        humAudioSource.maxDistance = 14f;
+        humAudioSource.loop = true;
+        humAudioSource.volume = 0.55f;
+
+        humLoopClip = CreateTransformerHumClip();
+        relayClackClip = CreateRelayClackClip();
+        humAudioSource.clip = humLoopClip;
+    }
+
+    private void StartTransformerHum()
+    {
+        if (humAudioSource != null && humLoopClip != null && !humAudioSource.isPlaying)
+        {
+            humAudioSource.Play();
+        }
+    }
+
+    private void StopTransformerHum()
+    {
+        if (humAudioSource != null && humAudioSource.isPlaying)
+        {
+            humAudioSource.Stop();
+        }
+    }
+
+    private void PlayRelaySound()
+    {
+        if (questAudioSource != null && relayClackClip != null)
+        {
+            questAudioSource.PlayOneShot(relayClackClip, 0.75f);
+        }
+    }
+
+    private AudioClip CreateTransformerHumClip()
+    {
+        int sampleRate = 44100;
+        int samples = sampleRate * 1; // 1-second seamless loop
+        float[] data = new float[samples];
+
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / sampleRate;
+            // 50Hz fundamental power line hum
+            float h50 = Mathf.Sin(2f * Mathf.PI * 50f * t) * 0.45f;
+            // 100Hz rectification harmonic
+            float h100 = Mathf.Sin(2f * Mathf.PI * 100f * t) * 0.25f;
+            // 150Hz odd harmonic
+            float h150 = Mathf.Sin(2f * Mathf.PI * 150f * t) * 0.12f;
+            // Subtle cooling blower noise
+            float fan = (Random.value * 2f - 1f) * 0.04f;
+
+            data[i] = (h50 + h100 + h150 + fan);
+        }
+
+        var clip = AudioClip.Create("MainframeHum50Hz", samples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
+
+    private AudioClip CreateRelayClackClip()
+    {
+        int sampleRate = 44100;
+        int samples = (int)(sampleRate * 0.08f);
+        float[] data = new float[samples];
+
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / samples;
+            float thud = Mathf.Sin(2f * Mathf.PI * 120f * (float)i / sampleRate) * 0.7f;
+            float metallic = Mathf.Sin(2f * Mathf.PI * 850f * (float)i / sampleRate) * 0.35f;
+            float noise = (Random.value * 2f - 1f) * 0.2f;
+            float env = 1f - t;
+            data[i] = (thud + metallic + noise) * env * env;
+        }
+
+        var clip = AudioClip.Create("RelayContactorClack", samples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
     }
 }

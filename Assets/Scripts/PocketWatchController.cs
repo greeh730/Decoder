@@ -27,7 +27,9 @@ public class PocketWatchController : MonoBehaviour
     [Header("Watch State")]
     [SerializeField] private bool isRaised = false;
     [SerializeField] private bool isMapMode = false;
+#if !ENABLE_INPUT_SYSTEM
     [SerializeField] private KeyCode toggleKey = KeyCode.T;
+#endif
 
     [Header("Procedural Hierarchy References")]
     [SerializeField] private Transform watchRig;
@@ -584,12 +586,15 @@ public class PocketWatchController : MonoBehaviour
         bool justSweptAnyGuard = false;
         var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
         int guardCount = (guards != null) ? guards.Length : 0;
+        float maxSuspicion = 0f;
 
         if (guards != null && guardCount > 0)
         {
             foreach (var g in guards)
             {
                 if (g == null) continue;
+                if (g.Suspicion > maxSuspicion) maxSuspicion = g.Suspicion;
+
                 int id = g.gameObject.name.GetHashCode();
                 Vector3 gPos = g.transform.position;
                 Vector2 livePix = WorldToRadarPixel(gPos.x, gPos.z);
@@ -629,7 +634,23 @@ public class PocketWatchController : MonoBehaviour
                 Color32 coreCol = Color32.Lerp(new Color32(130, 25, 25, 160), new Color32(255, 45, 45, 255), blip.intensity);
                 Color32 glowCol = Color32.Lerp(new Color32(70, 10, 10, 70), new Color32(255, 120, 100, 200), blip.intensity);
 
-                if (blip.intensity > 0.88f)
+                if (g.Suspicion > 0.35f)
+                {
+                    float pulse = Mathf.PingPong(Time.time * 6f, 1f);
+                    if (g.Suspicion >= 0.80f)
+                    {
+                        // High Alert: Rapid flashing red-yellow
+                        coreCol = Color32.Lerp(new Color32(255, 30, 30, 255), new Color32(255, 230, 30, 255), pulse);
+                        glowCol = new Color32(255, 120, 0, 220);
+                    }
+                    else
+                    {
+                        // Suspicious: Pulsing amber
+                        coreCol = Color32.Lerp(new Color32(220, 140, 20, 200), new Color32(255, 220, 40, 255), pulse);
+                        glowCol = new Color32(200, 120, 10, 180);
+                    }
+                }
+                else if (blip.intensity > 0.88f)
                 {
                     coreCol = new Color32(255, 230, 210, 255); // bright ping flash!
                 }
@@ -724,7 +745,21 @@ public class PocketWatchController : MonoBehaviour
         // Update status text
         if (radarStatusText != null)
         {
-            radarStatusText.text = $"• ОХРАНА: {guardCount} •";
+            if (maxSuspicion >= 0.80f)
+            {
+                radarStatusText.color = new Color(1.0f, 0.25f, 0.25f);
+                radarStatusText.text = "⚠ ТРЕВОГА У ДВЕРИ! ⚠";
+            }
+            else if (maxSuspicion > 0.35f)
+            {
+                radarStatusText.color = new Color(1.0f, 0.85f, 0.2f);
+                radarStatusText.text = $"• ПОДОЗРЕНИЕ: {Mathf.RoundToInt(maxSuspicion * 100f)}% •";
+            }
+            else
+            {
+                radarStatusText.color = new Color(0.35f, 0.95f, 0.55f);
+                radarStatusText.text = $"• ОХРАНА: {guardCount} •";
+            }
         }
     }
 
