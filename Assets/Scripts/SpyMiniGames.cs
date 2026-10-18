@@ -49,6 +49,9 @@ public class SpyMiniGames : MonoBehaviour
     [SerializeField] private Button btnCancel;
     [SerializeField] private Button btnAction;
     [SerializeField] private Text btnActionText;
+    [SerializeField] private Button btnHelp;
+    [SerializeField] private GameObject helpOverlayPanel;
+    [SerializeField] private Text helpOverlayText;
 
     [Header("Audio")]
     [SerializeField] private AudioSource audioSource;
@@ -63,6 +66,7 @@ public class SpyMiniGames : MonoBehaviour
     private Action<bool> onGameFinishedCallback;
     private float gameTimer = 45f;
     private bool isGameActive = false;
+    private bool isHelpOpen = false;
 
     // --- Sub-game data states ---
 
@@ -147,6 +151,11 @@ public class SpyMiniGames : MonoBehaviour
             btnAction.onClick.RemoveAllListeners();
             btnAction.onClick.AddListener(OnMainActionButtonPressed);
         }
+        if (btnHelp != null)
+        {
+            btnHelp.onClick.RemoveAllListeners();
+            btnHelp.onClick.AddListener(() => ToggleHelp(!isHelpOpen));
+        }
 
         if (miniGameRootPanel != null)
         {
@@ -157,6 +166,13 @@ public class SpyMiniGames : MonoBehaviour
     private void Update()
     {
         if (!isGameActive) return;
+
+        // If help overlay is open, handle input and freeze timer
+        if (isHelpOpen)
+        {
+            HandleKeyboardInput();
+            return;
+        }
 
         // Countdown timer
         gameTimer -= Time.deltaTime;
@@ -212,8 +228,10 @@ public class SpyMiniGames : MonoBehaviour
         onGameFinishedCallback = onComplete;
         currentGame = GetGameTypeForFile(file.name);
         isGameActive = true;
+        isHelpOpen = false;
         gameTimer = 45f;
 
+        if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(true);
         PlayClick();
 
@@ -411,7 +429,7 @@ public class SpyMiniGames : MonoBehaviour
             $"{carriageVisual}\n" +
             $"  <color=#FFFF88>► {turingLastActionNote}</color>\n\n" +
             $"{tableVisual}\n\n" +
-            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг (STEP)  │  [ENTER] Пуск  │  [R] Сброс</color>";
+            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг  │  [ENTER] Пуск  │  [H] Справка  │  [R] Сброс</color>";
 
         if (btnActionText != null)
         {
@@ -931,13 +949,172 @@ public class SpyMiniGames : MonoBehaviour
             $"     ╚═══════╝      ╚═══════╝      ╚═══════╝  \n\n" +
             $"  ПОДСКАЗКА ИЗ БЛОКНОТА: Ключ дежурного криптографа [ IV - II - VII ]\n" +
             $"  {resultText}\n\n" +
-            $"<color=#FFFF66>[1/2/3] Выбор ротора  |  [ВВЕРХ / ВНИЗ] Проворот  |  [ENTER] Пуск</color>";
+            $"<color=#FFFF66>[1/2/3] Выбор ротора  |  [ВВЕРХ / ВНИЗ] Проворот  |  [ENTER] Пуск  |  [H] Справка</color>";
+    }
+
+    // --- In-Game Help Overlay System ---
+
+    public void ToggleHelp(bool open)
+    {
+        isHelpOpen = open;
+        PlayClick();
+        if (helpOverlayPanel != null)
+        {
+            helpOverlayPanel.SetActive(isHelpOpen);
+        }
+        if (isHelpOpen && helpOverlayText != null)
+        {
+            helpOverlayText.text = GetHelpTextForCurrentGame();
+        }
+    }
+
+    public string GetHelpTextForCurrentGame()
+    {
+        switch (currentGame)
+        {
+            case GameType.TuringTape:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 01: МАШИНА ТЬЮРИНГА (ДВОИЧНЫЙ СУММАТОР НА 1)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Прибавить 1 к двоичному числу <b>1011</b> (11 в дес.) и получить <b>1100</b> (12 в дес.).\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ АВТОМАТА:</b></color>\n" +
+                    "1. <b>Состояние q0 (Поиск младшего разряда):</b>\n" +
+                    "   Каретка сканирует перфоленту вправо до пробела '_', затем делает шаг влево на младший значащий бит.\n" +
+                    "2. <b>Состояние q1 (Сложение в столбик с флагом переноса):</b>\n" +
+                    "   • Если под кареткой <color=#FFFF33>'1'</color>: <b>1 + 1 = 10 (двоичное)</b>.\n" +
+                    "     Требуется: Запись <color=#00FFAA>[0]</color>, Сдвиг <color=#00FFAA>[← ВЛЕВО]</color>, Переход в <color=#00FFAA>[q1]</color> (перенос дальше).\n" +
+                    "   • Если под кареткой <color=#00FFAA>'0'</color>: <b>0 + 1 = 1 (двоичное)</b>.\n" +
+                    "     Требуется: Запись <color=#00FFAA>[1]</color>, Сдвиг <color=#00FFAA>[• СТОП ]</color>, Переход в <color=#00FFAA>[HALT]</color> (перенос исчерпан!).\n" +
+                    "   • Если под кареткой <color=#66CCFF>'_'</color> (выход за число): Запись [1], СТОП, HALT.\n\n" +
+                    "<color=#FFFF88><b>УПРАВЛЕНИЕ:</b></color>\n" +
+                    "• <b>[СТРЕЛКИ ВВЕРХ/ВНИЗ]</b> — выбор слота таблицы микрокода q1.\n" +
+                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО]</b> — изменение значения (0/1/_, ←/→/СТОП, q0/q1/HALT).\n" +
+                    "• <b>[ПРОБЕЛ]</b> — пошаговый тест (STEP) для пошаговой проверки логики каретки.\n" +
+                    "• <b>[ENTER]</b> — непрерывный пуск до останова (HALT).\n" +
+                    "• <b>[R]</b> — сброс перфоленты и каретки в исходное положение.";
+
+            case GameType.FrequencyAnalysis:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 02: ЧАСТОТНЫЙ СПЕКТРОАНАЛИЗАТОР (ШИФР ПОДСТАНОВКИ)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Вскрыть шифр сдвига (шифр Цезаря) секретной директивы управления.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "В русском языке гласные буквы встречаются с известной эталонной частотой (О, Е, А).\n" +
+                    "• Верхняя гистограмма (зеленая) отображает частотный спектр перехваченного документа.\n" +
+                    "• Нижняя гистограмма (желтая) отображает эталонный акустический спектр естественного языка.\n" +
+                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО]</b> — циклический сдвиг фазы алфавита (подбор ключа сдвига).\n" +
+                    "• Совместите главные резонансные пики обеих кривых и нажмите <b>[ENTER]</b>.";
+
+            case GameType.DatabaseFilter:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 03: РЕЛЯЦИОННЫЙ ФИЛЬТР КАРТОТЕКИ (БАЗА СЕКТОРА 7)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Локализовать карточку дежурного офицера и считать пароль администратора.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "Согласно регламенту безопасности, мастер-пароль хранится у ночного криптографа:\n" +
+                    "• <b>[1]</b> — Выбор отдела: переключите на <b>[КРИПТО]</b>.\n" +
+                    "• <b>[2]</b> — Уровень допуска: переключите на <b>[ОСОБЫЙ]</b>.\n" +
+                    "• <b>[3]</b> — Смена дежурства: переключите на <b>[НОЧЬ]</b>.\n" +
+                    "• Когда фильтр сузит выборку до 1 сотрудника (Смирнов В.П.), нажмите <b>[ENTER]</b>.";
+
+            case GameType.HexMemoryPatch:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 04: HEX-ПАТЧЕР ОПЕРАТИВНОЙ ПАМЯТИ (СТОРОЖЕВОЙ БУФЕР)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Заморозить сторожевой вектор тревоги по адресу 0x4F0A.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "Для нейтрализации процедуры тревоги необходимо переписать ячейки инструкциями NOP:\n" +
+                    "• Нажимайте клавишу <b>[F]</b>, <b>[ПРОБЕЛ]</b> или <b>[ENTER]</b> для последовательной инъекции 4 байт NOP.\n" +
+                    "• После заполнения сторожевой буфер отключится без срабатывания сигнализации.";
+
+            case GameType.Oscilloscope:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 05: ЭЛЕКТРОННО-ЛУЧЕВОЙ ОСЦИЛЛОГРАФ (ФИГУРЫ ЛИССАЖУ)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Свести интерференционную фигуру радиосигнала в резонансный круг.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "• <b>[A] / [D]</b> — плавная регулировка частоты несущей генератора.\n" +
+                    "• <b>[W] / [S]</b> — регулировка фазового сдвига сигнала.\n" +
+                    "• Сведите две синусоиды в стабильный симметричный круг и нажмите <b>[ENTER]</b>.";
+
+            case GameType.RelayRouting:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 06: РЕЛЕЙНЫЙ МАРШРУТИЗАТОР (ОБХОД ШЛЮЗОВ)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Проложить непрерывный маршрут для пакета данных от узла (0,0) к (3,3).\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "• <b>[СТРЕЛКИ]</b> — выбор ячейки коммутационной панели 4х4.\n" +
+                    "• <b>[ПРОБЕЛ]</b> или <b>[ENTER]</b> — поворот стрелки электромагнитного реле на 90°.\n" +
+                    "• Настройте стрелки цепочкой от левого верхнего угла до правого нижнего приемника.";
+
+            case GameType.HammingParity:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 07: МАТРИЦА ХЭММИНГА (КОРРЕКЦИЯ ОШИБКИ ПАМЯТИ)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Найти и инвертировать сбойный бит в ферритовой матрице.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "По алгоритму Хэмминга четность бит в каждой строке и столбце должна быть четной (0):\n" +
+                    "• Строка с нечетной суммой подсвечена маркером [НЕЧЕТ!].\n" +
+                    "• Столбец с нечетной суммой также имеет сбойный бит четности.\n" +
+                    "• <b>[СТРЕЛКИ]</b> — курсор, <b>[ПРОБЕЛ] / [ENTER]</b> — инвертировать бит на пересечении.";
+
+            case GameType.DiskSectorTiming:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 08: СЕКТОРНЫЙ СИНХРОНИЗАТОР НАКОПИТЕЛЯ ЕС-5061</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Захватить 3 контрольных сектора на вращающемся магнитном диске.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "• Следите за вращением сектора диска по круговой шкале.\n" +
+                    "• Нажимайте <b>[ПРОБЕЛ]</b> ровно в момент, когда метка сектора проходит через створ головки!\n" +
+                    "• Не допускайте промахов: захватите 3 сектора подряд для считывания дорожки.";
+
+            case GameType.StackOverflow:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 09: РЕГИСТРОВЫЙ СТЕК LIFO (КОНТРОЛЬ ПЕРЕПОЛНЕНИЯ)</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Набрать сумму ровно 16 в стеке регистров без превышения лимита (22).\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "• <b>[1]</b> — PUSH 2 (поместить 2 в стек).\n" +
+                    "• <b>[2]</b> — PUSH 4 (поместить 4 в стек).\n" +
+                    "• <b>[3]</b> — PUSH 8 (поместить 8 в стек).\n" +
+                    "• <b>[BACKSPACE]</b> — POP (извлечь верхний элемент).\n" +
+                    "• При точной сумме 16 нажмите <b>[ENTER]</b>.";
+
+            case GameType.RotorCipher:
+                return
+                    "<b><color=#00FFAA>МОДУЛЬ 10: ШИФРОВАЛЬНАЯ МАШИНА «ФИАЛКА-М125»</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Выставить суточный ключ на роторах шифратора.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "• <b>[1], [2], [3]</b> — выбор ротора (I, II или III).\n" +
+                    "• <b>[СТРЕЛКИ ВВЕРХ/ВНИЗ]</b> — поворот выбранного роторного барабана.\n" +
+                    "• Из служебного блокнота дежурного: Ключ дня <b>[ IV - II - VII ]</b> (4 - 2 - 7).\n" +
+                    "• После установки правильной комбинации нажмите <b>[ENTER]</b>.";
+
+            default:
+                return "Служебная инструкция отсутствует.";
+        }
     }
 
     // --- Interaction Input Router ---
 
     private void HandleKeyboardInput()
     {
+        if (isHelpOpen)
+        {
+            if (IsKey(KeyCode.H) || IsKey(KeyCode.Escape) || IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
+            {
+                ToggleHelp(false);
+            }
+            return;
+        }
+
+        if (IsKey(KeyCode.H))
+        {
+            ToggleHelp(true);
+            return;
+        }
+
         if (IsKey(KeyCode.Escape))
         {
             CancelMiniGame();
@@ -1189,6 +1366,8 @@ public class SpyMiniGames : MonoBehaviour
     public void CancelMiniGame()
     {
         isGameActive = false;
+        isHelpOpen = false;
+        if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
         turingIsRunning = false;
         PlayClick();
@@ -1199,6 +1378,8 @@ public class SpyMiniGames : MonoBehaviour
     private IEnumerator CloseAfterDelay(bool success, float delay)
     {
         yield return new WaitForSeconds(delay);
+        isHelpOpen = false;
+        if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(false);
         onGameFinishedCallback?.Invoke(success);
     }
@@ -1223,6 +1404,7 @@ public class SpyMiniGames : MonoBehaviour
             case KeyCode.W: return kb.wKey.wasPressedThisFrame;
             case KeyCode.S: return kb.sKey.wasPressedThisFrame;
             case KeyCode.F: return kb.fKey.wasPressedThisFrame;
+            case KeyCode.H: return kb.hKey.wasPressedThisFrame;
             case KeyCode.R: return kb.rKey.wasPressedThisFrame;
             case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
             case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;

@@ -136,6 +136,16 @@ public static class SetupMiniGamesUI
         var actTxt = CreateText("Text", btnActionGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, Color.white);
         actTxt.text = "[ ВЫПОЛНИТЬ ДЕЙСТВИЕ [ENTER] ]";
 
+        var btnHelpGO = new GameObject("BtnHelp", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
+        btnHelpGO.transform.SetParent(bottomBar.transform, false);
+        btnHelpGO.GetComponent<Image>().color = new Color(0.05f, 0.18f, 0.22f, 0.98f);
+        var helpOutline = btnHelpGO.GetComponent<Outline>();
+        helpOutline.effectColor = new Color(0f, 0.65f, 0.85f, 0.7f);
+        helpOutline.effectDistance = new Vector2(1f, -1f);
+        var btnHlp = btnHelpGO.GetComponent<Button>();
+        var hlpTxt = CreateText("Text", btnHelpGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, new Color(0.7f, 0.95f, 1f));
+        hlpTxt.text = "[ ИНСТРУКЦИЯ [H] ]";
+
         var btnCancelGO = new GameObject("BtnCancel", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
         btnCancelGO.transform.SetParent(bottomBar.transform, false);
         btnCancelGO.GetComponent<Image>().color = new Color(0.20f, 0.08f, 0.08f, 0.98f);
@@ -145,6 +155,32 @@ public static class SetupMiniGamesUI
         var btnCanc = btnCancelGO.GetComponent<Button>();
         var cancTxt = CreateText("Text", btnCancelGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, new Color(1f, 0.75f, 0.75f));
         cancTxt.text = "[ ОТМЕНА [ESC] ]";
+
+        // 7. Help Overlay Panel (Modal over content)
+        var helpOverlayGO = new GameObject("HelpOverlayPanel", typeof(RectTransform), typeof(Image), typeof(Outline));
+        helpOverlayGO.transform.SetParent(panelGO.transform, false);
+        var hoRect = helpOverlayGO.GetComponent<RectTransform>();
+        hoRect.anchorMin = new Vector2(0.015f, 0.09f);
+        hoRect.anchorMax = new Vector2(0.985f, 0.91f);
+        hoRect.offsetMin = Vector2.zero;
+        hoRect.offsetMax = Vector2.zero;
+        var hoImg = helpOverlayGO.GetComponent<Image>();
+        hoImg.color = new Color(0.008f, 0.035f, 0.022f, 0.99f);
+
+        var hoOutline = helpOverlayGO.GetComponent<Outline>();
+        hoOutline.effectColor = new Color(0f, 0.9f, 0.6f, 0.95f);
+        hoOutline.effectDistance = new Vector2(2f, -2f);
+
+        var helpTitle = CreateText("HelpTitle", helpOverlayGO.transform, font, new Vector2(0.02f, 0.91f), new Vector2(0.98f, 0.99f), 22, TextAnchor.MiddleCenter, new Color(0.2f, 1f, 0.75f));
+        helpTitle.text = "<b>╔════ СЛУЖЕБНАЯ ИНСТРУКЦИЯ ИНЖЕНЕРА-КРИПТОГРАФА [H] ════╗</b>";
+
+        var helpBody = CreateText("HelpBody", helpOverlayGO.transform, font, new Vector2(0.03f, 0.10f), new Vector2(0.97f, 0.90f), 19, TextAnchor.UpperLeft, new Color(0.85f, 0.98f, 0.90f));
+        helpBody.text = "Инструкция к выбранному модулю...";
+
+        var helpFooter = CreateText("HelpFooter", helpOverlayGO.transform, font, new Vector2(0.02f, 0.015f), new Vector2(0.98f, 0.085f), 18, TextAnchor.MiddleCenter, new Color(1f, 0.9f, 0.35f));
+        helpFooter.text = "<b>[ Нажмите [H], [ESC] или [ПРОБЕЛ] для закрытия справки и возврата к задаче ]</b>";
+
+        helpOverlayGO.SetActive(false);
 
         // Wire serialized fields on SpyMiniGames
         var so = new SerializedObject(smg);
@@ -157,6 +193,9 @@ public static class SetupMiniGamesUI
         so.FindProperty("btnAction").objectReferenceValue = btnAct;
         so.FindProperty("btnActionText").objectReferenceValue = actTxt;
         so.FindProperty("btnCancel").objectReferenceValue = btnCanc;
+        so.FindProperty("btnHelp").objectReferenceValue = btnHlp;
+        so.FindProperty("helpOverlayPanel").objectReferenceValue = helpOverlayGO;
+        so.FindProperty("helpOverlayText").objectReferenceValue = helpBody;
         so.FindProperty("audioSource").objectReferenceValue = audio;
         so.ApplyModifiedProperties();
 
