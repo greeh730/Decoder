@@ -65,10 +65,15 @@ public class DiskDriveBay : MonoBehaviour
     private bool warnedRed = false;
     private Coroutine brakeCoroutine;
 
+    private int currentCartridgeId = 1;
+    private int extractedCartridgeId = 0;
+
     public DriveBayState State => state;
     public float Temperature => temperature;
     public bool IsOverheating => temperature >= yellowWarningTemp;
     public bool IsCriticalOverheat => temperature >= redAlarmTemp;
+    public int CurrentCartridgeId => currentCartridgeId;
+    public int ExtractedCartridgeId => extractedCartridgeId;
 
     private void Awake()
     {
@@ -258,40 +263,75 @@ public class DiskDriveBay : MonoBehaviour
     private void OnHotCartridgeExtracted()
     {
         state = DriveBayState.CartridgeExtracted;
+        extractedCartridgeId = currentCartridgeId;
+
         if (hotCartridge != null) hotCartridge.gameObject.SetActive(false);
+        if (coldCartridgeInSlot != null) coldCartridgeInSlot.gameObject.SetActive(false);
 
         UpdateLamps();
 
         if (MainframeBootQuest.Instance != null)
         {
-            MainframeBootQuest.Instance.ShowNotification("<color=#FFFF66>[КАРТРИДЖ ИЗВЛЕЧЕН]</color> Возьмите холодный пакет дисков №2 из стойки.");
+            MainframeBootQuest.Instance.ShowNotification(
+                $"<color=#FFFF66>[КАРТРИДЖ ИЗВЛЕЧЕН]</color> Положите горячий пакет №{extractedCartridgeId} на полку охлаждения.");
         }
     }
 
     /// <summary>
-    /// Player clicks on the cold cartridge in the reserve rack to pick it up.
+    /// Called when player places the hot cartridge into a cradle on the cooling rack.
+    /// </summary>
+    public void NotifyCartridgePlacedOnRack()
+    {
+        int otherId = (extractedCartridgeId == 1) ? 2 : 1;
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification(
+                $"<color=#00FFAA>[ПОЛКА ОХЛАЖДЕНИЯ]</color> Теперь возьмите охлажденный пакет №{otherId} с полки.");
+        }
+    }
+
+    /// <summary>
+    /// Called when player takes a cooled cartridge from the cooling rack.
+    /// Mounts it onto the server drive bay guide rails ready to be pushed in.
+    /// </summary>
+    public void MountColdCartridge(int cartridgeId, float temp)
+    {
+        currentCartridgeId = cartridgeId;
+        extractedCartridgeId = 0;
+        state = DriveBayState.InsertingCold;
+
+        if (coldCartridgeInSlot != null)
+        {
+            coldCartridgeInSlot.gameObject.SetActive(true);
+            coldCartridgeInSlot.SetMode(CartridgeDraggable.SlideMode.PushIn, 1.0f, false);
+
+            var labelTm = coldCartridgeInSlot.GetComponentInChildren<TextMesh>();
+            if (labelTm != null)
+            {
+                labelTm.text = $"ПАКЕТ ДИСКОВ ЕС-5061 №{cartridgeId}\n[ РЕЗЕРВНЫЙ ХОЛОДНЫЙ ]";
+                labelTm.color = (cartridgeId == 1) ? new Color(0.85f, 0.2f, 0.2f) : new Color(0.1f, 0.85f, 0.95f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Backward-compatible trigger for picking cold cartridge from rack.
     /// </summary>
     public void PickColdCartridgeFromRack()
     {
+        if (CartridgeCoolingRack.Instance != null)
+        {
+            CartridgeCoolingRack.Instance.InteractCradle2();
+            return;
+        }
+
         if (state != DriveBayState.CartridgeExtracted)
         {
             MainframeBootQuest.Instance?.ShowNotification("Сначала извлеките горячий картридж из слота!");
             return;
         }
 
-        if (coldCartridgeReserve != null) coldCartridgeReserve.SetActive(false);
-
-        if (coldCartridgeInSlot != null)
-        {
-            coldCartridgeInSlot.gameObject.SetActive(true);
-            coldCartridgeInSlot.SetMode(CartridgeDraggable.SlideMode.PushIn, 1.0f, false);
-            state = DriveBayState.InsertingCold;
-        }
-
-        if (MainframeBootQuest.Instance != null)
-        {
-            MainframeBootQuest.Instance.ShowNotification("<color=#00FFAA>[КАРТРИДЖ НА РЕЛЬСАХ]</color> Зажмите ЛКМ и толкайте мышь вперед, чтобы задвинуть его.");
-        }
+        MountColdCartridge(2, 30f);
     }
 
     private void OnColdCartridgeLockedIn()
@@ -301,18 +341,34 @@ public class DiskDriveBay : MonoBehaviour
         warnedYellow = false;
         warnedRed = false;
 
+        // Reset the in-slot cartridge so it becomes the hotCartridge ready for future extractions
+        if (hotCartridge != null && coldCartridgeInSlot != null)
+        {
+            var labelTm = hotCartridge.GetComponentInChildren<TextMesh>();
+            if (labelTm != null)
+            {
+                labelTm.text = $"ПАКЕТ ДИСКОВ ЕС-5061 №{currentCartridgeId}\n[ ОСТОРОЖНО 380В // ГОРЯЧО ]";
+                labelTm.color = (currentCartridgeId == 1) ? new Color(0.85f, 0.2f, 0.2f) : new Color(0.1f, 0.85f, 0.95f);
+            }
+            hotCartridge.gameObject.SetActive(true);
+            hotCartridge.SetMode(CartridgeDraggable.SlideMode.PullOut, 0f, true);
+            coldCartridgeInSlot.gameObject.SetActive(false);
+        }
+
         UpdateLamps();
         PlayTurbineSpinup();
         StartSpindleHum();
 
         if (MonitorTerminal.Instance != null)
         {
-            MonitorTerminal.Instance.AddLog("<color=#00FF88>[ДИСКОВОД ЕС-5061]</color> Новый пакет дисков смонтирован. Температура: 31°C. ДАННЫЕ В БЕЗОПАСНОСТИ.");
+            MonitorTerminal.Instance.AddLog(
+                $"<color=#00FF88>[ДИСКОВОД ЕС-5061]</color> Пакет дисков №{currentCartridgeId} смонтирован. Температура: 31°C. ДАННЫЕ В БЕЗОПАСНОСТИ.");
         }
 
         if (MainframeBootQuest.Instance != null)
         {
-            MainframeBootQuest.Instance.ShowNotification("★★ <color=#00FF88>НАКОПИТЕЛЬ УСПЕШНО ЗАМЕНЕН!</color> Данные спасены от перегрева.");
+            MainframeBootQuest.Instance.ShowNotification(
+                $"★★ <color=#00FF88>ПАКЕТ №{currentCartridgeId} УСПЕШНО ЗАМЕНЕН!</color> Данные спасены от перегрева.");
         }
     }
 
