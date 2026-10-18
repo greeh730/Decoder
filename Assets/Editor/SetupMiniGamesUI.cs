@@ -64,8 +64,8 @@ public static class SetupMiniGamesUI
         var titleText = CreateText("GameTitle", topBar.transform, font, new Vector2(0.02f, 0f), new Vector2(0.68f, 1f), 24, TextAnchor.MiddleLeft, new Color(0f, 1f, 0.7f));
         titleText.text = "<b>╔════ МОДУЛЬ КРИПТОАНАЛИЗА ════╗</b>";
 
-        var timerText = CreateText("TimerText", topBar.transform, font, new Vector2(0.70f, 0f), new Vector2(0.98f, 1f), 22, TextAnchor.MiddleRight, new Color(0.45f, 0.95f, 0.55f));
-        timerText.text = "ТАЙМЕР: 45 СЕК";
+        var timerText = CreateText("TimerText", topBar.transform, font, new Vector2(0.55f, 0f), new Vector2(0.98f, 1f), 20, TextAnchor.MiddleRight, new Color(0.35f, 0.95f, 0.65f));
+        timerText.text = "РЕЖИМ: БЕЗ ОГРАНИЧЕНИЯ ВРЕМЕНИ";
 
         // 3. Instruction description bar
         var descArea = new GameObject("DescArea", typeof(RectTransform), typeof(Image));
@@ -133,8 +133,18 @@ public static class SetupMiniGamesUI
         actionOutline.effectColor = new Color(0f, 0.6f, 0.35f, 0.7f);
         actionOutline.effectDistance = new Vector2(1f, -1f);
         var btnAct = btnActionGO.GetComponent<Button>();
-        var actTxt = CreateText("Text", btnActionGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, Color.white);
-        actTxt.text = "[ ВЫПОЛНИТЬ ДЕЙСТВИЕ [ENTER] ]";
+        var actTxt = CreateText("Text", btnActionGO.transform, font, Vector2.zero, Vector2.one, 18, TextAnchor.MiddleCenter, Color.white);
+        actTxt.text = "[ ВЫПОЛНИТЬ [ENTER] ]";
+
+        var btnRestartGO = new GameObject("BtnRestart", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
+        btnRestartGO.transform.SetParent(bottomBar.transform, false);
+        btnRestartGO.GetComponent<Image>().color = new Color(0.18f, 0.12f, 0.03f, 0.98f);
+        var restartOutline = btnRestartGO.GetComponent<Outline>();
+        restartOutline.effectColor = new Color(0.9f, 0.65f, 0.1f, 0.8f);
+        restartOutline.effectDistance = new Vector2(1f, -1f);
+        var btnRst = btnRestartGO.GetComponent<Button>();
+        var rstTxt = CreateText("Text", btnRestartGO.transform, font, Vector2.zero, Vector2.one, 18, TextAnchor.MiddleCenter, new Color(1f, 0.88f, 0.45f));
+        rstTxt.text = "[ В СТАРТОВУЮ ТОЧКУ [R] ]";
 
         var btnHelpGO = new GameObject("BtnHelp", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
         btnHelpGO.transform.SetParent(bottomBar.transform, false);
@@ -143,7 +153,7 @@ public static class SetupMiniGamesUI
         helpOutline.effectColor = new Color(0f, 0.65f, 0.85f, 0.7f);
         helpOutline.effectDistance = new Vector2(1f, -1f);
         var btnHlp = btnHelpGO.GetComponent<Button>();
-        var hlpTxt = CreateText("Text", btnHelpGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, new Color(0.7f, 0.95f, 1f));
+        var hlpTxt = CreateText("Text", btnHelpGO.transform, font, Vector2.zero, Vector2.one, 18, TextAnchor.MiddleCenter, new Color(0.7f, 0.95f, 1f));
         hlpTxt.text = "[ ИНСТРУКЦИЯ [H] ]";
 
         var btnCancelGO = new GameObject("BtnCancel", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
@@ -153,7 +163,7 @@ public static class SetupMiniGamesUI
         cancelOutline.effectColor = new Color(0.6f, 0.2f, 0.2f, 0.7f);
         cancelOutline.effectDistance = new Vector2(1f, -1f);
         var btnCanc = btnCancelGO.GetComponent<Button>();
-        var cancTxt = CreateText("Text", btnCancelGO.transform, font, Vector2.zero, Vector2.one, 20, TextAnchor.MiddleCenter, new Color(1f, 0.75f, 0.75f));
+        var cancTxt = CreateText("Text", btnCancelGO.transform, font, Vector2.zero, Vector2.one, 18, TextAnchor.MiddleCenter, new Color(1f, 0.75f, 0.75f));
         cancTxt.text = "[ ОТМЕНА [ESC] ]";
 
         // 7. Help Overlay Panel (Modal over content)
@@ -192,6 +202,7 @@ public static class SetupMiniGamesUI
         so.FindProperty("gameContentArea").objectReferenceValue = contentBox.transform;
         so.FindProperty("btnAction").objectReferenceValue = btnAct;
         so.FindProperty("btnActionText").objectReferenceValue = actTxt;
+        so.FindProperty("btnRestart").objectReferenceValue = btnRst;
         so.FindProperty("btnCancel").objectReferenceValue = btnCanc;
         so.FindProperty("btnHelp").objectReferenceValue = btnHlp;
         so.FindProperty("helpOverlayPanel").objectReferenceValue = helpOverlayGO;

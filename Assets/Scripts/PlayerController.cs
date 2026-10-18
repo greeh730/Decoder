@@ -102,10 +102,15 @@ public class PlayerController : MonoBehaviour
     public bool IsDraggingCartridge => isDraggingCartridge;
     public float StunTimer => stunTimer;
 
+    private Vector3 initialSpawnPosition;
+    private Quaternion initialSpawnRotation;
+
     private void Awake()
     {
         Application.runInBackground = true;
         characterController = GetComponent<CharacterController>();
+        initialSpawnPosition = transform.position;
+        initialSpawnRotation = transform.rotation;
 
         if (cameraHolder == null)
         {
@@ -162,6 +167,13 @@ public class PlayerController : MonoBehaviour
     {
         if (isTransitioningCamera) return;
         if (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsReadingManual) return;
+
+#if ENABLE_INPUT_SYSTEM
+        var kb = Keyboard.current;
+        if (kb != null && kb.f9Key.wasPressedThisFrame) ResetPlayerToStartingPoint();
+#else
+        if (Input.GetKeyDown(KeyCode.F9)) ResetPlayerToStartingPoint();
+#endif
 
         HandleCursorLock();
 
@@ -429,6 +441,24 @@ public class PlayerController : MonoBehaviour
             isDraggingKnob = false;
             activeKnob = null;
         }
+    }
+
+    public void ResetPlayerToStartingPoint()
+    {
+        if (currentState == PlayerState.InspectingMonitor)
+        {
+            if (monitorTerminal != null) monitorTerminal.SetZoomedIn(false);
+        }
+        if (currentState == PlayerState.Sitting)
+        {
+            StandUp();
+        }
+        if (characterController != null) characterController.enabled = false;
+        transform.position = initialSpawnPosition;
+        transform.rotation = initialSpawnRotation;
+        if (characterController != null) characterController.enabled = true;
+        currentState = PlayerState.Normal;
+        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[СБРОС]</color> Оператор возвращён в стартовую точку [F9].");
     }
 
     private void HandleCartridgeDragging()

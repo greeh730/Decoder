@@ -49,6 +49,7 @@ public class SpyMiniGames : MonoBehaviour
     [SerializeField] private Button btnCancel;
     [SerializeField] private Button btnAction;
     [SerializeField] private Text btnActionText;
+    [SerializeField] private Button btnRestart;
     [SerializeField] private Button btnHelp;
     [SerializeField] private GameObject helpOverlayPanel;
     [SerializeField] private Text helpOverlayText;
@@ -64,7 +65,6 @@ public class SpyMiniGames : MonoBehaviour
     private GameType currentGame = GameType.None;
     private VectorCommander.VirtualFile activeFile;
     private Action<bool> onGameFinishedCallback;
-    private float gameTimer = 45f;
     private bool isGameActive = false;
     private bool isHelpOpen = false;
 
@@ -151,6 +151,11 @@ public class SpyMiniGames : MonoBehaviour
             btnAction.onClick.RemoveAllListeners();
             btnAction.onClick.AddListener(OnMainActionButtonPressed);
         }
+        if (btnRestart != null)
+        {
+            btnRestart.onClick.RemoveAllListeners();
+            btnRestart.onClick.AddListener(RestartCurrentGameToStartingPoint);
+        }
         if (btnHelp != null)
         {
             btnHelp.onClick.RemoveAllListeners();
@@ -167,28 +172,14 @@ public class SpyMiniGames : MonoBehaviour
     {
         if (!isGameActive) return;
 
-        // If help overlay is open, handle input and freeze timer
+        // If help overlay is open, route input to overlay
         if (isHelpOpen)
         {
             HandleKeyboardInput();
             return;
         }
 
-        // Countdown timer
-        gameTimer -= Time.deltaTime;
-        if (timerCountdownText != null)
-        {
-            int sec = Mathf.Max(0, Mathf.CeilToInt(gameTimer));
-            timerCountdownText.text = $"ТАЙМЕР ДО СБРОСА: <color={(sec < 10 ? "#FF3333" : "#00FFAA")}>{sec} СЕК</color>";
-        }
-
-        if (gameTimer <= 0f)
-        {
-            OnGameFailed("ВРЕМЯ ИСТЕКЛО! СИСТЕМА ЗАБЛОКИРОВАНА ТАЙМАУТОМ.");
-            return;
-        }
-
-        // Active game update loops
+        // Active game update loops (no countdown timer - infinite calm analysis mode)
         switch (currentGame)
         {
             case GameType.Oscilloscope:
@@ -229,7 +220,11 @@ public class SpyMiniGames : MonoBehaviour
         currentGame = GetGameTypeForFile(file.name);
         isGameActive = true;
         isHelpOpen = false;
-        gameTimer = 45f;
+
+        if (timerCountdownText != null)
+        {
+            timerCountdownText.text = "<color=#00FFAA>РЕЖИМ: БЕЗ ОГРАНИЧЕНИЯ ВРЕМЕНИ</color>";
+        }
 
         if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(true);
@@ -429,7 +424,7 @@ public class SpyMiniGames : MonoBehaviour
             $"{carriageVisual}\n" +
             $"  <color=#FFFF88>► {turingLastActionNote}</color>\n\n" +
             $"{tableVisual}\n\n" +
-            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг  │  [ENTER] Пуск  │  [H] Справка  │  [R] Сброс</color>";
+            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг  │  [ENTER] Пуск  │  [R] В старт  │  [H] Справка</color>";
 
         if (btnActionText != null)
         {
@@ -1096,6 +1091,97 @@ public class SpyMiniGames : MonoBehaviour
         }
     }
 
+    // --- Restart To Starting Point ---
+
+    public void RestartCurrentGameToStartingPoint()
+    {
+        if (!isGameActive) return;
+
+        PlayClick();
+        if (turingRunCoroutine != null)
+        {
+            StopCoroutine(turingRunCoroutine);
+            turingRunCoroutine = null;
+        }
+        turingIsRunning = false;
+
+        switch (currentGame)
+        {
+            case GameType.TuringTape:
+                turingTape = (char[])turingInitialTape.Clone();
+                turingHeadIndex = 1;
+                turingCurrentState = 0;
+                turingStepCount = 0;
+                turingActiveRuleIndex = -1;
+                turingSelectedSlot = 0;
+                turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 };
+                turingLastActionNote = "Каретка возвращена в стартовую точку (ячейка #1, q0).";
+                UpdateTuringDisplay();
+                break;
+
+            case GameType.FrequencyAnalysis:
+                freqShift = 2;
+                UpdateFrequencyDisplay();
+                break;
+
+            case GameType.DatabaseFilter:
+                dbDeptIndex = 0;
+                dbClearance = 0;
+                dbShiftIndex = 0;
+                UpdateDatabaseDisplay();
+                break;
+
+            case GameType.HexMemoryPatch:
+                hexEntered = 0;
+                UpdateHexDisplay();
+                break;
+
+            case GameType.Oscilloscope:
+                oscFrequency = 1.0f;
+                oscPhase = 30f;
+                UpdateOscilloscopeDisplay();
+                break;
+
+            case GameType.RelayRouting:
+                InitRelayMatrix();
+                packetX = 0;
+                packetY = 0;
+                packetStepTimer = 0f;
+                UpdateRelayDisplay();
+                break;
+
+            case GameType.HammingParity:
+                InitHammingMatrix();
+                UpdateHammingDisplay();
+                break;
+
+            case GameType.DiskSectorTiming:
+                diskAngle = 0f;
+                sectorsCaptured = 0;
+                targetSectorAngle = 180f;
+                UpdateDiskSectorDisplay();
+                break;
+
+            case GameType.StackOverflow:
+                stackRegisters.Clear();
+                UpdateStackDisplay();
+                break;
+
+            case GameType.RotorCipher:
+                rotor1 = 1;
+                rotor2 = 6;
+                rotor3 = 3;
+                UpdateRotorDisplay();
+                break;
+        }
+
+        if (statusFeedbackText != null)
+        {
+            statusFeedbackText.text = "<color=#00FFAA><b>[ПЕРЕЗАПУСК] Задача возвращена в стартовую точку!</b></color>";
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ПЕРЕЗАПУСК]</color> Задача возвращена в стартовую точку.");
+    }
+
     // --- Interaction Input Router ---
 
     private void HandleKeyboardInput()
@@ -1112,6 +1198,12 @@ public class SpyMiniGames : MonoBehaviour
         if (IsKey(KeyCode.H))
         {
             ToggleHelp(true);
+            return;
+        }
+
+        if (IsKey(KeyCode.R))
+        {
+            RestartCurrentGameToStartingPoint();
             return;
         }
 
