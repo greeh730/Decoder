@@ -1130,8 +1130,13 @@ public class PlayerController : MonoBehaviour
                 promptStyle.normal.textColor = Color.yellow;
                 GUI.Box(new Rect(screenW / 2 - 240, screenH - 105, 480, 34), "Зажмите [ЛКМ] и двигайте мышь — Крутить ручку яркости", promptStyle);
             }
-            promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
+
+            bool isCommanderActive = VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeInHierarchy;
+            if (!isCommanderActive)
+            {
+                promptStyle.normal.textColor = Color.yellow;
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
+            }
         }
     }
 }

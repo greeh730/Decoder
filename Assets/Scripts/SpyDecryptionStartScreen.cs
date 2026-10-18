@@ -122,11 +122,26 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         }
     }
 
+    [Header("Navigation / Next Screen")]
+    [SerializeField] private GameObject fileManagerPanel;
+
     public void OnStartScreenClicked()
     {
         PlayKeyBeep();
         MainframeBootQuest.Instance?.ShowNotification(
-            "<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка рабочей среды...");
+            "<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка «ВЕКТОР-КОМАНДИР» v2.1...");
+
+        if (VectorCommander.Instance != null)
+        {
+            gameObject.SetActive(false);
+            VectorCommander.Instance.gameObject.SetActive(true);
+            VectorCommander.Instance.UpdateAllVisuals();
+        }
+        else if (fileManagerPanel != null)
+        {
+            gameObject.SetActive(false);
+            fileManagerPanel.SetActive(true);
+        }
     }
 
     private void GenerateAudioClips()
