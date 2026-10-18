@@ -1,6 +1,9 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 /// <summary>
 /// Authentic retro CRT splash/boot screen for the workstation.
@@ -79,11 +82,24 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         // Interactive key press / click
         if (MonitorTerminal.Instance != null && MonitorTerminal.Instance.IsZoomedIn)
         {
-            if (Input.anyKeyDown || Input.GetMouseButtonDown(0))
+            if (IsAnyKeyPressedThisFrame())
             {
                 OnStartScreenClicked();
             }
         }
+    }
+
+    private bool IsAnyKeyPressedThisFrame()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var kb = Keyboard.current;
+        if (kb != null && kb.anyKey.wasPressedThisFrame) return true;
+        var mouse = Mouse.current;
+        if (mouse != null && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame)) return true;
+        return false;
+#else
+        return Input.anyKeyDown || Input.GetMouseButtonDown(0);
+#endif
     }
 
     private void UpdateStatusLines()
