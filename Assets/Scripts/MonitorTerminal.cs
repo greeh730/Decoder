@@ -25,6 +25,7 @@ public class MonitorTerminal : MonoBehaviour
     [SerializeField] private GameObject headerPanel;
 
     [Header("Interactive Panels")]
+    [SerializeField] private GameObject startScreenPanel;
     [SerializeField] private GameObject activeScreenPanel;
     [SerializeField] private GameObject idleScreenPanel;
     [SerializeField] private GameObject offScreenPanel;
@@ -76,6 +77,11 @@ public class MonitorTerminal : MonoBehaviour
         if (offScreenPanel == null && transform.Find("OffScreenPanel") != null)
         {
             offScreenPanel = transform.Find("OffScreenPanel").gameObject;
+        }
+
+        if (startScreenPanel == null && transform.Find("StartScreenPanel") != null)
+        {
+            startScreenPanel = transform.Find("StartScreenPanel").gameObject;
         }
 
         if (headerPanel == null && transform.Find("Header") != null)
@@ -234,29 +240,40 @@ public class MonitorTerminal : MonoBehaviour
     public void SetMainframeOnline(bool online)
     {
         isMainframeOnline = online;
+        ApplyBrightnessVisuals();
 
         if (online)
         {
             if (offScreenPanel != null) offScreenPanel.SetActive(false);
             if (screenGlowLight != null) screenGlowLight.enabled = true;
-            if (headerPanel != null) headerPanel.SetActive(true);
 
-            var title = headerPanel != null ? headerPanel.transform.Find("TitleText")?.GetComponent<Text>() : null;
-            if (title != null)
+            if (startScreenPanel != null)
             {
-                title.text = "ЭВМ «ВЕКТОР-1» // СИСТЕМА ДЕКОДЕР [WORK IN PROGRESS]";
-                title.color = new Color(0.0f, 1.0f, 0.85f);
-            }
-
-            if (isZoomedIn)
-            {
-                if (activeScreenPanel != null) activeScreenPanel.SetActive(true);
+                startScreenPanel.SetActive(true);
+                if (headerPanel != null) headerPanel.SetActive(false);
                 if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
+                if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
             }
             else
             {
-                if (idleScreenPanel != null) idleScreenPanel.SetActive(true);
-                if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+                if (headerPanel != null) headerPanel.SetActive(true);
+                var title = headerPanel != null ? headerPanel.transform.Find("TitleText")?.GetComponent<Text>() : null;
+                if (title != null)
+                {
+                    title.text = "ЭВМ «ВЕКТОР-1» // СИСТЕМА ДЕКОДЕР";
+                    title.color = new Color(0.0f, 1.0f, 0.85f);
+                }
+
+                if (isZoomedIn)
+                {
+                    if (activeScreenPanel != null) activeScreenPanel.SetActive(true);
+                    if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
+                }
+                else
+                {
+                    if (idleScreenPanel != null) idleScreenPanel.SetActive(true);
+                    if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+                }
             }
 
             UpdateIdleScreenText();
@@ -264,13 +281,11 @@ public class MonitorTerminal : MonoBehaviour
             // Populate initial WIP log
             logLines.Clear();
             AddLog("<color=#00FFAA>===========================================================</color>");
-            AddLog("<color=#FFCC00><b>/// РАБОЧИЙ ТЕРМИНАЛ «ДЕКОДЕР» — WORK IN PROGRESS ///</b></color>");
-            AddLog("<color=#88DDCC>Интерфейс оператора находится в активной разработке.</color>");
+            AddLog("<color=#FFCC00><b>/// РАБОЧИЙ ТЕРМИНАЛ «ДЕКОДЕР» ///</b></color>");
+            AddLog("<color=#88DDCC>Интерфейс оператора запущен.</color>");
             AddLog("<color=#00FFAA>===========================================================</color>");
             AddLog("<color=#72D572>[04:12] Силовое питание от мейнфрейма «Вектор-1» получено.</color>");
-            AddLog("<color=#72D572>[04:12] Ядро DECODER-OS v0.4 загружено с магнитной ленты.</color>");
-            AddLog("<color=#FFCC00>[04:12] ⚠ МОДУЛЬ ДЕШИФРАЦИИ: В РАЗРАБОТКЕ (WORK IN PROGRESS).</color>");
-            AddLog("<color=#88DDCC>[04:12] Выберите пункт [1] Дорожная карта для просмотра задач.</color>");
+            AddLog("<color=#72D572>[04:12] Ядро DECODER-OS загружено с магнитной ленты.</color>");
 
             if (terminalAudio != null && crtStartupClip != null)
             {
@@ -283,6 +298,7 @@ public class MonitorTerminal : MonoBehaviour
             if (offScreenPanel != null) offScreenPanel.SetActive(true);
             if (screenGlowLight != null) screenGlowLight.enabled = false;
             if (headerPanel != null) headerPanel.SetActive(false);
+            if (startScreenPanel != null) startScreenPanel.SetActive(false);
             if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
             if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
         }
@@ -295,13 +311,23 @@ public class MonitorTerminal : MonoBehaviour
         if (!isMainframeOnline)
         {
             if (offScreenPanel != null) offScreenPanel.SetActive(true);
+            if (startScreenPanel != null) startScreenPanel.SetActive(false);
             if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
             if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
             return;
         }
 
-        if (activeScreenPanel != null) activeScreenPanel.SetActive(zoomed);
-        if (idleScreenPanel != null) idleScreenPanel.SetActive(!zoomed);
+        if (startScreenPanel != null)
+        {
+            startScreenPanel.SetActive(true);
+            if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+            if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
+        }
+        else
+        {
+            if (activeScreenPanel != null) activeScreenPanel.SetActive(zoomed);
+            if (idleScreenPanel != null) idleScreenPanel.SetActive(!zoomed);
+        }
         if (offScreenPanel != null) offScreenPanel.SetActive(false);
 
         if (terminalAudio != null && keyClickClip != null)
