@@ -718,10 +718,12 @@ public class PocketWatchController : MonoBehaviour
         DrawWorldRectOnStatic(15.0f, -8.0f, 10.0f, 3.0f, corridorFillCol, corridorBorderCol, maxRadius);
         // 4. East Perimeter (X: 23..26, Z: -8..15)
         DrawWorldRectOnStatic(23.2f, -8.0f, 2.6f, 23.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 5. West Service Passage (X: 3..5, Z: -2..9)
-        DrawWorldRectOnStatic(3.0f, -2.0f, 2.0f, 11.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 6. Our Computer Lab Room (X: 6.4..11.6, Z: -1..6)
-        DrawWorldRectOnStatic(6.4f, -1.0f, 5.2f, 7.0f, roomCol, corridorBorderCol, maxRadius);
+        // 5. West Service Passage (X: 2.08..4.08, Z: -2..9)
+        DrawWorldRectOnStatic(2.08f, -2.0f, 2.0f, 11.0f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 6. Our Computer Lab Room comnata (X: 4.18..12.01, Z: -0.56..5.35)
+        DrawWorldRectOnStatic(4.18f, -0.56f, 7.83f, 5.91f, roomCol, corridorBorderCol, maxRadius);
+        // 7. Entrance Vestibule (X: 8.9..12.0, Z: -2.75..-0.5)
+        DrawWorldRectOnStatic(8.9f, -2.75f, 3.1f, 2.25f, corridorFillCol, corridorBorderCol, maxRadius);
 
         // Push static background to texture immediately
         System.Array.Copy(staticBackgroundPixels, dynamicPixels, staticBackgroundPixels.Length);
@@ -918,7 +920,7 @@ public class PocketWatchController : MonoBehaviour
             {
                 new Vector3(13.5f, 0f, 4.5f),   // Main lab corridor
                 new Vector3(24.5f, 0f, 6.0f),   // East checkpoint perimeter
-                new Vector3(4.0f, 0f, 3.5f)     // West crawlway
+                new Vector3(3.08f, 0f, 3.5f)    // West crawlway
             };
             guardCount = simulatedGuards.Length;
             for (int i = 0; i < simulatedGuards.Length; i++)

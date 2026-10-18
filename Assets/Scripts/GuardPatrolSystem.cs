@@ -197,9 +197,9 @@ public class GuardPatrolSystem : MonoBehaviour
             size: new Vector3(2.6f, wallH, 22.0f),
             wallMat, floorMat, steelMat);
 
-        // E. West Back Maintenance Passage (Runs along Z = -1 to +9 at X = 4.0)
+        // E. West Back Maintenance Passage (Runs along Z = -1 to +9 outside comnata at X = 3.08)
         CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(4.0f, 0.0f, 3.5f),
+            center: new Vector3(3.08f, 0.0f, 3.5f),
             size: new Vector3(2.0f, wallH * 0.8f, 11.0f),
             wallMat, floorMat, steelMat);
 
@@ -227,7 +227,7 @@ public class GuardPatrolSystem : MonoBehaviour
             isLoop = true,
             waitTimeAtWaypoint = 2.0f
         };
-        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP0_DoorLab", new Vector3(13.5f, 0.03f, 2.43f)));
+        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP0_DoorLab", new Vector3(13.5f, 0.03f, -1.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP1_MainNorth", new Vector3(13.5f, 0.03f, 7.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP2_NorthCorner", new Vector3(13.5f, 0.03f, 13.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP3_NorthBranch", new Vector3(18.5f, 0.03f, 13.5f)));
@@ -260,9 +260,9 @@ public class GuardPatrolSystem : MonoBehaviour
             isLoop = true,
             waitTimeAtWaypoint = 1.5f
         };
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP0_ServiceSouth", new Vector3(4.0f, 0.03f, -1.5f)));
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP1_ServiceBehindRack", new Vector3(4.0f, 0.03f, 3.5f)));
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP2_ServiceNorth", new Vector3(4.0f, 0.03f, 8.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP0_ServiceSouth", new Vector3(3.08f, 0.03f, -1.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP1_ServiceBehindRack", new Vector3(3.08f, 0.03f, 3.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP2_ServiceNorth", new Vector3(3.08f, 0.03f, 8.5f)));
         routes.Add(r3);
     }
 
