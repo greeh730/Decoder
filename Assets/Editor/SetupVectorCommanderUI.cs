@@ -232,7 +232,9 @@ public static class SetupVectorCommanderUI
         so.FindProperty("viewerModal").objectReferenceValue = vModal;
         so.FindProperty("viewerTitleText").objectReferenceValue = vmTitle;
         so.FindProperty("viewerBodyText").objectReferenceValue = vmBody;
+        so.FindProperty("viewerCloseButton").objectReferenceValue = vmCloseBtn.GetComponent<Button>();
         so.FindProperty("helpModal").objectReferenceValue = hModal;
+        so.FindProperty("helpCloseButton").objectReferenceValue = hmCloseBtn.GetComponent<Button>();
         so.FindProperty("btnF1").objectReferenceValue = bF1;
         so.FindProperty("btnF2").objectReferenceValue = bF2;
         so.FindProperty("btnF3").objectReferenceValue = bF3;

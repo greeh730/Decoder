@@ -69,9 +69,13 @@ public class VectorCommander : MonoBehaviour
     [SerializeField] private GameObject viewerModal;
     [SerializeField] private Text viewerTitleText;
     [SerializeField] private Text viewerBodyText;
+    [SerializeField] private Button viewerCloseButton;
 
     [Header("Help Modal (F1 Помощь)")]
     [SerializeField] private GameObject helpModal;
+    [SerializeField] private Button helpCloseButton;
+
+    public bool IsAnyModalOpen => (helpModal != null && helpModal.activeSelf) || (viewerModal != null && viewerModal.activeSelf);
 
     [Header("Function Key Buttons (F1-F10)")]
     [SerializeField] private Button btnF1;
@@ -211,26 +215,54 @@ public class VectorCommander : MonoBehaviour
         if (btnF5 != null) { btnF5.onClick.RemoveAllListeners(); btnF5.onClick.AddListener(CopySelectedFile); }
         if (btnF8 != null) { btnF8.onClick.RemoveAllListeners(); btnF8.onClick.AddListener(CheckCoolingStatus); }
         if (btnF10 != null) { btnF10.onClick.RemoveAllListeners(); btnF10.onClick.AddListener(ExitToStartScreen); }
+
+        // Guaranteed runtime hookup for modal close buttons
+        if (helpModal != null)
+        {
+            var btn = helpCloseButton != null ? helpCloseButton : helpModal.GetComponentInChildren<Button>(true);
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(CloseHelp);
+            }
+        }
+
+        if (viewerModal != null)
+        {
+            var btn = viewerCloseButton != null ? viewerCloseButton : viewerModal.GetComponentInChildren<Button>(true);
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(CloseViewer);
+            }
+        }
+    }
+
+    public void CloseHelp()
+    {
+        PlayKeyTick();
+        if (helpModal != null) helpModal.SetActive(false);
     }
 
     private void HandleKeyboardInput()
     {
         // Close modal if open
-        if (viewerModal != null && viewerModal.activeSelf)
+        if (helpModal != null && helpModal.activeSelf)
         {
-            if (IsKeyPressed(KeyCode.Escape) || IsKeyPressed(KeyCode.F3) || IsKeyPressed(KeyCode.Return))
+            if (IsKeyPressed(KeyCode.Escape) || IsKeyPressed(KeyCode.F1) || IsKeyPressed(KeyCode.Alpha1) ||
+                IsKeyPressed(KeyCode.Return) || IsKeyPressed(KeyCode.Space) || IsKeyPressed(KeyCode.F10) || IsKeyPressed(KeyCode.Alpha0))
             {
-                CloseViewer();
+                CloseHelp();
             }
             return;
         }
 
-        if (helpModal != null && helpModal.activeSelf)
+        if (viewerModal != null && viewerModal.activeSelf)
         {
-            if (IsKeyPressed(KeyCode.Escape) || IsKeyPressed(KeyCode.F1) || IsKeyPressed(KeyCode.Return))
+            if (IsKeyPressed(KeyCode.Escape) || IsKeyPressed(KeyCode.F3) || IsKeyPressed(KeyCode.Alpha3) ||
+                IsKeyPressed(KeyCode.Return) || IsKeyPressed(KeyCode.Space) || IsKeyPressed(KeyCode.F10) || IsKeyPressed(KeyCode.Alpha0))
             {
-                helpModal.SetActive(false);
-                PlayKeyTick();
+                CloseViewer();
             }
             return;
         }
@@ -304,13 +336,14 @@ public class VectorCommander : MonoBehaviour
             case KeyCode.F5: return kb.f5Key.wasPressedThisFrame;
             case KeyCode.F8: return kb.f8Key.wasPressedThisFrame;
             case KeyCode.F10: return kb.f10Key.wasPressedThisFrame;
-            case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame;
-            case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame;
-            case KeyCode.Alpha3: return kb.digit3Key.wasPressedThisFrame;
-            case KeyCode.Alpha4: return kb.digit4Key.wasPressedThisFrame;
-            case KeyCode.Alpha5: return kb.digit5Key.wasPressedThisFrame;
-            case KeyCode.Alpha8: return kb.digit8Key.wasPressedThisFrame;
-            case KeyCode.Alpha0: return kb.digit0Key.wasPressedThisFrame;
+            case KeyCode.Space: return kb.spaceKey.wasPressedThisFrame;
+            case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
+            case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;
+            case KeyCode.Alpha3: return kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame;
+            case KeyCode.Alpha4: return kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame;
+            case KeyCode.Alpha5: return kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame;
+            case KeyCode.Alpha8: return kb.digit8Key.wasPressedThisFrame || kb.numpad8Key.wasPressedThisFrame;
+            case KeyCode.Alpha0: return kb.digit0Key.wasPressedThisFrame || kb.numpad0Key.wasPressedThisFrame;
             default: return false;
         }
 #else
