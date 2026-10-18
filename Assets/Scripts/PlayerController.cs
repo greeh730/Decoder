@@ -13,7 +13,7 @@ public enum PlayerState
 
 /// <summary>
 /// Controller for the player character:
-/// - Movement, sprinting, jumping, gravity
+/// - Movement and gravity
 /// - First-person and Third-person camera view
 /// - Sitting down on chair / standing up (E key)
 /// - Inspecting / zooming into monitor terminal (F key)
@@ -25,12 +25,6 @@ public class PlayerController : MonoBehaviour
     [Header("Movement Settings")]
     [Tooltip("Movement speed while walking in m/s")]
     [SerializeField] private float walkSpeed = 3.8f;
-
-    [Tooltip("Movement speed while sprinting in m/s")]
-    [SerializeField] private float sprintSpeed = 6.0f;
-
-    [Tooltip("Jump height in meters")]
-    [SerializeField] private float jumpHeight = 1.0f;
 
     [Tooltip("Gravity acceleration in m/s^2")]
     [SerializeField] private float gravity = -18.0f;
@@ -333,8 +327,8 @@ public class PlayerController : MonoBehaviour
     {
         CheckWorldRaycast();
 
-        // Stand up (E, Space, or movement) if not hovering over knob, interactable, or cartridge
-        if (currentInteractable == null && currentKnob == null && currentCartridge == null && (WasKeyPressed(KeyCode.E) || WasKeyPressed(KeyCode.Space) || HasMovementInput()))
+        // Stand up (E or movement) if not hovering over knob, interactable, or cartridge
+        if (currentInteractable == null && currentKnob == null && currentCartridge == null && (WasKeyPressed(KeyCode.E) || HasMovementInput()))
         {
             StandUp();
             return;
@@ -688,8 +682,6 @@ public class PlayerController : MonoBehaviour
     private void HandleMovement()
     {
         Vector2 input = Vector2.zero;
-        bool isSprint = false;
-        bool jumpTriggered = false;
 
 #if ENABLE_INPUT_SYSTEM
         var keyboard = Keyboard.current;
@@ -699,15 +691,10 @@ public class PlayerController : MonoBehaviour
             if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) input.y -= 1f;
             if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) input.x -= 1f;
             if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) input.x += 1f;
-
-            isSprint = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-            jumpTriggered = keyboard.spaceKey.wasPressedThisFrame;
         }
 #else
         input.x = Input.GetAxisRaw("Horizontal");
         input.y = Input.GetAxisRaw("Vertical");
-        isSprint = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        jumpTriggered = Input.GetKeyDown(KeyCode.Space);
 #endif
 
         if (characterController.isGrounded)
@@ -716,18 +703,12 @@ public class PlayerController : MonoBehaviour
             {
                 verticalVelocity.y = -2f;
             }
-
-            if (jumpTriggered)
-            {
-                verticalVelocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            }
         }
 
         Vector3 moveDir = (transform.right * input.x + transform.forward * input.y);
         if (moveDir.sqrMagnitude > 1f) moveDir.Normalize();
 
-        float currentSpeed = isSprint ? sprintSpeed : walkSpeed;
-        Vector3 planarMove = moveDir * currentSpeed;
+        Vector3 planarMove = moveDir * walkSpeed;
 
         verticalVelocity.y += gravity * Time.deltaTime;
 
@@ -920,7 +901,7 @@ public class PlayerController : MonoBehaviour
         // Top-left status box (only visible in room mode, hidden when zoomed into monitor terminal)
         if (currentState != PlayerState.InspectingMonitor)
         {
-            GUILayout.BeginArea(new Rect(15, 15, 430, 185));
+            GUILayout.BeginArea(new Rect(15, 15, 430, 168));
             var boxStyle = new GUIStyle(GUI.skin.box)
             {
                 alignment = TextAnchor.UpperLeft,
@@ -982,7 +963,6 @@ public class PlayerController : MonoBehaviour
                                $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
                                $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
                                $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
-                               $"• <b>Shift</b> — Бег | <b>Space</b> — Прыжок\n" +
                                $"• <b>T</b> — Карманные часы (таймер / радар)\n" +
                                $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
                                $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
@@ -1160,7 +1140,7 @@ public class PlayerController : MonoBehaviour
             GUI.Box(new Rect(screenW / 2 - 180, screenH - 95, 360, 32), "Нажмите [B] — Быстрая смена яркости (маскировка)", promptStyle);
 
             promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), "Нажмите [E] / [Space] / [W,A,S,D] — Встать", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), "Нажмите [E] / [W,A,S,D] — Встать", promptStyle);
         }
         else if (currentState == PlayerState.InspectingMonitor)
         {
