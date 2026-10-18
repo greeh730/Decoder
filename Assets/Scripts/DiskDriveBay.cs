@@ -1,0 +1,528 @@
+using System.Collections;
+using UnityEngine;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+/// <summary>
+/// Controls the Mainframe Removable Disk Drive Bay (Сменные накопители ЕС-5061 / DEC RK05).
+/// Simulates thermal expansion, spindle dynamics, safety interlock timing,
+/// mouse drag sliding of cartridges, high-voltage electric shock hazard, and head crash failure.
+/// </summary>
+public class DiskDriveBay : MonoBehaviour
+{
+    public static DiskDriveBay Instance { get; private set; }
+
+    public enum DriveBayState
+    {
+        Off,
+        Running,              // Spindle spinning, heating up under computation load
+        Braking,              // Dynamic brake engaged, spinning down (1.4s)
+        UnlockedReadyToPull,  // Spindle stopped, latch released, safe to pull hot cartridge
+        CartridgeExtracted,   // Slot is empty, waiting for cold cartridge to be picked
+        InsertingCold,        // Cold cartridge on rails, waiting to be pushed in
+        OverheatedCrash       // Thermal limit exceeded (>105°C), data destroyed
+    }
+
+    [Header("Thermal Settings")]
+    [SerializeField] private float temperature = 32f; // In Celsius
+    [SerializeField] private float normalTemp = 35f;
+    [SerializeField] private float yellowWarningTemp = 75f;
+    [SerializeField] private float redAlarmTemp = 90f;
+    [SerializeField] private float headCrashTemp = 105f;
+    [SerializeField] private float heatRatePerSec = 1.75f;
+
+    [Header("Drive State")]
+    [SerializeField] private DriveBayState state = DriveBayState.Running;
+    [SerializeField] private Transform temperatureNeedle;
+    [SerializeField] private Transform brakeButton;
+    [SerializeField] private Renderer lampRed;
+    [SerializeField] private Renderer lampYellow;
+    [SerializeField] private Renderer lampGreen;
+
+    [Header("Cartridges")]
+    [SerializeField] private CartridgeDraggable hotCartridge;
+    [SerializeField] private GameObject coldCartridgeReserve;
+    [SerializeField] private CartridgeDraggable coldCartridgeInSlot;
+
+    [Header("Audio")]
+    [SerializeField] private AudioSource driveAudio;
+    [SerializeField] private AudioSource alarmAudio;
+    private AudioClip spindleHumClip;
+    private AudioClip brakeWhineClip;
+    private AudioClip electricShockClip;
+    private AudioClip alarmBeepClip;
+    private AudioClip headCrashClip;
+    private AudioClip turbineSpinupClip;
+
+    [Header("Materials (Lamps)")]
+    private Material ledRedMat;
+    private Material ledYellowMat;
+    private Material ledGreenMat;
+    private Material ledOffMat;
+
+    private bool warnedYellow = false;
+    private bool warnedRed = false;
+    private Coroutine brakeCoroutine;
+
+    public DriveBayState State => state;
+    public float Temperature => temperature;
+    public bool IsOverheating => temperature >= yellowWarningTemp;
+    public bool IsCriticalOverheat => temperature >= redAlarmTemp;
+
+    private void Awake()
+    {
+        Instance = this;
+        CreateMaterials();
+        GenerateAudioClips();
+    }
+
+    private void Start()
+    {
+        temperature = 35f;
+        state = DriveBayState.Running;
+
+        if (hotCartridge != null)
+        {
+            hotCartridge.gameObject.SetActive(true);
+            hotCartridge.SetMode(CartridgeDraggable.SlideMode.PullOut, 0f, true);
+            hotCartridge.onCompleted.AddListener(OnHotCartridgeExtracted);
+        }
+
+        if (coldCartridgeInSlot != null)
+        {
+            coldCartridgeInSlot.gameObject.SetActive(false);
+            coldCartridgeInSlot.onCompleted.AddListener(OnColdCartridgeLockedIn);
+        }
+
+        if (coldCartridgeReserve != null)
+        {
+            coldCartridgeReserve.SetActive(true);
+        }
+
+        UpdateLamps();
+        UpdateThermometerNeedle();
+        StartSpindleHum();
+    }
+
+    private void Update()
+    {
+        // 1. Thermal simulation during server operation
+        bool isServerOnline = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline;
+
+        if (isServerOnline && state == DriveBayState.Running)
+        {
+            temperature += heatRatePerSec * Time.deltaTime;
+
+            if (temperature >= yellowWarningTemp && !warnedYellow)
+            {
+                warnedYellow = true;
+                if (MonitorTerminal.Instance != null)
+                {
+                    MonitorTerminal.Instance.AddLog("<color=#FFFF66>[ВНИМАНИЕ]</color> Повышенная температура дисковода ЕС-5061: 75°C.");
+                }
+            }
+
+            if (temperature >= redAlarmTemp)
+            {
+                if (!warnedRed)
+                {
+                    warnedRed = true;
+                    if (MonitorTerminal.Instance != null)
+                    {
+                        MonitorTerminal.Instance.AddLog("<color=#FF3333><b>[⚠ КРИТИЧЕСКИЙ ПЕРЕГРЕВ ДИСКА]</b></color> 90°C! Угроза запила пластин!");
+                    }
+                    if (MainframeBootQuest.Instance != null)
+                    {
+                        MainframeBootQuest.Instance.ShowNotification("<color=#FF3333>[⚠ АВАРИЯ НАКОПИТЕЛЯ]</color> Перегрев 90°C! Срочно замените пакет дисков на сервере!");
+                    }
+                }
+
+                // Alarm beeping
+                if (alarmAudio != null && alarmBeepClip != null && !alarmAudio.isPlaying)
+                {
+                    alarmAudio.PlayOneShot(alarmBeepClip, 0.65f);
+                }
+            }
+
+            // Head Crash failure threshold!
+            if (temperature >= headCrashTemp)
+            {
+                TriggerHeadCrash();
+            }
+        }
+        else if (state != DriveBayState.Running)
+        {
+            // Gradually cools when drive is stopped or empty
+            temperature = Mathf.Max(normalTemp, temperature - 0.8f * Time.deltaTime);
+        }
+
+        UpdateThermometerNeedle();
+    }
+
+    /// <summary>
+    /// Player presses [ОСТАНОВ ШПИНДЕЛЯ / BRAKE] button.
+    /// </summary>
+    public void PressBrakeButton()
+    {
+        if (state != DriveBayState.Running)
+        {
+            if (state == DriveBayState.Braking)
+            {
+                MainframeBootQuest.Instance?.ShowNotification("<color=#FFFF66>[ТОРМОЗ]</color> Шпиндель уже замедляется, подождите зеленый сигнал!");
+            }
+            return;
+        }
+
+        if (brakeCoroutine != null) StopCoroutine(brakeCoroutine);
+        brakeCoroutine = StartCoroutine(BrakeRoutine());
+    }
+
+    private IEnumerator BrakeRoutine()
+    {
+        state = DriveBayState.Braking;
+        StopSpindleHum();
+        PlayBrakeSound();
+        UpdateLamps();
+
+        // 0.0s to 0.5s: Spindle dynamic braking (Red 380V)
+        yield return new WaitForSeconds(0.5f);
+
+        // 0.5s to 1.4s: Deceleration (Yellow)
+        UpdateLamps();
+        yield return new WaitForSeconds(0.9f);
+
+        // 1.4s: Safely unlocked!
+        state = DriveBayState.UnlockedReadyToPull;
+        UpdateLamps();
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("<color=#00FF88>[РАЗБЛОКИРОВАНО]</color> Шпиндель остановлен. Зажмите ЛКМ и вытяните горячий картридж.");
+        }
+    }
+
+    /// <summary>
+    /// Triggered if the player attempts to pull the hot cartridge prematurely while 380V is active.
+    /// </summary>
+    public void AttemptPullPrematurely()
+    {
+        if (state == DriveBayState.Running || state == DriveBayState.Braking)
+        {
+            TriggerElectricShock();
+        }
+    }
+
+    private void TriggerElectricShock()
+    {
+        PlayElectricShock();
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("<color=#FF2222><b>⚡ [УДАР ТОКОМ 380В!]</b></color> Срыв замка под напряжением! Контузия оператора!");
+        }
+
+        // Stun player through PlayerController
+        var player = FindAnyObjectByType<PlayerController>();
+        if (player != null)
+        {
+            player.ApplyStun(3.5f);
+        }
+
+        // Alert guards in corridor with loud electrical arc crack!
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards != null)
+        {
+            foreach (var g in guards)
+            {
+                if (g != null)
+                {
+                    // Large suspicion spike
+                    var f = typeof(GuardPawn).GetField("suspicion", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (f != null)
+                    {
+                        float cur = (float)f.GetValue(g);
+                        f.SetValue(g, Mathf.Clamp01(cur + 0.45f));
+                    }
+                }
+            }
+        }
+    }
+
+    private IEnumerator ElectricShockStunRoutine(PlayerController player)
+    {
+        // Visual flash or brief paralysis
+        yield return new WaitForSeconds(3.5f);
+    }
+
+    private void OnHotCartridgeExtracted()
+    {
+        state = DriveBayState.CartridgeExtracted;
+        if (hotCartridge != null) hotCartridge.gameObject.SetActive(false);
+
+        UpdateLamps();
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("<color=#FFFF66>[КАРТРИДЖ ИЗВЛЕЧЕН]</color> Возьмите холодный пакет дисков №2 из стойки.");
+        }
+    }
+
+    /// <summary>
+    /// Player clicks on the cold cartridge in the reserve rack to pick it up.
+    /// </summary>
+    public void PickColdCartridgeFromRack()
+    {
+        if (state != DriveBayState.CartridgeExtracted)
+        {
+            MainframeBootQuest.Instance?.ShowNotification("Сначала извлеките горячий картридж из слота!");
+            return;
+        }
+
+        if (coldCartridgeReserve != null) coldCartridgeReserve.SetActive(false);
+
+        if (coldCartridgeInSlot != null)
+        {
+            coldCartridgeInSlot.gameObject.SetActive(true);
+            coldCartridgeInSlot.SetMode(CartridgeDraggable.SlideMode.PushIn, 1.0f, false);
+            state = DriveBayState.InsertingCold;
+        }
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("<color=#00FFAA>[КАРТРИДЖ НА РЕЛЬСАХ]</color> Зажмите ЛКМ и толкайте мышь вперед, чтобы задвинуть его.");
+        }
+    }
+
+    private void OnColdCartridgeLockedIn()
+    {
+        state = DriveBayState.Running;
+        temperature = 31f; // Fresh cold platters!
+        warnedYellow = false;
+        warnedRed = false;
+
+        UpdateLamps();
+        PlayTurbineSpinup();
+        StartSpindleHum();
+
+        if (MonitorTerminal.Instance != null)
+        {
+            MonitorTerminal.Instance.AddLog("<color=#00FF88>[ДИСКОВОД ЕС-5061]</color> Новый пакет дисков смонтирован. Температура: 31°C. ДАННЫЕ В БЕЗОПАСНОСТИ.");
+        }
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("★★ <color=#00FF88>НАКОПИТЕЛЬ УСПЕШНО ЗАМЕНЕН!</color> Данные спасены от перегрева.");
+        }
+    }
+
+    private void TriggerHeadCrash()
+    {
+        state = DriveBayState.OverheatedCrash;
+        StopSpindleHum();
+        PlayHeadCrashSound();
+        UpdateLamps();
+
+        if (MonitorTerminal.Instance != null)
+        {
+            MonitorTerminal.Instance.AddLog("<color=#FF0000><b>[КАТАСТРОФА: ЗАПИЛ ДИСКА]</b></color> Физическое разрушение магнитных пластин! Данные дешифровки уничтожены!");
+        }
+
+        if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification("<color=#FF0000><b>[ПРОВАЛ МИССИИ]</b></color> Диск перегрелся и разрушился! Данные стерты.");
+        }
+    }
+
+    private void UpdateThermometerNeedle()
+    {
+        if (temperatureNeedle != null)
+        {
+            // Map 20°C .. 120°C to angle -75° .. +75°
+            float t = Mathf.InverseLerp(20f, 120f, temperature);
+            float angle = Mathf.Lerp(-75f, 75f, t);
+
+            // Add nervous vibration if critically hot
+            if (temperature > yellowWarningTemp)
+            {
+                angle += UnityEngine.Random.Range(-1.5f, 1.5f);
+            }
+
+            temperatureNeedle.localRotation = Quaternion.Euler(0f, 0f, -angle);
+        }
+    }
+
+    private void UpdateLamps()
+    {
+        if (lampRed == null || lampYellow == null || lampGreen == null) return;
+
+        bool isRed = (state == DriveBayState.Running) || (state == DriveBayState.Braking && brakeCoroutine != null && temperature >= redAlarmTemp);
+        bool isYellow = (state == DriveBayState.Braking);
+        bool isGreen = (state == DriveBayState.UnlockedReadyToPull);
+
+        lampRed.sharedMaterial = isRed ? ledRedMat : ledOffMat;
+        lampYellow.sharedMaterial = isYellow ? ledYellowMat : ledOffMat;
+        lampGreen.sharedMaterial = isGreen ? ledGreenMat : ledOffMat;
+    }
+
+    private void CreateMaterials()
+    {
+        var toonShader = Shader.Find("Custom/SovietToonLit");
+        if (toonShader == null) toonShader = Shader.Find("Universal Render Pipeline/Lit");
+
+        ledRedMat = new Material(toonShader);
+        ledRedMat.SetColor("_BaseColor", new Color(1.0f, 0.15f, 0.15f));
+        ledRedMat.EnableKeyword("_EMISSION");
+        ledRedMat.SetColor("_EmissionColor", new Color(1.0f, 0.15f, 0.15f) * 1.5f);
+
+        ledYellowMat = new Material(toonShader);
+        ledYellowMat.SetColor("_BaseColor", new Color(1.0f, 0.85f, 0.15f));
+        ledYellowMat.EnableKeyword("_EMISSION");
+        ledYellowMat.SetColor("_EmissionColor", new Color(1.0f, 0.85f, 0.15f) * 1.5f);
+
+        ledGreenMat = new Material(toonShader);
+        ledGreenMat.SetColor("_BaseColor", new Color(0.15f, 1.0f, 0.35f));
+        ledGreenMat.EnableKeyword("_EMISSION");
+        ledGreenMat.SetColor("_EmissionColor", new Color(0.15f, 1.0f, 0.35f) * 1.5f);
+
+        ledOffMat = new Material(toonShader);
+        ledOffMat.SetColor("_BaseColor", new Color(0.15f, 0.18f, 0.16f));
+    }
+
+    private void StartSpindleHum()
+    {
+        if (driveAudio != null && spindleHumClip != null && !driveAudio.isPlaying)
+        {
+            driveAudio.clip = spindleHumClip;
+            driveAudio.loop = true;
+            driveAudio.volume = 0.45f;
+            driveAudio.Play();
+        }
+    }
+
+    private void StopSpindleHum()
+    {
+        if (driveAudio != null && driveAudio.isPlaying)
+        {
+            driveAudio.Stop();
+        }
+    }
+
+    private void PlayBrakeSound()
+    {
+        if (driveAudio != null && brakeWhineClip != null)
+        {
+            driveAudio.PlayOneShot(brakeWhineClip, 0.65f);
+        }
+    }
+
+    private void PlayTurbineSpinup()
+    {
+        if (driveAudio != null && turbineSpinupClip != null)
+        {
+            driveAudio.PlayOneShot(turbineSpinupClip, 0.70f);
+        }
+    }
+
+    private void PlayElectricShock()
+    {
+        if (driveAudio != null && electricShockClip != null)
+        {
+            driveAudio.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
+            driveAudio.PlayOneShot(electricShockClip, 0.90f);
+        }
+    }
+
+    private void PlayHeadCrashSound()
+    {
+        if (driveAudio != null && headCrashClip != null)
+        {
+            driveAudio.PlayOneShot(headCrashClip, 0.95f);
+        }
+    }
+
+    private void GenerateAudioClips()
+    {
+        int sampleRate = 44100;
+
+        // 1. Spindle hum (high-RPM balanced disk rotation)
+        int humSamples = sampleRate * 1;
+        float[] humData = new float[humSamples];
+        for (int i = 0; i < humSamples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float tone = Mathf.Sin(2f * Mathf.PI * 480f * t) * 0.35f;
+            float whirr = Mathf.Sin(2f * Mathf.PI * 960f * t) * 0.15f;
+            float air = (UnityEngine.Random.value * 2f - 1f) * 0.05f;
+            humData[i] = (tone + whirr + air);
+        }
+        spindleHumClip = AudioClip.Create("SpindleHumLoop", humSamples, 1, sampleRate, false);
+        spindleHumClip.SetData(humData, 0);
+
+        // 2. Brake Whine (descending whine on dynamic brake)
+        int brakeSamples = (int)(sampleRate * 1.5f);
+        float[] brakeData = new float[brakeSamples];
+        for (int i = 0; i < brakeSamples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float freq = Mathf.Lerp(650f, 60f, t / 1.5f);
+            float sine = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.5f;
+            float env = 1f - (t / 1.5f);
+            brakeData[i] = sine * env;
+        }
+        brakeWhineClip = AudioClip.Create("SpindleBrakeWhine", brakeSamples, 1, sampleRate, false);
+        brakeWhineClip.SetData(brakeData, 0);
+
+        // 3. Electric Shock Arc (380V violent electrical discharge crack)
+        int shockSamples = (int)(sampleRate * 0.28f);
+        float[] shockData = new float[shockSamples];
+        for (int i = 0; i < shockSamples; i++)
+        {
+            float t = (float)i / shockSamples;
+            float crack = (UnityEngine.Random.value * 2f - 1f) * Mathf.Exp(-t * 22f);
+            float hum = Mathf.Sin(2f * Mathf.PI * 50f * ((float)i / sampleRate)) * 0.6f * Mathf.Exp(-t * 8f);
+            shockData[i] = crack + hum;
+        }
+        electricShockClip = AudioClip.Create("ElectricShock380V", shockSamples, 1, sampleRate, false);
+        electricShockClip.SetData(shockData, 0);
+
+        // 4. Alarm Beep (high-pitched urgency beep)
+        int beepSamples = (int)(sampleRate * 0.18f);
+        float[] beepData = new float[beepSamples];
+        for (int i = 0; i < beepSamples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float sine = Mathf.Sin(2f * Mathf.PI * 1850f * t) * 0.6f;
+            float env = Mathf.Sin(Mathf.PI * (t / 0.18f));
+            beepData[i] = sine * env;
+        }
+        alarmBeepClip = AudioClip.Create("DiskOverheatAlarmBeep", beepSamples, 1, sampleRate, false);
+        alarmBeepClip.SetData(beepData, 0);
+
+        // 5. Head Crash (terrible metallic gouging screech)
+        int crashSamples = (int)(sampleRate * 1.2f);
+        float[] crashData = new float[crashSamples];
+        for (int i = 0; i < crashSamples; i++)
+        {
+            float t = (float)i / crashSamples;
+            float screech = Mathf.Sin(2f * Mathf.PI * UnityEngine.Random.Range(1800f, 3200f) * ((float)i / sampleRate)) * 0.7f;
+            float noise = (UnityEngine.Random.value * 2f - 1f) * 0.5f;
+            crashData[i] = (screech + noise) * (1f - t);
+        }
+        headCrashClip = AudioClip.Create("DiskHeadCrash", crashSamples, 1, sampleRate, false);
+        headCrashClip.SetData(crashData, 0);
+
+        // 6. Turbine spinup (ascending whine on fresh cartridge lock)
+        int spinSamples = (int)(sampleRate * 1.8f);
+        float[] spinData = new float[spinSamples];
+        for (int i = 0; i < spinSamples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float freq = Mathf.Lerp(120f, 980f, t / 1.8f);
+            float sine = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.55f;
+            spinData[i] = sine;
+        }
+        turbineSpinupClip = AudioClip.Create("TurbineSpinup", spinSamples, 1, sampleRate, false);
+        turbineSpinupClip.SetData(spinData, 0);
+    }
+}

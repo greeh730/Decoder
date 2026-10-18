@@ -89,11 +89,18 @@ public class PlayerController : MonoBehaviour
     private PotentiometerKnob activeKnob;
     private bool isDraggingKnob = false;
 
+    private CartridgeDraggable currentCartridge;
+    private CartridgeDraggable activeCartridge;
+    private bool isDraggingCartridge = false;
+    private float stunTimer = 0f;
+
     public PlayerState CurrentState => currentState;
     public bool IsSitting => currentState == PlayerState.Sitting;
     public bool IsInspectingMonitor => currentState == PlayerState.InspectingMonitor;
     public bool IsFirstPerson => isFirstPerson;
     public bool IsDraggingKnob => isDraggingKnob;
+    public bool IsDraggingCartridge => isDraggingCartridge;
+    public float StunTimer => stunTimer;
 
     private void Awake()
     {
@@ -158,9 +165,22 @@ public class PlayerController : MonoBehaviour
 
         HandleCursorLock();
 
+        if (stunTimer > 0f)
+        {
+            stunTimer -= Time.deltaTime;
+            return;
+        }
+
         if (isDraggingKnob && activeKnob != null)
         {
             HandleKnobDragging();
+            if (currentState == PlayerState.Normal) HandleMovement();
+            return;
+        }
+
+        if (isDraggingCartridge && activeCartridge != null)
+        {
+            HandleCartridgeDragging();
             if (currentState == PlayerState.Normal) HandleMovement();
             return;
         }
@@ -196,12 +216,36 @@ public class PlayerController : MonoBehaviour
     {
         currentInteractable = null;
         currentKnob = null;
+        currentCartridge = null;
 
         if (playerCamera == null) return;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         if (Physics.Raycast(ray, out RaycastHit hit, 2.8f))
         {
+            var cartridge = hit.collider.GetComponentInParent<CartridgeDraggable>();
+            if (cartridge != null && !cartridge.IsCompleted)
+            {
+                currentCartridge = cartridge;
+
+                if (IsMouseButtonPressed())
+                {
+                    // Premature pull check while high voltage is on
+                    if (cartridge.IsHot && DiskDriveBay.Instance != null &&
+                        (DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Running || DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Braking))
+                    {
+                        DiskDriveBay.Instance.AttemptPullPrematurely();
+                        ApplyStun(3.5f);
+                        return;
+                    }
+
+                    activeCartridge = cartridge;
+                    activeCartridge.StartDrag();
+                    isDraggingCartridge = true;
+                    return;
+                }
+            }
+
             var knob = hit.collider.GetComponentInParent<PotentiometerKnob>();
             if (knob != null)
             {
@@ -242,8 +286,8 @@ public class PlayerController : MonoBehaviour
         float distToChair = Vector3.Distance(transform.position, chairPosition);
         float distToMonitor = Vector3.Distance(transform.position, monitorPosition);
 
-        // Sit in chair (E) if not looking at another interactable or knob
-        if (currentInteractable == null && currentKnob == null && distToChair < 1.6f && WasKeyPressed(KeyCode.E))
+        // Sit in chair (E) if not looking at another interactable, knob, or cartridge
+        if (currentInteractable == null && currentKnob == null && currentCartridge == null && distToChair < 1.6f && WasKeyPressed(KeyCode.E))
         {
             SitDown();
             return;
@@ -269,8 +313,8 @@ public class PlayerController : MonoBehaviour
     {
         CheckWorldRaycast();
 
-        // Stand up (E, Space, or movement) if not hovering over knob or interactable
-        if (currentInteractable == null && currentKnob == null && (WasKeyPressed(KeyCode.E) || WasKeyPressed(KeyCode.Space) || HasMovementInput()))
+        // Stand up (E, Space, or movement) if not hovering over knob, interactable, or cartridge
+        if (currentInteractable == null && currentKnob == null && currentCartridge == null && (WasKeyPressed(KeyCode.E) || WasKeyPressed(KeyCode.Space) || HasMovementInput()))
         {
             StandUp();
             return;
@@ -352,6 +396,45 @@ public class PlayerController : MonoBehaviour
             activeKnob.EndDrag();
             isDraggingKnob = false;
             activeKnob = null;
+        }
+    }
+
+    public void ApplyStun(float duration)
+    {
+        stunTimer = Mathf.Max(stunTimer, duration);
+        if (isDraggingCartridge && activeCartridge != null)
+        {
+            activeCartridge.EndDrag();
+            isDraggingCartridge = false;
+            activeCartridge = null;
+        }
+        if (isDraggingKnob && activeKnob != null)
+        {
+            activeKnob.EndDrag();
+            isDraggingKnob = false;
+            activeKnob = null;
+        }
+    }
+
+    private void HandleCartridgeDragging()
+    {
+        if (activeCartridge == null || activeCartridge.IsCompleted)
+        {
+            isDraggingCartridge = false;
+            activeCartridge = null;
+            return;
+        }
+
+        if (IsMouseButtonHeld())
+        {
+            Vector2 delta = GetLookDelta();
+            activeCartridge.UpdateDrag(delta);
+        }
+        else
+        {
+            activeCartridge.EndDrag();
+            isDraggingCartridge = false;
+            activeCartridge = null;
         }
     }
 
@@ -765,6 +848,28 @@ public class PlayerController : MonoBehaviour
     {
         if (!showControlsUI) return;
 
+        if (stunTimer > 0f)
+        {
+            float alpha = Mathf.Clamp01(stunTimer / 3.5f) * 0.85f;
+            Color oldColor = GUI.color;
+            GUI.color = new Color(0.7f, 0.9f, 1.0f, alpha);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = oldColor;
+
+            var shockStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 18,
+                fontStyle = FontStyle.Bold
+            };
+            shockStyle.normal.textColor = Color.red;
+            GUI.Box(new Rect(Screen.width / 2 - 250, Screen.height / 2 - 45, 500, 90),
+                "⚡ <b><color=#FF2222>[ УДАР ТОКОМ 380 ВОЛЬТ ]</color></b> ⚡\n" +
+                "<size=12><color=#FFFFFF>Срыв замка под напряжением! Шок и контузия...</color></size>\n" +
+                $"<size=11><color=#FFFF66>Приход в сознание через: {stunTimer:F1} сек.</color></size>", shockStyle);
+            return;
+        }
+
         GUI.color = Color.white;
 
         // Top-left status box
@@ -849,7 +954,38 @@ public class PlayerController : MonoBehaviour
         float screenW = Screen.width;
         float screenH = Screen.height;
 
-        // 1. Tactile Rotary Gauge while Dragging Knob
+        // 1. Tactile Cartridge Sliding Gauge while Dragging Cartridge
+        if (isDraggingCartridge && activeCartridge != null)
+        {
+            var gaugeBoxStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 13,
+                fontStyle = FontStyle.Bold
+            };
+            gaugeBoxStyle.normal.textColor = Color.white;
+
+            float p = activeCartridge.Progress;
+            int pct = Mathf.RoundToInt(p * 100f);
+            int filled = Mathf.RoundToInt(p * 16f);
+            string bar = new string('█', filled) + new string('░', 16 - filled);
+
+            string actionTitle = activeCartridge.Mode == CartridgeDraggable.SlideMode.PullOut 
+                ? "ИЗВЛЕЧЕНИЕ ПАКЕТА ДИСКОВ (ТЯНИТЕ НА СЕБЯ)" 
+                : "УСТАНОВКА ПАКЕТА ДИСКОВ (ТОЛКАЙТЕ ВПЕРЕД)";
+            string hint = activeCartridge.Mode == CartridgeDraggable.SlideMode.PullOut
+                ? "Двигайте мышь НАЗАД / ВНИЗ • Зажмите ЛКМ"
+                : "Двигайте мышь ВПЕРЕД / ВВЕРХ • Зажмите ЛКМ";
+
+            string gaugeText = $"<b><color=#00FFAA>[ {actionTitle} ]</color></b>\n" +
+                               $"В СЛОТЕ [<color=#00FF88>{bar}</color>] ИЗВЛЕЧЁН  <b><color=#FFFF33>{pct}%</color></b>\n" +
+                               $"<size=11><color=#88DDCC>{hint}</color></size>";
+
+            GUI.Box(new Rect(screenW / 2 - 250, screenH - 120, 500, 72), gaugeText, gaugeBoxStyle);
+            return;
+        }
+
+        // 2. Tactile Rotary Gauge while Dragging Knob
         if (isDraggingKnob && activeKnob != null)
         {
             var gaugeBoxStyle = new GUIStyle(GUI.skin.box)
@@ -875,7 +1011,7 @@ public class PlayerController : MonoBehaviour
         // Draw center crosshair dot
         if (isFirstPerson && currentState == PlayerState.Normal)
         {
-            GUI.color = (currentInteractable != null || currentKnob != null) ? Color.green : new Color(1f, 1f, 1f, 0.45f);
+            GUI.color = (currentInteractable != null || currentKnob != null || currentCartridge != null) ? Color.green : new Color(1f, 1f, 1f, 0.45f);
             GUI.DrawTexture(new Rect(screenW / 2 - 2, screenH / 2 - 2, 4, 4), Texture2D.whiteTexture);
             GUI.color = Color.white;
         }
@@ -888,7 +1024,18 @@ public class PlayerController : MonoBehaviour
         };
         promptStyle.normal.textColor = Color.cyan;
 
-        // 2. Highest priority: Potentiometer Knob in crosshair
+        // 3. Cartridge in crosshair
+        if (currentCartridge != null && !currentCartridge.IsCompleted)
+        {
+            promptStyle.normal.textColor = Color.yellow;
+            string action = currentCartridge.Mode == CartridgeDraggable.SlideMode.PullOut
+                ? "Зажмите [ЛКМ] и тяните мышь на себя — Вытянуть пакет дисков"
+                : "Зажмите [ЛКМ] и толкайте вперед — Задвинуть пакет дисков в слот";
+            GUI.Box(new Rect(screenW / 2 - 250, screenH - 100, 500, 36), action, promptStyle);
+            return;
+        }
+
+        // 4. Potentiometer Knob in crosshair
         if (currentKnob != null)
         {
             promptStyle.normal.textColor = Color.yellow;
