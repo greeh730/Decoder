@@ -348,9 +348,10 @@ public class PlayerController : MonoBehaviour
     {
         if (WasKeyPressed(KeyCode.Escape) || WasKeyPressed(KeyCode.F))
         {
-            if (VectorCommander.Instance != null && VectorCommander.Instance.IsAnyModalOpen)
+            if ((VectorCommander.Instance != null && VectorCommander.Instance.IsAnyModalOpen) ||
+                (SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive))
             {
-                // Let the modal consume Escape/F to close itself without exiting the monitor
+                // Let the modal or mini-game consume Escape/F without exiting the monitor
                 return;
             }
 

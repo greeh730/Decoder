@@ -27,15 +27,17 @@ public class VectorCommander : MonoBehaviour
         public int sizeBytes;
         public string date;
         public bool isDirectory;
+        public bool isDecrypted;
         [TextArea(3, 10)] public string content;
 
-        public VirtualFile(string name, int sizeBytes, string date, bool isDirectory, string content = "")
+        public VirtualFile(string name, int sizeBytes, string date, bool isDirectory, string content = "", bool isDecrypted = false)
         {
             this.name = name;
             this.sizeBytes = sizeBytes;
             this.date = date;
             this.isDirectory = isDirectory;
             this.content = content;
+            this.isDecrypted = isDirectory || isDecrypted;
         }
 
         public string GetFormattedSize()
@@ -43,6 +45,12 @@ public class VectorCommander : MonoBehaviour
             if (isDirectory) return "<ПАПКА>";
             if (sizeBytes < 1024) return $"{sizeBytes} Б";
             return $"{sizeBytes / 1024} КБ";
+        }
+
+        public string GetStatusBadge()
+        {
+            if (isDirectory) return "<color=#88CCAA>ГОТОВ </color>";
+            return isDecrypted ? "<color=#00FFAA>РАСШИФР</color>" : "<color=#FFCC00>ЗАШИФР </color>";
         }
     }
 
@@ -159,51 +167,66 @@ public class VectorCommander : MonoBehaviour
         leftFiles.Clear();
         rightFiles.Clear();
 
-        // Source database C:\СЕКРЕТНО
-        leftFiles.Add(new VirtualFile("..", 0, "19.10.84", true, "Корневой каталог диска C:\\"));
-        leftFiles.Add(new VirtualFile("[ПРОТОКОЛЫ]", 0, "18.10.84", true, "Архив протоколов испытаний шифровальной аппаратуры «Вектор»."));
-        leftFiles.Add(new VirtualFile("[ШИФРОТЕЛЕГРАММЫ]", 0, "17.10.84", true, "Сводка перехваченных радиограмм за октябрь 1984 года."));
-        leftFiles.Add(new VirtualFile("ДЕКОДЕР_V2.BIN", 64 * 1024, "18.10.84", false,
-            "Исполняемый двоичный код ядра дешифратора алгоритма «Вектор-70».\n" +
-            "Размер: 65536 байт (64 КБ).\n" +
-            "Контрольная сумма CRC-32: A7F4-98C1.\n\n" +
-            ">> ГЛАВНАЯ ЦЕЛЬ ОПЕРАЦИИ <<\n" +
-            "Этот файл содержит полный алгоритм дешифровки вражеских директив."));
-        leftFiles.Add(new VirtualFile("ШИФР_СЕТИ_7.DAT", 128 * 1024, "16.10.84", false,
-            "Таблица подстановок и частотный ключ криптографической сети Сектора 7.\n" +
-            "Размер: 131072 байт (128 КБ).\n" +
-            "Используется для расшифровки сеансов связи с внешними объектами."));
-        leftFiles.Add(new VirtualFile("СПИСОК_АГЕНТУРЫ.TXT", 32 * 1024, "15.10.84", false,
-            "СОВЕРШЕННО СЕКРЕТНО // ОСОБАЯ ПАПКА\n" +
-            "Список оперативных позывных дежурной смены:\n" +
-            "- «Буревестник» (Начальник узла связи)\n" +
-            "- «Коршун-4» (Старший криптограф лаборатории)\n" +
-            "- «Сокол-9» (Инженер системы охлаждения ЭВМ)\n" +
-            "Внимание: при обнаружении посторонних лиц блокировать шлюз."));
-        leftFiles.Add(new VirtualFile("ПЛАН_ОБЪЕКТА.СХМ", 256 * 1024, "12.10.84", false,
-            "Векторная схема подземного бункера НИИ «Вектор»:\n" +
-            "- Уровень 1: Машинный зал мейнфрейма и терминал оператора.\n" +
-            "- Уровень 2: Силовая подстанция 1500В и резервуары хладагента.\n" +
-            "- Уровень 3: Аварийный коллектор и гермошлюз эвакуации."));
-        leftFiles.Add(new VirtualFile("ДИРЕКТИВА_42.DOC", 16 * 1024, "10.10.84", false,
-            "ДИРЕКТИВА УПРАВЛЕНИЯ №42-Б // ИСПЫТАНИЯ ЭВМ «ВЕКТОР-1»\n\n" +
-            "1. При непрерывной перекачке массивов данных дисковые картриджи\n" +
-            "   испытывают колоссальный индукционный нагрев.\n" +
-            "2. Рабочая норма: до 75°C (зелёная зона).\n" +
-            "3. При достижении 75°C-90°C загорается жёлтый индикатор.\n" +
-            "4. Внимание! Свыше 90°C срабатывает система защиты.\n" +
-            "   Извлекайте картридж нажатием кнопки тормоза шпинделя\n" +
-            "   и перемещайте его в ячейку водяного охлаждения стойки!"));
+        // Source database C:\СЕКРЕТНО (10 specialized spy file formats)
+        leftFiles.Add(new VirtualFile("..", 0, "19.10.84", true, "Корневой каталог диска C:\\", true));
         leftFiles.Add(new VirtualFile("ИНСТРУКЦИЯ_ЭВМ.TXT", 8 * 1024, "05.10.84", false,
-            "ИНСТРУКЦИЯ ПОЛЬЗОВАТЕЛЯ «ВЕКТОР-КОМАНДИР» v2.1\n\n" +
-            "[Стрелки Вверх/Вниз] — Выбор файла в каталоге\n" +
-            "[Tab]                — Переключение между панелями C: и A:\n" +
-            "[F3 / Чтение]        — Просмотр текста файла\n" +
-            "[F5 / Копия]         — Перекачка выбранного файла на сменный картридж\n" +
-            "[F8 / Охлажд]        — Проверка температуры дискового накопителя\n" +
-            "[F10 / Выход]        — Возврат на стартовый экран"));
+            "ИНСТРУКЦИЯ ОПЕРАТОРА «ВЕКТОР-КОМАНДИР» v2.1\n\n" +
+            "Каждый зашифрованный файл требует своего криптографического модуля:\n" +
+            "• .BIN / .EXE — Машина Тьюринга (восстановление перфоленты)\n" +
+            "• .DOC / .DIR — Частотный криптоанализ (сдвиг алфавита)\n" +
+            "• .TXT / .LST — Реляционный фильтр (картотека базы)\n" +
+            "• .MEM / .DMP — Hex-патчер (нейтрализация сторожевого буфера)\n" +
+            "• .RAD / .OSC — Осциллограф (сведение радиочастоты)\n" +
+            "• .NET / .ROU — Релейный маршрутизатор (обход брандмауэров)\n" +
+            "• .PAR / .CHK — Матрица Хэмминга (коррекция битов четности)\n" +
+            "• .DSK / .TRK — Секторный захват (тайминг шпинделя)\n" +
+            "• .STK / .BUF — Стек LIFO (переполнение регистра)\n" +
+            "• .ROT / .SHF — Роторная машина М-125 «Фиалка»\n\n" +
+            "[F4 / 4] или [ENTER] — Запуск дешифровки выбранного файла\n" +
+            "[F5 / 5]             — Перекачка расшифрованного файла на картридж", true));
 
-        leftSelectedIndex = 3; // Initially highlight ДЕКОДЕР_V2.BIN
+        leftFiles.Add(new VirtualFile("ДЕКОДЕР_V2.BIN", 64 * 1024, "18.10.84", false,
+            ">> ГЛАВНАЯ ЦЕЛЬ ОПЕРАЦИИ <<\n" +
+            "Исполняемое ядро криптоалгоритма «Вектор-70».\n" +
+            "Защищено контрольной суммой перфоленты. Требуется Машина Тьюринга.", false));
+
+        leftFiles.Add(new VirtualFile("ДИРЕКТИВА_42.DOC", 16 * 1024, "10.10.84", false,
+            "СЕКРЕТНАЯ ДИРЕКТИВА УПРАВЛЕНИЯ №42-Б\n" +
+            "Зашифрована шифром подстановки Цезаря. Требуется Частотный анализ.", false));
+
+        leftFiles.Add(new VirtualFile("КАРТОТЕКА_НИИ.TXT", 32 * 1024, "15.10.84", false,
+            "База данных личного состава дежурной смены Сектора 7.\n" +
+            "Требуется Реляционный фильтр для нахождения пароля администратора.", false));
+
+        leftFiles.Add(new VirtualFile("ДАМП_ПАМЯТИ.MEM", 128 * 1024, "14.10.84", false,
+            "Дамп сторожевого вектора оперативной памяти.\n" +
+            "Требуется Hex-инъекция байтов NOP для заморозки тревоги.", false));
+
+        leftFiles.Add(new VirtualFile("ПЕРЕХВАТ_УКВ.RAD", 48 * 1024, "12.10.84", false,
+            "Запись эфира армейской радиостанции 144.200 МГц.\n" +
+            "Требуется Осциллограф Лиссажу для слияния несущей частоты.", false));
+
+        leftFiles.Add(new VirtualFile("МАРШРУТЫ_СЕТИ.NET", 64 * 1024, "11.10.84", false,
+            "Таблица коммутации релейных шлюзов подземного бункера.\n" +
+            "Требуется матричная маршрутизация пакета данных.", false));
+
+        leftFiles.Add(new VirtualFile("КОД_ХЭММИНГА.PAR", 24 * 1024, "09.10.84", false,
+            "Ферритовая матрица контрольных сумм ОЗУ.\n" +
+            "Требуется устранение битового сбоя по алгоритму Хэмминга.", false));
+
+        leftFiles.Add(new VirtualFile("СЕКТОРЫ_ДИСКА.DSK", 256 * 1024, "07.10.84", false,
+            "Фрагментированный секторный архив жесткого диска ЕС-5061.\n" +
+            "Требуется секторный захват кластеров в тайминг вращения.", false));
+
+        leftFiles.Add(new VirtualFile("БУФЕР_СТЕКА.STK", 16 * 1024, "05.10.84", false,
+            "Стек регистров доступа операционной системы.\n" +
+            "Требуется переполнение буфера до значения 16 командами PUSH/POP.", false));
+
+        leftFiles.Add(new VirtualFile("ШИФР_ФИАЛКА.ROT", 96 * 1024, "03.10.84", false,
+            "Векторная схема объекта, зашифрованная машиной «Фиалка-М125».\n" +
+            "Требуется установка роторов по ключу дня [ IV - II - VII ].", false));
+
+        leftSelectedIndex = 2; // Initially highlight ДЕКОДЕР_V2.BIN
     }
 
     private void SetupButtonListeners()
@@ -284,7 +307,15 @@ public class VectorCommander : MonoBehaviour
         }
         else if (IsKeyPressed(KeyCode.Return))
         {
-            ViewSelectedFile();
+            var sel = GetCurrentSelectedFile();
+            if (sel != null && !sel.isDirectory && !sel.isDecrypted)
+            {
+                ShowDecryptorMode();
+            }
+            else
+            {
+                ViewSelectedFile();
+            }
         }
         else if (IsKeyPressed(KeyCode.F1) || IsKeyPressed(KeyCode.Alpha1))
         {
@@ -406,26 +437,25 @@ public class VectorCommander : MonoBehaviour
         if (leftPanelContentText != null)
         {
             var lines = new List<string>();
-            lines.Add("<color=#66CCAA>  ИМЯ ФАЙЛА                РАЗМЕР      ДАТА   </color>");
-            lines.Add("<color=#00AA77>  ───────────────────────────────────────────</color>");
+            lines.Add("<color=#66CCAA>  ИМЯ ФАЙЛА           РАЗМЕР   СТАТУС </color>");
+            lines.Add("<color=#00AA77>  ────────────────────────────────────</color>");
 
             for (int i = 0; i < leftFiles.Count; i++)
             {
                 var f = leftFiles[i];
                 bool isSel = isLeftPanelActive && (i == leftSelectedIndex);
-                string prefix = isSel ? "<color=#00FFAA>► </color>" : "  ";
-                string nameFormatted = f.name.PadRight(22);
-                string sizeFormatted = f.GetFormattedSize().PadLeft(9);
-                string dateFormatted = f.date.PadLeft(10);
+                string nameFormatted = f.name.PadRight(18);
+                string sizeFormatted = f.GetFormattedSize().PadLeft(8);
+                string statusFormatted = f.GetStatusBadge();
 
                 if (isSel)
                 {
-                    lines.Add($"<b><color=#00FFAA>► {nameFormatted} {sizeFormatted} {dateFormatted} ◄</color></b>");
+                    lines.Add($"<b><color=#00FFAA>► {nameFormatted} {sizeFormatted} {statusFormatted} ◄</color></b>");
                 }
                 else
                 {
                     string col = f.isDirectory ? "#88FFCC" : "#72D572";
-                    lines.Add($"<color={col}>  {nameFormatted} {sizeFormatted} {dateFormatted}  </color>");
+                    lines.Add($"<color={col}>  {nameFormatted} {sizeFormatted} {statusFormatted}  </color>");
                 }
             }
 
@@ -611,6 +641,15 @@ public class VectorCommander : MonoBehaviour
             return;
         }
 
+        // Encryption check: cannot copy encrypted files
+        if (!file.isDecrypted)
+        {
+            PlayErrorBuzz();
+            MainframeBootQuest.Instance?.ShowNotification(
+                $"<color=#FF3333>[ЗАЩИТА]</color> Файл {file.name} зашифрован! Нажмите [4] Дешифр или [ENTER]!");
+            return;
+        }
+
         // Check if file is already on cartridge
         if (rightFiles.Exists(f => f.name == file.name))
         {
@@ -748,8 +787,46 @@ public class VectorCommander : MonoBehaviour
     public void ShowDecryptorMode()
     {
         PlayKeyTick();
-        MainframeBootQuest.Instance?.ShowNotification(
-            "<color=#00FFAA>[ДЕШИФРАТОР]</color> Модуль криптоанализа активирован. Выберите шифр для перекачки.");
+        var file = GetCurrentSelectedFile();
+        if (file == null || file.isDirectory)
+        {
+            PlayErrorBuzz();
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>Выберите файл для дешифровки!</color>");
+            return;
+        }
+
+        if (file.isDecrypted)
+        {
+            PlayKeyTick();
+            MainframeBootQuest.Instance?.ShowNotification($"<color=#00FFAA>[ИНФО]</color> Файл {file.name} уже расшифрован!");
+            return;
+        }
+
+        var hub = SpyMiniGames.Instance;
+        if (hub == null)
+        {
+            var canvas = GameObject.Find("TerminalCanvas");
+            if (canvas != null) hub = canvas.GetComponentInChildren<SpyMiniGames>(true);
+        }
+
+        if (hub != null)
+        {
+            gameObject.SetActive(false);
+            hub.LaunchMiniGame(file, (success) =>
+            {
+                gameObject.SetActive(true);
+                if (success)
+                {
+                    file.isDecrypted = true;
+                    UpdateAllVisuals();
+                }
+            });
+        }
+        else
+        {
+            PlayErrorBuzz();
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FF4444>[ОШИБКА]</color> Модуль криптоанализа не обнаружен в памяти!");
+        }
     }
 
     public void CheckCoolingStatus()
