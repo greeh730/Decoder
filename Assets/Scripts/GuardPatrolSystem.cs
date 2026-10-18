@@ -536,6 +536,39 @@ public class GuardPawn : MonoBehaviour
     }
 
     public static bool IsGameOver { get; private set; } = false;
+    public static bool IsCheatPeaceMode { get; private set; } = false;
+
+    public static void ToggleCheatPeaceMode()
+    {
+        IsCheatPeaceMode = !IsCheatPeaceMode;
+
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Include);
+        if (guards != null)
+        {
+            foreach (var g in guards)
+            {
+                if (g == null) continue;
+                g.suspicion = 0f;
+                if (IsCheatPeaceMode && (g.currentState == GuardState.BreachMovingToDoor || 
+                                         g.currentState == GuardState.BreachOpeningDoor || 
+                                         g.currentState == GuardState.BreachEnteringRoom || 
+                                         g.currentState == GuardState.ChasingPlayer || 
+                                         g.currentState == GuardState.InvestigatingSuspicious))
+                {
+                    g.currentState = GuardState.Patrolling;
+                }
+            }
+        }
+
+        if (IsCheatPeaceMode)
+        {
+            MainframeBootQuest.Instance?.ShowNotification("<color=#00FFFF>[ЧИТ-КОД АКТИВИРОВАН: GreeH]</color> Режим неприкосновенности! Охрана нейтрализована.");
+        }
+        else
+        {
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>[ЧИТ-КОД ДЕАКТИВИРОВАН: GreeH]</color> Патруль вернулся в штатный режим.");
+        }
+    }
 
     private GuardPatrolSystem.PatrolRoute route;
     private int currentWaypointIndex = 0;
@@ -728,6 +761,17 @@ public class GuardPawn : MonoBehaviour
     private void Update()
     {
         if (IsGameOver) return;
+
+        if (IsCheatPeaceMode)
+        {
+            suspicion = 0f;
+            if (currentState != GuardState.Patrolling)
+            {
+                currentState = GuardState.Patrolling;
+            }
+            PatrolWaypoints();
+            return;
+        }
 
         UpdateStealthDetection();
 
@@ -1001,7 +1045,7 @@ public class GuardPawn : MonoBehaviour
 
     public void TriggerGameOver()
     {
-        if (IsGameOver) return;
+        if (IsCheatPeaceMode || IsGameOver) return;
         IsGameOver = true;
         currentState = GuardState.GameOver;
 
@@ -1022,6 +1066,21 @@ public class GuardPawn : MonoBehaviour
 
     private void OnGUI()
     {
+        // Active cheat mode indicator badge in top right corner
+        if (IsCheatPeaceMode && !IsGameOver)
+        {
+            var badgeStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 12,
+                fontStyle = FontStyle.Bold
+            };
+            badgeStyle.normal.textColor = new Color(0.2f, 1.0f, 0.85f);
+            GUI.color = new Color(0.08f, 0.18f, 0.12f, 0.85f);
+            GUI.Box(new Rect(Screen.width - 245f, 12f, 230f, 28f), "★ ЧИТ: GreeH [ОХРАНА OFF]", badgeStyle);
+            GUI.color = Color.white;
+        }
+
         if (!IsGameOver) return;
 
         Cursor.lockState = CursorLockMode.None;

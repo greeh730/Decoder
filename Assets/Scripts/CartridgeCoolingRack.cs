@@ -234,9 +234,33 @@ public class CartridgeCoolingRack : MonoBehaviour
 
     private void CreateMaterials()
     {
+#if UNITY_EDITOR
         if (lampGreenMat == null) lampGreenMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Mat_LedGreen.mat");
         if (lampRedMat == null) lampRedMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Mat_LedRed.mat");
         if (lampOffMat == null) lampOffMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Mat_LedOff.mat");
+#endif
+        var toonShader = Shader.Find("Custom/SovietToonLit");
+        if (toonShader == null) toonShader = Shader.Find("Universal Render Pipeline/Lit");
+
+        if (lampGreenMat == null)
+        {
+            lampGreenMat = new Material(toonShader);
+            lampGreenMat.SetColor("_BaseColor", new Color(0.15f, 1.0f, 0.35f));
+            lampGreenMat.EnableKeyword("_EMISSION");
+            lampGreenMat.SetColor("_EmissionColor", new Color(0.15f, 1.0f, 0.35f) * 1.5f);
+        }
+        if (lampRedMat == null)
+        {
+            lampRedMat = new Material(toonShader);
+            lampRedMat.SetColor("_BaseColor", new Color(1.0f, 0.15f, 0.15f));
+            lampRedMat.EnableKeyword("_EMISSION");
+            lampRedMat.SetColor("_EmissionColor", new Color(1.0f, 0.15f, 0.15f) * 1.5f);
+        }
+        if (lampOffMat == null)
+        {
+            lampOffMat = new Material(toonShader);
+            lampOffMat.SetColor("_BaseColor", new Color(0.15f, 0.18f, 0.16f));
+        }
     }
 
     private void GenerateAudioClips()

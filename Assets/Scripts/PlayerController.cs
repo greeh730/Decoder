@@ -193,6 +193,7 @@ public class PlayerController : MonoBehaviour
 #endif
 
         HandleCursorLock();
+        HandleCheatCodeInput();
 
         if (stunTimer > 0f)
         {
@@ -1204,6 +1205,63 @@ public class PlayerController : MonoBehaviour
             {
                 promptStyle.normal.textColor = Color.yellow;
                 GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
+            }
+        }
+    }
+
+    private int cheatKeyStep = 0;
+
+    private void HandleCheatCodeInput()
+    {
+        // Secret developer cheat sequence: G -> R -> E -> E -> H
+        bool pressedG = false;
+        bool pressedR = false;
+        bool pressedE = false;
+        bool pressedH = false;
+
+#if ENABLE_INPUT_SYSTEM
+        var kb = Keyboard.current;
+        if (kb != null)
+        {
+            pressedG = kb.gKey.wasPressedThisFrame;
+            pressedR = kb.rKey.wasPressedThisFrame;
+            pressedE = kb.eKey.wasPressedThisFrame;
+            pressedH = kb.hKey.wasPressedThisFrame;
+        }
+#else
+        pressedG = Input.GetKeyDown(KeyCode.G);
+        pressedR = Input.GetKeyDown(KeyCode.R);
+        pressedE = Input.GetKeyDown(KeyCode.E);
+        pressedH = Input.GetKeyDown(KeyCode.H);
+#endif
+
+        if (pressedG || pressedR || pressedE || pressedH)
+        {
+            switch (cheatKeyStep)
+            {
+                case 0:
+                    if (pressedG) cheatKeyStep = 1;
+                    break;
+                case 1:
+                    if (pressedR) cheatKeyStep = 2;
+                    else cheatKeyStep = pressedG ? 1 : 0;
+                    break;
+                case 2:
+                    if (pressedE) cheatKeyStep = 3;
+                    else cheatKeyStep = pressedG ? 1 : 0;
+                    break;
+                case 3:
+                    if (pressedE) cheatKeyStep = 4;
+                    else cheatKeyStep = pressedG ? 1 : 0;
+                    break;
+                case 4:
+                    if (pressedH)
+                    {
+                        cheatKeyStep = 0;
+                        GuardPawn.ToggleCheatPeaceMode();
+                    }
+                    else cheatKeyStep = pressedG ? 1 : 0;
+                    break;
             }
         }
     }
