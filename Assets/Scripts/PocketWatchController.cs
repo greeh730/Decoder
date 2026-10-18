@@ -75,6 +75,7 @@ public class PocketWatchController : MonoBehaviour
     // Tactical Radar Sweep & Tracked Enemies Buffer
     private const int RadarTexSize = 128;
     private Texture2D radarTex;
+    private Texture2D clockDialTex;
     private Color32[] staticBackgroundPixels;
     private Color32[] dynamicPixels;
     private float radarUpdateTimer = 0f;
@@ -281,10 +282,26 @@ public class PocketWatchController : MonoBehaviour
                 if (d != null) radarDisplay = d.GetComponent<RawImage>();
             }
 
-            if (clockFaceGroup != null && countdownText == null)
+            if (clockFaceGroup != null)
             {
-                var t = clockFaceGroup.Find("CountdownReadout");
-                if (t != null) countdownText = t.GetComponent<Text>();
+                var bg = clockFaceGroup.Find("ScreenBg");
+                if (bg != null)
+                {
+                    if (clockDialTex == null) clockDialTex = CreateCircularClockDial(RadarTexSize);
+                    var img = bg.GetComponent<Image>();
+                    if (img != null) DestroyImmediate(img);
+                    var raw = bg.GetComponent<RawImage>();
+                    if (raw == null) raw = bg.gameObject.AddComponent<RawImage>();
+                    if (raw.texture != clockDialTex) raw.texture = clockDialTex;
+                    var rt = bg.GetComponent<RectTransform>();
+                    if (rt != null) rt.sizeDelta = new Vector2(70f, 70f);
+                }
+
+                if (countdownText == null)
+                {
+                    var t = clockFaceGroup.Find("CountdownReadout");
+                    if (t != null) countdownText = t.GetComponent<Text>();
+                }
             }
 
             if (radarGroup != null && radarTimerText == null)
@@ -486,8 +503,66 @@ public class PocketWatchController : MonoBehaviour
     }
 
     // =========================================================================
-    // TACTICAL RADAR MAP RENDERING (CORRIDORS & MOVING GUARDS)
+    // CIRCULAR CLOCK DIAL & TACTICAL RADAR RENDERING
     // =========================================================================
+
+    private Texture2D CreateCircularClockDial(int size)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+
+        float centerPx = size * 0.5f;
+        float maxRadius = centerPx - 4f;
+
+        Color32 clearCol = new Color32(0, 0, 0, 0);
+        Color32 bgCol = new Color32(8, 22, 16, 255); // Deep Soviet CRT/LCD green (identical to radar!)
+        Color32 outerRingCol = new Color32(28, 70, 52, 255);
+        Color32 innerRingCol = new Color32(16, 42, 30, 255);
+        Color32 tickCol = new Color32(50, 130, 95, 220);
+
+        Color32[] pixels = new Color32[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(centerPx, centerPx));
+                if (dist > maxRadius + 1f)
+                {
+                    pixels[y * size + x] = clearCol;
+                }
+                else if (dist > maxRadius)
+                {
+                    float alpha = 1f - (dist - maxRadius);
+                    pixels[y * size + x] = new Color32(outerRingCol.r, outerRingCol.g, outerRingCol.b, (byte)(alpha * 255f));
+                }
+                else if (dist >= maxRadius - 2f)
+                {
+                    pixels[y * size + x] = outerRingCol;
+                }
+                else if (Mathf.Abs(dist - 44f) < 1f)
+                {
+                    pixels[y * size + x] = innerRingCol;
+                }
+                else
+                {
+                    float angle = Mathf.Atan2(y - centerPx, x - centerPx);
+                    float deg = (angle * Mathf.Rad2Deg + 360f) % 360f;
+                    float mod30 = deg % 30f;
+                    bool isTick = (dist >= maxRadius - 6f) && (mod30 < 1.4f || mod30 > 28.6f);
+
+                    pixels[y * size + x] = isTick ? tickCol : bgCol;
+                }
+            }
+        }
+
+        tex.SetPixels32(pixels);
+        tex.Apply(false);
+        return tex;
+    }
 
     private void InitRadarMap()
     {
@@ -940,56 +1015,62 @@ public class PocketWatchController : MonoBehaviour
         clockRt.sizeDelta = new Vector2(100f, 100f);
         clockRt.localScale = new Vector3(-0.000014f, 0.000014f, 1f); // Invert X to prevent mirroring
 
-        // Beveled LCD background screen
+        // Circular LCD background screen (circular, matches radar!)
         var bgObj = new GameObject("ScreenBg");
         bgObj.transform.SetParent(clockGroupObj.transform, false);
-        var bgImg = bgObj.AddComponent<Image>();
-        bgImg.color = new Color(0.04f, 0.10f, 0.06f, 0.98f);
+        var bgImg = bgObj.AddComponent<RawImage>();
+        if (clockDialTex == null) clockDialTex = CreateCircularClockDial(RadarTexSize);
+        bgImg.texture = clockDialTex;
         var bgRt = bgObj.GetComponent<RectTransform>();
-        bgRt.sizeDelta = new Vector2(72f, 72f);
+        bgRt.sizeDelta = new Vector2(70f, 70f);
 
         // Header: "• ЭЛЕКТРОНИКА •"
         var headerObj = new GameObject("TimerHeader");
         headerObj.transform.SetParent(clockGroupObj.transform, false);
         var headerTxt = headerObj.AddComponent<Text>();
         headerTxt.font = builtinFont;
-        headerTxt.fontSize = 11;
+        headerTxt.fontSize = 8;
         headerTxt.fontStyle = FontStyle.Bold;
         headerTxt.alignment = TextAnchor.MiddleCenter;
-        headerTxt.color = new Color(0.2f, 0.85f, 0.45f);
+        headerTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+        headerTxt.verticalOverflow = VerticalWrapMode.Overflow;
+        headerTxt.color = new Color(0.25f, 0.85f, 0.45f);
         headerTxt.text = "• ЭЛЕКТРОНИКА •";
         var headerRt = headerObj.GetComponent<RectTransform>();
         headerRt.anchoredPosition = new Vector2(0f, 18f);
-        headerRt.sizeDelta = new Vector2(70f, 16f);
+        headerRt.sizeDelta = new Vector2(70f, 12f);
 
         // Main Countdown Display: "14:59"
         var timerObj = new GameObject("CountdownReadout");
         timerObj.transform.SetParent(clockGroupObj.transform, false);
         countdownText = timerObj.AddComponent<Text>();
         countdownText.font = builtinFont;
-        countdownText.fontSize = 22;
+        countdownText.fontSize = 20;
         countdownText.fontStyle = FontStyle.Bold;
         countdownText.alignment = TextAnchor.MiddleCenter;
+        countdownText.horizontalOverflow = HorizontalWrapMode.Overflow;
         countdownText.verticalOverflow = VerticalWrapMode.Overflow;
         countdownText.color = new Color(0.15f, 1.0f, 0.5f);
         countdownText.text = "15:00";
         var timerRt = timerObj.GetComponent<RectTransform>();
         timerRt.anchoredPosition = new Vector2(0f, 0f);
-        timerRt.sizeDelta = new Vector2(70f, 26f);
+        timerRt.sizeDelta = new Vector2(70f, 22f);
 
         // Subtext: "• КГБ СССР •"
         var subObj = new GameObject("TimerSubtext");
         subObj.transform.SetParent(clockGroupObj.transform, false);
         var subTxt = subObj.AddComponent<Text>();
         subTxt.font = builtinFont;
-        subTxt.fontSize = 9;
+        subTxt.fontSize = 8;
         subTxt.fontStyle = FontStyle.Bold;
         subTxt.alignment = TextAnchor.MiddleCenter;
+        subTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+        subTxt.verticalOverflow = VerticalWrapMode.Overflow;
         subTxt.color = new Color(0.2f, 0.75f, 0.4f, 0.85f);
         subTxt.text = "• КГБ СССР •";
         var subRt = subObj.GetComponent<RectTransform>();
         subRt.anchoredPosition = new Vector2(0f, -18f);
-        subRt.sizeDelta = new Vector2(70f, 14f);
+        subRt.sizeDelta = new Vector2(70f, 12f);
 
         // 3. TACTICAL RADAR CONTAINER
         var radarGroupObj = new GameObject("TacticalRadarGroup");
