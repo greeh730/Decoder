@@ -28,7 +28,11 @@ public class WorldInteractable : MonoBehaviour
         set => promptText = value;
     }
 
-    public float MaxDistance => maxDistance;
+    public float MaxDistance
+    {
+        get => maxDistance;
+        set => maxDistance = value;
+    }
     public bool IsInteractable
     {
         get => isInteractable;

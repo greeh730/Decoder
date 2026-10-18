@@ -102,18 +102,18 @@ public class CartridgeCoolingRack : MonoBehaviour
         bool hasExtractedCartridge = bay != null && bay.State == DiskDriveBay.DriveBayState.CartridgeExtracted;
         int extractedId = bay != null ? bay.ExtractedCartridgeId : 0;
 
+        cradle.interactable.IsInteractable = true;
+
         if (!cradle.isOccupied)
         {
             // Empty cradle: can we place the extracted cartridge here?
             if (hasExtractedCartridge && extractedId == cradle.cartridgeId)
             {
                 cradle.interactable.PromptText = $"[E] Положить горячий пакет №{cradle.cartridgeId} на охлаждение";
-                cradle.interactable.IsInteractable = true;
             }
             else
             {
-                cradle.interactable.PromptText = $"[ {cradle.cradleName} пуста ]";
-                cradle.interactable.IsInteractable = false;
+                cradle.interactable.PromptText = $"[ {cradle.cradleName} пуста — сначала извлеките диск из сервера ]";
             }
 
             if (cradle.statusLamp != null) cradle.statusLamp.sharedMaterial = lampOffMat;
@@ -133,12 +133,10 @@ public class CartridgeCoolingRack : MonoBehaviour
                 if (hasExtractedCartridge)
                 {
                     cradle.interactable.PromptText = $"[E] Взять охлажденный пакет №{cradle.cartridgeId} ({cradle.currentTemp:F0}°C)";
-                    cradle.interactable.IsInteractable = true;
                 }
                 else
                 {
-                    cradle.interactable.PromptText = $"[ Сначала извлеките горячий диск из сервера ]";
-                    cradle.interactable.IsInteractable = false;
+                    cradle.interactable.PromptText = $"[ Пакет №{cradle.cartridgeId} готов ({cradle.currentTemp:F0}°C) — сначала извлеките горячий диск ]";
                 }
 
                 if (cradle.statusLamp != null) cradle.statusLamp.sharedMaterial = lampGreenMat;
@@ -151,7 +149,6 @@ public class CartridgeCoolingRack : MonoBehaviour
             {
                 // Still cooling down
                 cradle.interactable.PromptText = $"[ Пакет №{cradle.cartridgeId} остывает ({cradle.currentTemp:F0}°C) — дождитесь 35°C ]";
-                cradle.interactable.IsInteractable = false;
 
                 if (cradle.statusLamp != null) cradle.statusLamp.sharedMaterial = lampRedMat;
                 if (cradle.labelTextMesh != null)
@@ -197,6 +194,11 @@ public class CartridgeCoolingRack : MonoBehaviour
 
                 MainframeBootQuest.Instance?.ShowNotification(
                     $"<color=#FFFF66>[ПОЛКА ОХЛАЖДЕНИЯ]</color> Пакет №{cradle.cartridgeId} установлен на охлаждение ({cradle.currentTemp:F0}°C).");
+            }
+            else
+            {
+                MainframeBootQuest.Instance?.ShowNotification(
+                    $"<color=#FFAA00>[ЯЧЕЙКА ПУСТА]</color> Сначала извлеките горячий пакет дисков №{cradle.cartridgeId} из сервера!");
             }
         }
         else

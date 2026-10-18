@@ -349,7 +349,6 @@ GameObject:
   m_Component:
   - component: {fileID: 20281708}
   - component: {fileID: 20281711}
-  - component: {fileID: 20281710}
   - component: {fileID: 20281709}
   m_Layer: 0
   m_Name: CartridgeHandle
@@ -422,27 +421,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &20281710
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 20281707}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &20281711
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -2591,7 +2569,6 @@ GameObject:
   m_Component:
   - component: {fileID: 150685490}
   - component: {fileID: 150685493}
-  - component: {fileID: 150685492}
   - component: {fileID: 150685491}
   m_Layer: 0
   m_Name: GuideRail_L
@@ -2664,27 +2641,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &150685492
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 150685489}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &150685493
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -3414,7 +3370,6 @@ GameObject:
   m_Component:
   - component: {fileID: 206782851}
   - component: {fileID: 206782850}
-  - component: {fileID: 206782849}
   - component: {fileID: 206782848}
   m_Layer: 0
   m_Name: Lamp_Green_Unlock
@@ -3472,29 +3427,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &206782849
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 206782847}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &206782850
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -5252,7 +5184,6 @@ GameObject:
   m_Component:
   - component: {fileID: 299387854}
   - component: {fileID: 299387857}
-  - component: {fileID: 299387856}
   - component: {fileID: 299387855}
   m_Layer: 0
   m_Name: Cube
@@ -5325,27 +5256,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &299387856
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 299387853}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &299387857
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -5779,7 +5689,6 @@ GameObject:
   m_Component:
   - component: {fileID: 341766570}
   - component: {fileID: 341766573}
-  - component: {fileID: 341766572}
   - component: {fileID: 341766571}
   m_Layer: 0
   m_Name: ThermometerDialFace
@@ -5852,29 +5761,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &341766572
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 341766569}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &341766573
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -6279,7 +6165,6 @@ GameObject:
   m_Component:
   - component: {fileID: 364149858}
   - component: {fileID: 364149861}
-  - component: {fileID: 364149860}
   - component: {fileID: 364149859}
   m_Layer: 0
   m_Name: BezelMidDivider
@@ -6352,27 +6237,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &364149860
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 364149857}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &364149861
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -7785,7 +7649,6 @@ GameObject:
   m_Component:
   - component: {fileID: 446009778}
   - component: {fileID: 446009781}
-  - component: {fileID: 446009780}
   - component: {fileID: 446009779}
   m_Layer: 0
   m_Name: BezelBottom
@@ -7858,27 +7721,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &446009780
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 446009777}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &446009781
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -9041,7 +8883,6 @@ GameObject:
   m_Component:
   - component: {fileID: 564228053}
   - component: {fileID: 564228056}
-  - component: {fileID: 564228055}
   - component: {fileID: 564228054}
   m_Layer: 0
   m_Name: CartridgeFaceplate
@@ -9114,27 +8955,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &564228055
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 564228052}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &564228056
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -10188,7 +10008,6 @@ GameObject:
   m_Component:
   - component: {fileID: 654843673}
   - component: {fileID: 654843676}
-  - component: {fileID: 654843675}
   - component: {fileID: 654843674}
   m_Layer: 0
   m_Name: Cube
@@ -10261,27 +10080,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &654843675
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 654843672}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &654843676
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -10572,7 +10370,6 @@ GameObject:
   m_Component:
   - component: {fileID: 696432535}
   - component: {fileID: 696432538}
-  - component: {fileID: 696432537}
   - component: {fileID: 696432536}
   m_Layer: 0
   m_Name: CartridgeBody
@@ -10645,27 +10442,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &696432537
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 696432534}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &696432538
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -11427,7 +11203,6 @@ GameObject:
   m_Component:
   - component: {fileID: 760901736}
   - component: {fileID: 760901739}
-  - component: {fileID: 760901738}
   - component: {fileID: 760901737}
   m_Layer: 0
   m_Name: Cube
@@ -11500,27 +11275,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &760901738
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 760901735}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &760901739
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -11719,7 +11473,6 @@ GameObject:
   m_Component:
   - component: {fileID: 768407116}
   - component: {fileID: 768407119}
-  - component: {fileID: 768407118}
   - component: {fileID: 768407117}
   m_Layer: 0
   m_Name: ControlPanelFace
@@ -11792,27 +11545,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &768407118
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 768407115}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &768407119
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -12948,9 +12680,9 @@ GameObject:
   m_Component:
   - component: {fileID: 829295343}
   - component: {fileID: 829295347}
-  - component: {fileID: 829295346}
   - component: {fileID: 829295345}
   - component: {fileID: 829295344}
+  - component: {fileID: 829295348}
   m_Layer: 0
   m_Name: BrakeButton
   m_TagString: Untagged
@@ -12987,7 +12719,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldInteractable
   promptText: "[E] \u041D\u0430\u0436\u0430\u0442\u044C [\u041E\u0421\u0422\u0410\u041D\u041E\u0412 \u0428\u041F\u0418\u041D\u0414\u0415\u041B\u042F] (\u0422\u043E\u0440\u043C\u043E\u0437)"
-  maxDistance: 2.4
+  maxDistance: 3.5
   isInteractable: 1
   onInteract:
     m_PersistentCalls:
@@ -13053,8 +12785,16 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &829295346
-CapsuleCollider:
+--- !u!33 &829295347
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 829295342}
+  m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!65 &829295348
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -13071,19 +12811,9 @@ CapsuleCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
+  serializedVersion: 3
+  m_Size: {x: 2.4, y: 7, z: 2.4}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!33 &829295347
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 829295342}
-  m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -15150,7 +14880,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1032471853}
   - component: {fileID: 1032471852}
-  - component: {fileID: 1032471851}
   - component: {fileID: 1032471850}
   m_Layer: 0
   m_Name: Lamp_Red_380V
@@ -15208,29 +14937,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &1032471851
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1032471849}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1032471852
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -17976,7 +17682,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1216712478}
   - component: {fileID: 1216712481}
-  - component: {fileID: 1216712480}
   - component: {fileID: 1216712479}
   m_Layer: 0
   m_Name: BezelTop
@@ -18049,27 +17754,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1216712480
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1216712477}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1216712481
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -18967,7 +18651,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1279440163}
   - component: {fileID: 1279440166}
-  - component: {fileID: 1279440165}
   - component: {fileID: 1279440164}
   m_Layer: 0
   m_Name: CartridgeHandle
@@ -19040,27 +18723,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1279440165
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1279440162}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1279440166
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -19711,7 +19373,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1318424964}
   - component: {fileID: 1318424967}
-  - component: {fileID: 1318424966}
   - component: {fileID: 1318424965}
   m_Layer: 0
   m_Name: CartridgeFaceplate
@@ -19784,27 +19445,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1318424966
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1318424963}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1318424967
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -22415,8 +22055,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.42, y: 0.18, z: 0.15}
-  m_Center: {x: 0, y: 0, z: -0.02}
+  m_Size: {x: 0.48, y: 0.2, z: 0.3}
+  m_Center: {x: 0, y: 0, z: -0.04}
 --- !u!4 &1500975563
 Transform:
   m_ObjectHideFlags: 0
@@ -23338,7 +22978,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1602268723}
   - component: {fileID: 1602268726}
-  - component: {fileID: 1602268725}
   - component: {fileID: 1602268724}
   m_Layer: 0
   m_Name: BezelLeft
@@ -23411,27 +23050,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1602268725
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1602268722}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1602268726
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -25091,7 +24709,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1731484824}
   - component: {fileID: 1731484827}
-  - component: {fileID: 1731484826}
   - component: {fileID: 1731484825}
   m_Layer: 0
   m_Name: GuideRail_R
@@ -25164,27 +24781,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1731484826
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1731484823}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1731484827
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -25519,7 +25115,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1752370904}
   - component: {fileID: 1752370907}
-  - component: {fileID: 1752370906}
   - component: {fileID: 1752370905}
   m_Layer: 0
   m_Name: Cube
@@ -25592,27 +25187,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1752370906
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1752370903}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1752370907
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -26108,8 +25682,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.42, y: 0.18, z: 0.15}
-  m_Center: {x: 0, y: 0, z: -0.02}
+  m_Size: {x: 0.48, y: 0.2, z: 0.3}
+  m_Center: {x: 0, y: 0, z: -0.04}
 --- !u!4 &1782607339
 Transform:
   m_ObjectHideFlags: 0
@@ -26366,7 +25940,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldInteractable
   promptText: "[ \u042F\u0447\u0435\u0439\u043A\u0430 1 \u043F\u0443\u0441\u0442\u0430 ]"
-  maxDistance: 2.4
+  maxDistance: 3.5
   isInteractable: 0
   onInteract:
     m_PersistentCalls:
@@ -26402,8 +25976,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.48, y: 0.18, z: 0.25}
-  m_Center: {x: 0, y: 0, z: 0.05}
+  m_Size: {x: 0.5, y: 0.18, z: 0.24}
+  m_Center: {x: 0, y: 0, z: 0.08}
 --- !u!4 &1813066606
 Transform:
   m_ObjectHideFlags: 0
@@ -26769,7 +26343,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1844432724}
   - component: {fileID: 1844432727}
-  - component: {fileID: 1844432726}
   - component: {fileID: 1844432725}
   m_Layer: 0
   m_Name: ThermometerRim
@@ -26845,29 +26418,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &1844432726
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1844432723}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1844432727
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -27390,7 +26940,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1928650255}
   - component: {fileID: 1928650258}
-  - component: {fileID: 1928650257}
   - component: {fileID: 1928650256}
   m_Layer: 0
   m_Name: CartridgeBody
@@ -27463,27 +27012,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1928650257
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1928650254}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1928650258
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -29914,7 +29442,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldInteractable
   promptText: "[E] \u0412\u0437\u044F\u0442\u044C \u043E\u0445\u043B\u0430\u0436\u0434\u0435\u043D\u043D\u044B\u0439 \u043F\u0430\u043A\u0435\u0442 \u21162"
-  maxDistance: 2.4
+  maxDistance: 3.5
   isInteractable: 1
   onInteract:
     m_PersistentCalls:
@@ -29950,8 +29478,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.48, y: 0.18, z: 0.25}
-  m_Center: {x: 0, y: 0, z: 0.05}
+  m_Size: {x: 0.5, y: 0.18, z: 0.24}
+  m_Center: {x: 0, y: 0, z: 0.08}
 --- !u!1 &2118733047
 GameObject:
   m_ObjectHideFlags: 0
@@ -29993,7 +29521,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2120525081}
   - component: {fileID: 2120525084}
-  - component: {fileID: 2120525083}
   - component: {fileID: 2120525082}
   m_Layer: 0
   m_Name: BayChassis
@@ -30066,27 +29593,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &2120525083
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2120525080}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &2120525084
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -30251,7 +29757,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2140411097}
   - component: {fileID: 2140411096}
-  - component: {fileID: 2140411095}
   - component: {fileID: 2140411094}
   m_Layer: 0
   m_Name: Lamp_Yellow_Brake
@@ -30309,29 +29814,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &2140411095
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2140411093}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &2140411096
 MeshFilter:
   m_ObjectHideFlags: 0

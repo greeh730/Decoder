@@ -267,10 +267,10 @@ public class PlayerController : MonoBehaviour
             }
 
             var interactable = hit.collider.GetComponentInParent<WorldInteractable>();
-            if (interactable != null && interactable.IsInteractable && hit.distance <= interactable.MaxDistance)
+            if (interactable != null && hit.distance <= interactable.MaxDistance)
             {
                 currentInteractable = interactable;
-                if (WasKeyPressed(KeyCode.E))
+                if (interactable.IsInteractable && WasKeyPressed(KeyCode.E))
                 {
                     interactable.Interact();
                     return;
@@ -286,22 +286,30 @@ public class PlayerController : MonoBehaviour
         float distToChair = Vector3.Distance(transform.position, chairPosition);
         float distToMonitor = Vector3.Distance(transform.position, monitorPosition);
 
-        // Sit in chair (E) if not looking at another interactable, knob, or cartridge
-        if (currentInteractable == null && currentKnob == null && currentCartridge == null && distToChair < 1.6f && WasKeyPressed(KeyCode.E))
+        Vector3 toMonitor = monitorPosition - transform.position;
+        toMonitor.y = 0f;
+        bool isFacingMonitor = toMonitor.sqrMagnitude > 0.01f && Vector3.Dot(transform.forward, toMonitor.normalized) > 0.45f;
+
+        Vector3 toChair = chairPosition - transform.position;
+        toChair.y = 0f;
+        bool isFacingChair = toChair.sqrMagnitude > 0.01f && Vector3.Dot(transform.forward, toChair.normalized) > 0.35f;
+
+        // Sit in chair (E) if facing chair and not looking at another interactable, knob, or cartridge
+        if (currentInteractable == null && currentKnob == null && currentCartridge == null && distToChair < 1.35f && isFacingChair && WasKeyPressed(KeyCode.E))
         {
             SitDown();
             return;
         }
 
-        // Inspect monitor directly while standing (F)
-        if (distToMonitor < 2.2f && WasKeyPressed(KeyCode.F))
+        // Inspect monitor directly while standing (F) only when facing monitor at the desk
+        if (distToMonitor < 1.4f && isFacingMonitor && WasKeyPressed(KeyCode.F))
         {
             InspectMonitor();
             return;
         }
 
         // Adjust monitor brightness while standing near desk (B)
-        if (distToMonitor < 2.5f && WasKeyPressed(KeyCode.B))
+        if (distToMonitor < 1.6f && isFacingMonitor && WasKeyPressed(KeyCode.B))
         {
             if (monitorTerminal != null) monitorTerminal.CycleBrightness();
             else if (MonitorTerminal.Instance != null) MonitorTerminal.Instance.CycleBrightness();
@@ -1048,19 +1056,27 @@ public class PlayerController : MonoBehaviour
             // WorldInteractable in crosshair
             if (currentInteractable != null)
             {
-                promptStyle.normal.textColor = Color.yellow;
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 100, 360, 36), currentInteractable.PromptText, promptStyle);
+                promptStyle.normal.textColor = currentInteractable.IsInteractable ? Color.yellow : new Color(0.85f, 0.85f, 0.85f, 0.9f);
+                GUI.Box(new Rect(screenW / 2 - 250, screenH - 100, 500, 36), currentInteractable.PromptText, promptStyle);
                 return;
             }
+
+            Vector3 toChair = chairPosition - transform.position;
+            toChair.y = 0f;
+            bool isFacingChair = toChair.sqrMagnitude > 0.01f && Vector3.Dot(transform.forward, toChair.normalized) > 0.35f;
+
+            Vector3 toMonitor = monitorPosition - transform.position;
+            toMonitor.y = 0f;
+            bool isFacingMonitor = toMonitor.sqrMagnitude > 0.01f && Vector3.Dot(transform.forward, toMonitor.normalized) > 0.45f;
 
             float distToChair = Vector3.Distance(transform.position, chairPosition);
             float distToMonitor = Vector3.Distance(transform.position, monitorPosition);
 
-            if (distToChair < 1.6f)
+            if (distToChair < 1.35f && isFacingChair)
             {
                 GUI.Box(new Rect(screenW / 2 - 130, screenH - 100, 260, 36), "Нажмите [E] — Сесть в кресло", promptStyle);
             }
-            else if (distToMonitor < 2.2f)
+            else if (distToMonitor < 1.4f && isFacingMonitor)
             {
                 bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
                                       (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
