@@ -61,8 +61,8 @@ public class PocketWatchController : MonoBehaviour
     [SerializeField] [Range(0.1f, 1.0f)] private float raiseDuration = 0.32f;
 
     [Header("Display Text & Colors")]
-    [SerializeField] private string clockHeader = "• ЭЛЕКТРОНИКА •";
-    [SerializeField] private string clockSubtext = "• КГБ СССР •";
+    [SerializeField] private string clockHeader = "";
+    [SerializeField] private string clockSubtext = "";
     [SerializeField] private Color phosphorGreen = new Color(0.15f, 1.0f, 0.5f);
 
     [Header("Radar Tuning")]
@@ -148,6 +148,25 @@ public class PocketWatchController : MonoBehaviour
             {
                 watchRig.localPosition = loweredLocalPos;
                 watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+            }
+        }
+
+        if (clockFaceGroup != null)
+        {
+            var h = clockFaceGroup.Find("TimerHeader");
+            if (h != null)
+            {
+                h.gameObject.SetActive(!string.IsNullOrEmpty(clockHeader));
+                var ht = h.GetComponent<Text>();
+                if (ht != null) ht.text = clockHeader;
+            }
+
+            var s = clockFaceGroup.Find("TimerSubtext");
+            if (s != null)
+            {
+                s.gameObject.SetActive(!string.IsNullOrEmpty(clockSubtext));
+                var st = s.GetComponent<Text>();
+                if (st != null) st.text = clockSubtext;
             }
         }
 
@@ -363,6 +382,22 @@ public class PocketWatchController : MonoBehaviour
                     if (raw.texture != clockDialTex) raw.texture = clockDialTex;
                     var rt = bg.GetComponent<RectTransform>();
                     if (rt != null) rt.sizeDelta = new Vector2(70f, 70f);
+                }
+
+                var h = clockFaceGroup.Find("TimerHeader");
+                if (h != null)
+                {
+                    h.gameObject.SetActive(!string.IsNullOrEmpty(clockHeader));
+                    var ht = h.GetComponent<Text>();
+                    if (ht != null) ht.text = clockHeader;
+                }
+
+                var s = clockFaceGroup.Find("TimerSubtext");
+                if (s != null)
+                {
+                    s.gameObject.SetActive(!string.IsNullOrEmpty(clockSubtext));
+                    var st = s.GetComponent<Text>();
+                    if (st != null) st.text = clockSubtext;
                 }
 
                 if (countdownText == null)
@@ -1107,13 +1142,14 @@ public class PocketWatchController : MonoBehaviour
         var headerRt = headerObj.GetComponent<RectTransform>();
         headerRt.anchoredPosition = new Vector2(0f, 18f);
         headerRt.sizeDelta = new Vector2(70f, 12f);
+        headerObj.SetActive(!string.IsNullOrEmpty(clockHeader));
 
         // Main Countdown Display: "14:59"
         var timerObj = new GameObject("CountdownReadout");
         timerObj.transform.SetParent(clockGroupObj.transform, false);
         countdownText = timerObj.AddComponent<Text>();
         countdownText.font = builtinFont;
-        countdownText.fontSize = 20;
+        countdownText.fontSize = 24;
         countdownText.fontStyle = FontStyle.Bold;
         countdownText.alignment = TextAnchor.MiddleCenter;
         countdownText.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -1122,7 +1158,7 @@ public class PocketWatchController : MonoBehaviour
         countdownText.text = "15:00";
         var timerRt = timerObj.GetComponent<RectTransform>();
         timerRt.anchoredPosition = new Vector2(0f, 0f);
-        timerRt.sizeDelta = new Vector2(70f, 22f);
+        timerRt.sizeDelta = new Vector2(70f, 28f);
 
         // Subtext: "• КГБ СССР •"
         var subObj = new GameObject("TimerSubtext");
@@ -1139,6 +1175,7 @@ public class PocketWatchController : MonoBehaviour
         var subRt = subObj.GetComponent<RectTransform>();
         subRt.anchoredPosition = new Vector2(0f, -18f);
         subRt.sizeDelta = new Vector2(70f, 12f);
+        subObj.SetActive(!string.IsNullOrEmpty(clockSubtext));
 
         // 3. TACTICAL RADAR CONTAINER
         var radarGroupObj = new GameObject("TacticalRadarGroup");
