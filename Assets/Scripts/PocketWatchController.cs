@@ -708,21 +708,24 @@ public class PocketWatchController : MonoBehaviour
             }
         }
 
-        // Draw Corridor Rectangles into static background
-        // World coordinates mapping: Center is (14.5, 3.5), scale: 4.2 pixels per world meter
-        // 1. Main Hallway (X: 12..15, Z: -8..15)
-        DrawWorldRectOnStatic(12.0f, -8.0f, 3.0f, 23.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 2. North Wing (X: 15..25, Z: 12..15)
-        DrawWorldRectOnStatic(15.0f, 12.0f, 10.0f, 3.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 3. South Wing (X: 15..25, Z: -8..-5)
-        DrawWorldRectOnStatic(15.0f, -8.0f, 10.0f, 3.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 4. East Perimeter (X: 23..26, Z: -8..15)
-        DrawWorldRectOnStatic(23.2f, -8.0f, 2.6f, 23.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 5. West Service Passage (X: 2.08..4.08, Z: -2..9)
+        // Draw Corridor Rectangles into static background (Expanded facility network)
+        // 1. Main Hallway (X: 12..15, Z: -22..28)
+        DrawWorldRectOnStatic(12.0f, -22.0f, 3.0f, 50.0f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 2. North Wing (X: 13.5..24.5, Z: 24.6..27.4)
+        DrawWorldRectOnStatic(13.5f, 24.6f, 11.0f, 2.8f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 3. South Wing (X: 13.5..24.5, Z: -21.4..-18.6)
+        DrawWorldRectOnStatic(13.5f, -21.4f, 11.0f, 2.8f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 4. Mid North Cross (X: 13.5..24.5, Z: 12.1..14.9)
+        DrawWorldRectOnStatic(13.5f, 12.1f, 11.0f, 2.8f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 5. Mid South Cross (X: 13.5..24.5, Z: -7.9..-5.1)
+        DrawWorldRectOnStatic(13.5f, -7.9f, 11.0f, 2.8f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 6. East Perimeter (X: 23.2..25.8, Z: -21..27)
+        DrawWorldRectOnStatic(23.2f, -21.0f, 2.6f, 48.0f, corridorFillCol, corridorBorderCol, maxRadius);
+        // 7. West Service Passage (X: 2.08..4.08, Z: -2..9)
         DrawWorldRectOnStatic(2.08f, -2.0f, 2.0f, 11.0f, corridorFillCol, corridorBorderCol, maxRadius);
-        // 6. Our Computer Lab Room comnata (X: 4.18..12.01, Z: -0.56..5.35)
+        // 8. Our Computer Lab Room comnata (X: 4.18..12.01, Z: -0.56..5.35)
         DrawWorldRectOnStatic(4.18f, -0.56f, 7.83f, 5.91f, roomCol, corridorBorderCol, maxRadius);
-        // 7. Entrance Vestibule (X: 8.9..12.0, Z: -2.75..-0.5)
+        // 9. Entrance Vestibule (X: 8.9..12.0, Z: -2.75..-0.5)
         DrawWorldRectOnStatic(8.9f, -2.75f, 3.1f, 2.25f, corridorFillCol, corridorBorderCol, maxRadius);
 
         // Push static background to texture immediately
@@ -763,10 +766,10 @@ public class PocketWatchController : MonoBehaviour
 
     private Vector2 WorldToRadarPixel(float worldX, float worldZ)
     {
-        // World Center = (14.5, 3.5), scale = 3.8 px / meter
+        // World Center = (14.5, 3.0), scale = 2.05 px / meter to fit expanded ~114m facility
         float centerPx = RadarTexSize * 0.5f;
-        float px = centerPx + (worldX - 14.5f) * 3.8f;
-        float py = centerPx + (worldZ - 3.5f) * 3.8f;
+        float px = centerPx + (worldX - 14.5f) * 2.05f;
+        float py = centerPx + (worldZ - 3.0f) * 2.05f;
         return new Vector2(px, py);
     }
 

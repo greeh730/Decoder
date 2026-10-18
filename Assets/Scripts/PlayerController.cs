@@ -89,6 +89,9 @@ public class PlayerController : MonoBehaviour
     private bool isDraggingCartridge = false;
     private float stunTimer = 0f;
 
+    public static PlayerController Instance { get; private set; }
+    public bool IsRunning { get; private set; }
+
     public PlayerState CurrentState => currentState;
     public bool IsSitting => currentState == PlayerState.Sitting;
     public bool IsInspectingMonitor => currentState == PlayerState.InspectingMonitor;
@@ -102,6 +105,7 @@ public class PlayerController : MonoBehaviour
 
     private void Awake()
     {
+        Instance = this;
         Application.runInBackground = true;
         characterController = GetComponent<CharacterController>();
         initialSpawnPosition = transform.position;
@@ -160,6 +164,24 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (GuardPawn.IsGameOver)
+        {
+            SetCursorLock(false);
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (keyboard.rKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame))
+            {
+                GuardPawn.RestartGame();
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.R) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            {
+                GuardPawn.RestartGame();
+            }
+#endif
+            return;
+        }
+
         if (isTransitioningCamera) return;
         if (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsReadingManual) return;
 
@@ -724,7 +746,17 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDir = (transform.right * input.x + transform.forward * input.y);
         if (moveDir.sqrMagnitude > 1f) moveDir.Normalize();
 
-        Vector3 planarMove = moveDir * walkSpeed;
+        bool isShift = false;
+#if ENABLE_INPUT_SYSTEM
+        var kbCurrent = Keyboard.current;
+        if (kbCurrent != null) isShift = kbCurrent.leftShiftKey.isPressed || kbCurrent.rightShiftKey.isPressed;
+#else
+        isShift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+#endif
+        IsRunning = isShift && moveDir.sqrMagnitude > 0.01f;
+        float currentSpeed = walkSpeed * (IsRunning ? 1.55f : 1.0f);
+
+        Vector3 planarMove = moveDir * currentSpeed;
 
         verticalVelocity.y += gravity * Time.deltaTime;
 

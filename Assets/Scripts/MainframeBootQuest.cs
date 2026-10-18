@@ -88,8 +88,8 @@ public class MainframeBootQuest : MonoBehaviour
     public bool IsReadingManual => isReadingManual;
     public bool HasTape => hasTapeInInventory;
 
-    public bool IsNoiseActive => (currentStage == BootStage.SystemOnline || currentStage == BootStage.SystemBooting);
-    public float NoiseRadius => IsNoiseActive ? 5.5f : 0f;
+    public bool IsNoiseActive => (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline);
+    public float NoiseRadius => IsNoiseActive ? 9.5f : 0f;
 
     private AudioSource humAudioSource;
     private AudioClip humLoopClip;
