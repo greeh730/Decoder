@@ -322,6 +322,12 @@ public class MonitorTerminal : MonoBehaviour
         brightnessLevel = Mathf.Clamp01(level);
         ApplyBrightnessVisuals();
 
+        var knobComp = brightnessKnob != null ? brightnessKnob.GetComponentInParent<PotentiometerKnob>() : null;
+        if (knobComp != null && Mathf.Abs(knobComp.CurrentValue - brightnessLevel) > 0.01f)
+        {
+            knobComp.SetValue(brightnessLevel, false);
+        }
+
         PlayPotentiometerClick();
 
         string pct = Mathf.RoundToInt(brightnessLevel * 100f) + "%";
@@ -335,6 +341,28 @@ public class MonitorTerminal : MonoBehaviour
         else if (MainframeBootQuest.Instance != null)
         {
             MainframeBootQuest.Instance.ShowNotification($"Яркость экрана ЭЛТ: {desc}");
+        }
+    }
+
+    public void SetBrightnessContinuous(float level)
+    {
+        brightnessLevel = Mathf.Clamp01(level);
+        ApplyBrightnessVisuals();
+    }
+
+    public void OnKnobDragFinished()
+    {
+        string pct = Mathf.RoundToInt(brightnessLevel * 100f) + "%";
+        string desc = brightnessLevel <= 0.05f ? "0% [МАСКИРОВКА / ТЕМНОТА]" :
+                      (brightnessLevel < 0.6f ? $"{pct} [ПРИГЛУШЕННО]" : $"{pct} [СТАНДАРТ / ЯРКО]");
+
+        if (isZoomedIn)
+        {
+            AddLog($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор установлен: {desc}");
+        }
+        else if (MainframeBootQuest.Instance != null)
+        {
+            MainframeBootQuest.Instance.ShowNotification($"Яркость экрана: {desc}");
         }
     }
 
@@ -354,8 +382,8 @@ public class MonitorTerminal : MonoBehaviour
 
         if (brightnessKnob != null)
         {
-            float angle = Mathf.Lerp(-60f, 60f, brightnessLevel);
-            brightnessKnob.localRotation = Quaternion.Euler(0f, 0f, angle);
+            float angle = Mathf.Lerp(-65f, 65f, brightnessLevel);
+            brightnessKnob.localRotation = Quaternion.Euler(0f, angle, 0f);
         }
     }
 

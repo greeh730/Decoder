@@ -85,11 +85,15 @@ public class PlayerController : MonoBehaviour
     private PlayerState currentState = PlayerState.Normal;
     private PlayerState stateBeforeMonitor = PlayerState.Normal;
     private bool isTransitioningCamera = false;
+    private PotentiometerKnob currentKnob;
+    private PotentiometerKnob activeKnob;
+    private bool isDraggingKnob = false;
 
     public PlayerState CurrentState => currentState;
     public bool IsSitting => currentState == PlayerState.Sitting;
     public bool IsInspectingMonitor => currentState == PlayerState.InspectingMonitor;
     public bool IsFirstPerson => isFirstPerson;
+    public bool IsDraggingKnob => isDraggingKnob;
 
     private void Awake()
     {
@@ -154,6 +158,13 @@ public class PlayerController : MonoBehaviour
 
         HandleCursorLock();
 
+        if (isDraggingKnob && activeKnob != null)
+        {
+            HandleKnobDragging();
+            if (currentState == PlayerState.Normal) HandleMovement();
+            return;
+        }
+
         switch (currentState)
         {
             case PlayerState.Normal:
@@ -181,40 +192,58 @@ public class PlayerController : MonoBehaviour
 
     private WorldInteractable currentInteractable;
 
-    private void CheckInteractionPromptsNormal()
+    private void CheckWorldRaycast()
     {
-        // Check central raycast for WorldInteractables
-        if (playerCamera != null)
+        currentInteractable = null;
+        currentKnob = null;
+
+        if (playerCamera == null) return;
+
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        if (Physics.Raycast(ray, out RaycastHit hit, 2.8f))
         {
-            Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-            if (Physics.Raycast(ray, out RaycastHit hit, 2.8f))
+            var knob = hit.collider.GetComponentInParent<PotentiometerKnob>();
+            if (knob != null)
             {
-                var interactable = hit.collider.GetComponentInParent<WorldInteractable>();
-                if (interactable != null && interactable.IsInteractable && hit.distance <= interactable.MaxDistance)
+                currentKnob = knob;
+
+                float scroll = GetScrollDelta();
+                if (Mathf.Abs(scroll) > 0.01f)
                 {
-                    currentInteractable = interactable;
-                    if (WasKeyPressed(KeyCode.E))
-                    {
-                        interactable.Interact();
-                        return;
-                    }
+                    knob.ApplyScroll(scroll);
                 }
-                else
+
+                if (IsMouseButtonPressed())
                 {
-                    currentInteractable = null;
+                    activeKnob = knob;
+                    activeKnob.StartDrag();
+                    isDraggingKnob = true;
+                    return;
                 }
             }
-            else
+
+            var interactable = hit.collider.GetComponentInParent<WorldInteractable>();
+            if (interactable != null && interactable.IsInteractable && hit.distance <= interactable.MaxDistance)
             {
-                currentInteractable = null;
+                currentInteractable = interactable;
+                if (WasKeyPressed(KeyCode.E))
+                {
+                    interactable.Interact();
+                    return;
+                }
             }
         }
+    }
+
+    private void CheckInteractionPromptsNormal()
+    {
+        CheckWorldRaycast();
 
         float distToChair = Vector3.Distance(transform.position, chairPosition);
         float distToMonitor = Vector3.Distance(transform.position, monitorPosition);
 
-        // Sit in chair (E) if not looking at another interactable
-        if (currentInteractable == null && distToChair < 1.6f && WasKeyPressed(KeyCode.E))
+        // Sit in chair (E) if not looking at another interactable or knob
+        if (currentInteractable == null && currentKnob == null && distToChair < 1.6f && WasKeyPressed(KeyCode.E))
         {
             SitDown();
             return;
@@ -238,8 +267,10 @@ public class PlayerController : MonoBehaviour
 
     private void CheckInteractionPromptsSitting()
     {
-        // Stand up (E, Space, or movement)
-        if (WasKeyPressed(KeyCode.E) || WasKeyPressed(KeyCode.Space) || HasMovementInput())
+        CheckWorldRaycast();
+
+        // Stand up (E, Space, or movement) if not hovering over knob or interactable
+        if (currentInteractable == null && currentKnob == null && (WasKeyPressed(KeyCode.E) || WasKeyPressed(KeyCode.Space) || HasMovementInput()))
         {
             StandUp();
             return;
@@ -266,6 +297,61 @@ public class PlayerController : MonoBehaviour
         if (WasKeyPressed(KeyCode.Escape) || WasKeyPressed(KeyCode.F))
         {
             ExitMonitor();
+            return;
+        }
+
+        // Check hover over knob while zoomed in with free cursor
+        if (playerCamera != null)
+        {
+            Vector2 mousePos = GetMousePosition();
+            Ray ray = playerCamera.ScreenPointToRay(mousePos);
+            if (Physics.Raycast(ray, out RaycastHit hit, 2.8f))
+            {
+                var knob = hit.collider.GetComponentInParent<PotentiometerKnob>();
+                if (knob != null)
+                {
+                    currentKnob = knob;
+                    float scroll = GetScrollDelta();
+                    if (Mathf.Abs(scroll) > 0.01f) knob.ApplyScroll(scroll);
+
+                    if (IsMouseButtonPressed())
+                    {
+                        activeKnob = knob;
+                        activeKnob.StartDrag();
+                        isDraggingKnob = true;
+                        return;
+                    }
+                    return;
+                }
+            }
+        }
+        currentKnob = null;
+    }
+
+    private void HandleKnobDragging()
+    {
+        if (activeKnob == null)
+        {
+            isDraggingKnob = false;
+            return;
+        }
+
+        if (IsMouseButtonHeld())
+        {
+            Vector2 delta = GetLookDelta();
+            activeKnob.UpdateDrag(delta);
+
+            float scroll = GetScrollDelta();
+            if (Mathf.Abs(scroll) > 0.01f)
+            {
+                activeKnob.ApplyScroll(scroll);
+            }
+        }
+        else
+        {
+            activeKnob.EndDrag();
+            isDraggingKnob = false;
+            activeKnob = null;
         }
     }
 
@@ -565,6 +651,7 @@ public class PlayerController : MonoBehaviour
     private void HandleCursorLock()
     {
         if (currentState == PlayerState.InspectingMonitor) return;
+        if (isDraggingKnob) return;
 
         bool escPressed = WasKeyPressed(KeyCode.Escape);
         bool clickPressed = false;
@@ -584,6 +671,48 @@ public class PlayerController : MonoBehaviour
         {
             SetCursorLock(true);
         }
+    }
+
+    private bool IsMouseButtonPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var mouse = Mouse.current;
+        return mouse != null && mouse.leftButton.wasPressedThisFrame;
+#else
+        return Input.GetMouseButtonDown(0);
+#endif
+    }
+
+    private bool IsMouseButtonHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var mouse = Mouse.current;
+        return mouse != null && mouse.leftButton.isPressed;
+#else
+        return Input.GetMouseButton(0);
+#endif
+    }
+
+    private float GetScrollDelta()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var mouse = Mouse.current;
+        if (mouse != null) return mouse.scroll.ReadValue().y;
+        return 0f;
+#else
+        return Input.mouseScrollDelta.y;
+#endif
+    }
+
+    private Vector2 GetMousePosition()
+    {
+#if ENABLE_INPUT_SYSTEM
+        var mouse = Mouse.current;
+        if (mouse != null) return mouse.position.ReadValue();
+        return Vector2.zero;
+#else
+        return Input.mousePosition;
+#endif
     }
 
     public void SetCursorLock(bool locked)
@@ -720,10 +849,33 @@ public class PlayerController : MonoBehaviour
         float screenW = Screen.width;
         float screenH = Screen.height;
 
+        // 1. Tactile Rotary Gauge while Dragging Knob
+        if (isDraggingKnob && activeKnob != null)
+        {
+            var gaugeBoxStyle = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 13,
+                fontStyle = FontStyle.Bold
+            };
+            gaugeBoxStyle.normal.textColor = Color.white;
+
+            int pct = Mathf.RoundToInt(activeKnob.CurrentValue * 100f);
+            int filled = Mathf.RoundToInt(activeKnob.CurrentValue * 16f);
+            string bar = new string('█', filled) + new string('░', 16 - filled);
+
+            string gaugeText = $"<b><color=#00FFAA>[ РЕГУЛЯТОР ЯРКОСТИ ЭЛТ-МОНИТОРА ]</color></b>\n" +
+                               $"◄ 0% (ТЕМНОТА)  [<color=#00FF88>{bar}</color>]  100% (ЯРКО) ►  <b><color=#FFFF33>{pct}%</color></b>\n" +
+                               $"<size=11><color=#88DDCC>Двигайте мышь влево / вправо или колёсико • Отпустите ЛКМ для фиксации</color></size>";
+
+            GUI.Box(new Rect(screenW / 2 - 250, screenH - 120, 500, 72), gaugeText, gaugeBoxStyle);
+            return;
+        }
+
         // Draw center crosshair dot
         if (isFirstPerson && currentState == PlayerState.Normal)
         {
-            GUI.color = currentInteractable != null ? Color.green : new Color(1f, 1f, 1f, 0.45f);
+            GUI.color = (currentInteractable != null || currentKnob != null) ? Color.green : new Color(1f, 1f, 1f, 0.45f);
             GUI.DrawTexture(new Rect(screenW / 2 - 2, screenH / 2 - 2, 4, 4), Texture2D.whiteTexture);
             GUI.color = Color.white;
         }
@@ -736,9 +888,17 @@ public class PlayerController : MonoBehaviour
         };
         promptStyle.normal.textColor = Color.cyan;
 
+        // 2. Highest priority: Potentiometer Knob in crosshair
+        if (currentKnob != null)
+        {
+            promptStyle.normal.textColor = Color.yellow;
+            GUI.Box(new Rect(screenW / 2 - 230, screenH - 100, 460, 36), "Зажмите [ЛКМ] и двигайте мышь (или Колёсико) — Яркость", promptStyle);
+            return;
+        }
+
         if (currentState == PlayerState.Normal)
         {
-            // Highest priority: WorldInteractable in crosshair
+            // WorldInteractable in crosshair
             if (currentInteractable != null)
             {
                 promptStyle.normal.textColor = Color.yellow;
@@ -772,28 +932,41 @@ public class PlayerController : MonoBehaviour
         }
         else if (currentState == PlayerState.Sitting)
         {
-            bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
-                                  (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
-
-            if (isServerOnline)
+            if (currentInteractable != null)
             {
-                promptStyle.normal.textColor = Color.cyan;
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                promptStyle.normal.textColor = Color.yellow;
+                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), currentInteractable.PromptText, promptStyle);
             }
             else
             {
-                promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "[ Монитор обесточен — запустите сервер ]", promptStyle);
+                bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
+                                      (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
+
+                if (isServerOnline)
+                {
+                    promptStyle.normal.textColor = Color.cyan;
+                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                }
+                else
+                {
+                    promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
+                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "[ Монитор обесточен — запустите сервер ]", promptStyle);
+                }
             }
 
             promptStyle.normal.textColor = new Color(0.4f, 1.0f, 0.8f);
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 95, 360, 32), "Нажмите [B] — Регулятор яркости (маскировка)", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 95, 360, 32), "Нажмите [B] — Быстрая смена яркости (маскировка)", promptStyle);
 
             promptStyle.normal.textColor = Color.yellow;
             GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), "Нажмите [E] / [Space] / [W,A,S,D] — Встать", promptStyle);
         }
         else if (currentState == PlayerState.InspectingMonitor)
         {
+            if (currentKnob != null)
+            {
+                promptStyle.normal.textColor = Color.yellow;
+                GUI.Box(new Rect(screenW / 2 - 240, screenH - 105, 480, 34), "Зажмите [ЛКМ] и двигайте мышь — Крутить ручку яркости", promptStyle);
+            }
             promptStyle.normal.textColor = Color.yellow;
             GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
         }

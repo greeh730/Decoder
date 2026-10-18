@@ -10823,6 +10823,7 @@ GameObject:
   - component: {fileID: 885623812}
   - component: {fileID: 885623814}
   - component: {fileID: 885623813}
+  - component: {fileID: 885623815}
   m_Layer: 0
   m_Name: BrightnessKnob
   m_TagString: Untagged
@@ -10896,8 +10897,57 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.07
+  m_Radius: 0.08
   m_Center: {x: 0, y: 0.02, z: 0}
+--- !u!114 &885623815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 885623811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fef92c7e0b39c0a48aa9826e38a34d8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PotentiometerKnob
+  dialTransform: {fileID: 1740613773}
+  minAngle: -65
+  maxAngle: 65
+  dragSensitivity: 0.0035
+  scrollStep: 0.04
+  currentValue: 1
+  audioSource: {fileID: 0}
+  onValueChanged:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 247818211}
+        m_TargetAssemblyTypeName: MonitorTerminal, Assembly-CSharp
+        m_MethodName: SetBrightnessContinuous
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  onDragEnd:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 247818211}
+        m_TargetAssemblyTypeName: MonitorTerminal, Assembly-CSharp
+        m_MethodName: OnKnobDragFinished
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &891672321
 GameObject:
   m_ObjectHideFlags: 0
@@ -17218,7 +17268,6 @@ MonoBehaviour:
   isTicking: 1
   isRaised: 0
   isMapMode: 1
-  toggleKey: 116
   watchRig: {fileID: 144642853}
   watchBody: {fileID: 522525197}
   clockFaceGroup: {fileID: 214699576}
