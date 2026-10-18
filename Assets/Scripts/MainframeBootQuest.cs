@@ -44,6 +44,7 @@ public class MainframeBootQuest : MonoBehaviour
     [SerializeField] private GameObject lockerTapeProp;
     [SerializeField] private GameObject serverTapeProp;
     [SerializeField] private WorldInteractable tapePickupInteractable;
+    [SerializeField] private WorldInteractable tapeInsertInteractable;
     [SerializeField] private WorldInteractable manualInteractable;
 
     [Header("Servers (Cube.006) - Tubes & Power")]
@@ -152,6 +153,11 @@ public class MainframeBootQuest : MonoBehaviour
         {
             tapePickupInteractable.onInteract.RemoveListener(TakeTape);
             tapePickupInteractable.onInteract.AddListener(TakeTape);
+        }
+        if (tapeInsertInteractable != null)
+        {
+            tapeInsertInteractable.onInteract.RemoveListener(InsertTape);
+            tapeInsertInteractable.onInteract.AddListener(InsertTape);
         }
         if (manualInteractable != null)
         {
@@ -344,26 +350,42 @@ public class MainframeBootQuest : MonoBehaviour
 
         hasTapeInInventory = true;
         if (lockerTapeProp != null) lockerTapeProp.SetActive(false);
-        ShowNotification("Получена бобина с ядром ОС [DECODER-KERNEL-TAPE]. Вставьте её в сервер.");
+        ShowNotification("Получена бобина с ядром ОС [DECODER-KERNEL-TAPE]. Вставьте её в дисковод серверов.");
     }
 
     public void InsertTape()
     {
         if (isTapeInserted)
         {
-            ShowNotification("Бобина с лентой уже установлена в накопитель.");
+            // If already inserted, player is interacting with the inserted tape!
+            if (DiskDriveBay.Instance != null && 
+                (DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Running || 
+                 DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Braking))
+            {
+                DiskDriveBay.Instance.AttemptPullPrematurely();
+                ShowNotification("<color=#FF2222><b>⚡ [ОПАСНОСТЬ 380В!]</b></color> Шпиндель вращается! Нажмите СТОП (Cube.107) и дождитесь зеленого датчика!");
+                return;
+            }
+
+            // Green / stopped: safely extract tape
+            isTapeInserted = false;
+            hasTapeInInventory = true;
+            if (serverTapeProp != null) serverTapeProp.SetActive(false);
+            if (tapeInsertInteractable != null) tapeInsertInteractable.PromptText = "[ЛКМ / E] Вставить бобину с ядром ОС в дисковод";
+            ShowNotification("<color=#00FFAA>[ИЗВЛЕЧЕНО]</color> Бобина магнитной ленты извлечена из дисковода.");
             return;
         }
 
         if (!hasTapeInInventory)
         {
-            ShowNotification("[НЕТ НОСИТЕЛЯ] Сначала найдите бобину магнитной ленты в шкафчике.");
+            ShowNotification("[НЕТ НОСИТЕЛЯ] Сначала найдите бобину магнитной ленты на шкафчике.");
             return;
         }
 
         hasTapeInInventory = false;
         isTapeInserted = true;
         if (serverTapeProp != null) serverTapeProp.SetActive(true);
+        if (tapeInsertInteractable != null) tapeInsertInteractable.PromptText = "[ЛКМ / E] Бобина магнитной ленты установлена (Нажмите СТОП перед извлечением)";
         ShowNotification("Бобина магнитной ленты установлена в дисковод серверов.");
     }
 
@@ -570,7 +592,8 @@ public class MainframeBootQuest : MonoBehaviour
         {
             if (switchTransforms != null && i < switchTransforms.Length && switchTransforms[i] != null)
             {
-                switchTransforms[i].localRotation = Quaternion.Euler(addressSwitches[i] ? -30f : 30f, 0f, 0f);
+                float pitch = addressSwitches[i] ? 290f : 240f;
+                switchTransforms[i].localRotation = Quaternion.Euler(pitch, 0f, 0f);
             }
             if (switchLeds != null && i < switchLeds.Length && switchLeds[i] != null)
             {

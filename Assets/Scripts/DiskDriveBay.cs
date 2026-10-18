@@ -105,6 +105,16 @@ public class DiskDriveBay : MonoBehaviour
             coldCartridgeReserve.SetActive(true);
         }
 
+        if (brakeButton != null)
+        {
+            var wi = brakeButton.GetComponent<WorldInteractable>();
+            if (wi != null)
+            {
+                wi.onInteract.RemoveListener(PressBrakeButton);
+                wi.onInteract.AddListener(PressBrakeButton);
+            }
+        }
+
         UpdateLamps();
         UpdateThermometerNeedle();
         StartSpindleHum();
@@ -165,45 +175,62 @@ public class DiskDriveBay : MonoBehaviour
         UpdateThermometerNeedle();
     }
 
+    private int brakePhase = 0;
+
     /// <summary>
-    /// Player presses [ОСТАНОВ ШПИНДЕЛЯ / BRAKE] button.
+    /// Player presses [ОСТАНОВ ШПИНДЕЛЯ / BRAKE] button (Cube.107).
     /// </summary>
     public void PressBrakeButton()
     {
-        if (state != DriveBayState.Running)
+        if (state == DriveBayState.Braking)
         {
-            if (state == DriveBayState.Braking)
-            {
-                MainframeBootQuest.Instance?.ShowNotification("<color=#FFFF66>[ТОРМОЗ]</color> Шпиндель уже замедляется, подождите зеленый сигнал!");
-            }
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FFFF66>[ТОРМОЗ (ЖЕЛТЫЙ)]</color> Шпиндель замедляется, дождитесь зеленый сигнал!");
             return;
         }
 
-        if (brakeCoroutine != null) StopCoroutine(brakeCoroutine);
-        brakeCoroutine = StartCoroutine(BrakeRoutine());
+        if (state == DriveBayState.UnlockedReadyToPull)
+        {
+            // Spin back up!
+            state = DriveBayState.Running;
+            brakePhase = 0;
+            PlayTurbineSpinup();
+            StartSpindleHum();
+            UpdateLamps();
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FF4444>[ПУСК ШПИНДЕЛЯ (КРАСНЫЙ)]</color> Обороты набраны. Накопитель в работе.");
+            return;
+        }
+
+        if (state == DriveBayState.Running)
+        {
+            if (brakeCoroutine != null) StopCoroutine(brakeCoroutine);
+            brakeCoroutine = StartCoroutine(BrakeRoutine());
+        }
     }
 
     private IEnumerator BrakeRoutine()
     {
         state = DriveBayState.Braking;
+        brakePhase = 1;
         StopSpindleHum();
         PlayBrakeSound();
         UpdateLamps();
 
-        // 0.0s to 0.5s: Spindle dynamic braking (Red 380V)
-        yield return new WaitForSeconds(0.5f);
+        // 0.0s to 0.6s: Spindle dynamic braking (Red)
+        yield return new WaitForSeconds(0.6f);
 
-        // 0.5s to 1.4s: Deceleration (Yellow)
+        // 0.6s to 1.5s: Deceleration (Yellow)
+        brakePhase = 2;
         UpdateLamps();
         yield return new WaitForSeconds(0.9f);
 
-        // 1.4s: Safely unlocked!
+        // 1.5s: Safely stopped & unlocked! (Green)
+        brakePhase = 0;
         state = DriveBayState.UnlockedReadyToPull;
         UpdateLamps();
 
         if (MainframeBootQuest.Instance != null)
         {
-            MainframeBootQuest.Instance.ShowNotification("<color=#00FF88>[РАЗБЛОКИРОВАНО]</color> Шпиндель остановлен. Зажмите ЛКМ и вытяните горячий картридж.");
+            MainframeBootQuest.Instance.ShowNotification("<color=#00FF88>[РАЗБЛОКИРОВАНО (ЗЕЛЕНЫЙ)]</color> Шпиндель остановлен. Безопасно извлекать носитель.");
         }
     }
 
@@ -408,12 +435,12 @@ public class DiskDriveBay : MonoBehaviour
         }
     }
 
-    private void UpdateLamps()
+    public void UpdateLamps()
     {
         if (lampRed == null || lampYellow == null || lampGreen == null) return;
 
-        bool isRed = (state == DriveBayState.Running) || (state == DriveBayState.Braking && brakeCoroutine != null && temperature >= redAlarmTemp);
-        bool isYellow = (state == DriveBayState.Braking);
+        bool isRed = (state == DriveBayState.Running) || (brakePhase == 1);
+        bool isYellow = (brakePhase == 2);
         bool isGreen = (state == DriveBayState.UnlockedReadyToPull);
 
         lampRed.sharedMaterial = isRed ? ledRedMat : ledOffMat;
