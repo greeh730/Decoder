@@ -887,78 +887,80 @@ public class PlayerController : MonoBehaviour
 
         GUI.color = Color.white;
 
-        // Top-left status box
-        GUILayout.BeginArea(new Rect(15, 15, 430, 185));
-        var boxStyle = new GUIStyle(GUI.skin.box)
+        // Top-left status box (only visible in room mode, hidden when zoomed into monitor terminal)
+        if (currentState != PlayerState.InspectingMonitor)
         {
-            alignment = TextAnchor.UpperLeft,
-            fontSize = 12,
-            padding = new RectOffset(10, 10, 8, 8)
-        };
-        boxStyle.normal.textColor = Color.white;
-
-        string stateName = currentState switch
-        {
-            PlayerState.Normal => "Идёт (Стоит)",
-            PlayerState.Sitting => "Сидит в кресле",
-            PlayerState.InspectingMonitor => "Работа за терминалом",
-            _ => "Обычный"
-        };
-
-        string viewModeText = isFirstPerson ? "1-е лицо" : "3-е лицо";
-
-        // Acoustic stealth status
-        string noiseText = "0 dB [ОБЕСТОЧЕНО]";
-        string noiseColor = "#888888";
-        if (MainframeBootQuest.Instance != null)
-        {
-            if (MainframeBootQuest.Instance.IsNoiseActive)
+            GUILayout.BeginArea(new Rect(15, 15, 430, 185));
+            var boxStyle = new GUIStyle(GUI.skin.box)
             {
-                noiseText = "72 dB [ГУЛ 50Hz // СЛЫШНО 5.5м]";
-                noiseColor = "#FF5555";
-            }
-            else if (MainframeBootQuest.Instance.CurrentStage == BootStage.HotStandby)
+                alignment = TextAnchor.UpperLeft,
+                fontSize = 12,
+                padding = new RectOffset(10, 10, 8, 8)
+            };
+            boxStyle.normal.textColor = Color.white;
+
+            string stateName = currentState switch
             {
-                noiseText = "0 dB [ГОТОВНОСТЬ // БЕСШУМНО]";
-                noiseColor = "#00FFAA";
+                PlayerState.Normal => "Идёт (Стоит)",
+                PlayerState.Sitting => "Сидит в кресле",
+                _ => "Обычный"
+            };
+
+            string viewModeText = isFirstPerson ? "1-е лицо" : "3-е лицо";
+
+            // Acoustic stealth status
+            string noiseText = "0 dB [ОБЕСТОЧЕНО]";
+            string noiseColor = "#888888";
+            if (MainframeBootQuest.Instance != null)
+            {
+                if (MainframeBootQuest.Instance.IsNoiseActive)
+                {
+                    noiseText = "72 dB [ГУЛ 50Hz // СЛЫШНО 5.5м]";
+                    noiseColor = "#FF5555";
+                }
+                else if (MainframeBootQuest.Instance.CurrentStage == BootStage.HotStandby)
+                {
+                    noiseText = "0 dB [ГОТОВНОСТЬ // БЕСШУМНО]";
+                    noiseColor = "#00FFAA";
+                }
             }
+
+            // Optical stealth status
+            string lightText = "0% [ТЕМНОТА]";
+            string lightColor = "#00FFAA";
+            var term = monitorTerminal != null ? monitorTerminal : MonitorTerminal.Instance;
+            if (term != null && term.IsMainframeOnline && !term.IsStandby)
+            {
+                if (term.BrightnessLevel > 0.6f)
+                {
+                    lightText = "100% [ДАЛЬНИЙ ЛУЧ // 22 МЕТРА]";
+                    lightColor = "#FFCC00";
+                }
+                else if (term.BrightnessLevel > 0.05f)
+                {
+                    lightText = "35% [ПРИГЛУШЕН]";
+                    lightColor = "#FFFF66";
+                }
+                else
+                {
+                    lightText = "0% [МАСКИРОВКА // ТЕМНО]";
+                    lightColor = "#00FFAA";
+                }
+            }
+
+            string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
+                               $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
+                               $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
+                               $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
+                               $"• <b>Shift</b> — Бег | <b>Space</b> — Прыжок\n" +
+                               $"• <b>T</b> — Карманные часы (таймер / радар)\n" +
+                               $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
+                               $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
+                               $"• <b>Esc</b> — Освободить мышь (клик — захват)";
+
+            GUILayout.Box(statusText, boxStyle);
+            GUILayout.EndArea();
         }
-
-        // Optical stealth status
-        string lightText = "0% [ТЕМНОТА]";
-        string lightColor = "#00FFAA";
-        var term = monitorTerminal != null ? monitorTerminal : MonitorTerminal.Instance;
-        if (term != null && term.IsMainframeOnline && !term.IsStandby)
-        {
-            if (term.BrightnessLevel > 0.6f)
-            {
-                lightText = "100% [ДАЛЬНИЙ ЛУЧ // 22 МЕТРА]";
-                lightColor = "#FFCC00";
-            }
-            else if (term.BrightnessLevel > 0.05f)
-            {
-                lightText = "35% [ПРИГЛУШЕН]";
-                lightColor = "#FFFF66";
-            }
-            else
-            {
-                lightText = "0% [МАСКИРОВКА // ТЕМНО]";
-                lightColor = "#00FFAA";
-            }
-        }
-
-        string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
-                           $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
-                           $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
-                           $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
-                           $"• <b>Shift</b> — Бег | <b>Space</b> — Прыжок\n" +
-                           $"• <b>T</b> — Карманные часы (таймер / радар)\n" +
-                           $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
-                           $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
-                           $"• <b>Esc</b> — Освободить мышь (клик — захват)";
-
-        GUILayout.Box(statusText, boxStyle);
-        GUILayout.EndArea();
 
         // Center Interaction Prompts
         DrawCenterPrompts();
@@ -1139,7 +1141,8 @@ public class PlayerController : MonoBehaviour
             }
 
             bool isCommanderActive = VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeInHierarchy;
-            if (!isCommanderActive)
+            bool isMiniGameActive = SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive;
+            if (!isCommanderActive && !isMiniGameActive)
             {
                 promptStyle.normal.textColor = Color.yellow;
                 GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);

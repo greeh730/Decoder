@@ -541,8 +541,9 @@ public class MainframeBootQuest : MonoBehaviour
         float sw = Screen.width;
         float sh = Screen.height;
 
-        // Notification banner
-        if (!string.IsNullOrEmpty(onScreenNotification) && !isReadingManual)
+        // Notification banner (only in room view, not when zoomed into monitor)
+        bool isZoomedOnMonitor = MonitorTerminal.Instance != null && MonitorTerminal.Instance.IsZoomedIn;
+        if (!string.IsNullOrEmpty(onScreenNotification) && !isReadingManual && !isZoomedOnMonitor)
         {
             var notifStyle = new GUIStyle(GUI.skin.box)
             {

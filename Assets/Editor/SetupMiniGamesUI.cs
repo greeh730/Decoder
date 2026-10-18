@@ -37,6 +37,20 @@ public static class SetupMiniGamesUI
         var panelGO = new GameObject("MiniGamePanel", typeof(RectTransform), typeof(Image), typeof(Outline));
         panelGO.transform.SetParent(canvasGO.transform, false);
 
+        var pRect = panelGO.GetComponent<RectTransform>();
+        pRect.anchorMin = Vector2.zero;
+        pRect.anchorMax = Vector2.one;
+        pRect.offsetMin = Vector2.zero;
+        pRect.offsetMax = Vector2.zero;
+        pRect.sizeDelta = Vector2.zero;
+
+        var bgImg = panelGO.GetComponent<Image>();
+        bgImg.color = new Color(0.012f, 0.045f, 0.028f, 0.99f);
+
+        var pOutline = panelGO.GetComponent<Outline>();
+        pOutline.effectColor = new Color(0f, 0.7f, 0.45f, 0.8f);
+        pOutline.effectDistance = new Vector2(2f, -2f);
+
         // 2. Header Bar
         var topBar = new GameObject("TopBar", typeof(RectTransform), typeof(Image));
         topBar.transform.SetParent(panelGO.transform, false);
@@ -171,6 +185,7 @@ public static class SetupMiniGamesUI
         t.supportRichText = true;
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.verticalOverflow = VerticalWrapMode.Overflow;
+        t.lineSpacing = 1.15f;
         return t;
     }
 }
