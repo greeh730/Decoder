@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,17 +8,18 @@ using UnityEngine.InputSystem;
 #endif
 
 /// <summary>
-/// Hub and controller for the 10 authentic Soviet spy mini-games:
-/// 1. Turing Tape (.BIN) - Rule-based Turing head tape processing
+/// Hub and controller for authentic Soviet spy mini-games:
+/// 1. Turing Tape (.BIN) - Rule-based Turing head tape increment
 /// 2. Frequency Analysis (.DOC) - Interactive histogram cipher shift
 /// 3. Relational Punchcards (.TXT) - 3-predicate database card filtering
-/// 4. Hex Memory Patch (.MEM) - Buffer patch and CRC checksum match
-/// 5. Oscilloscope Lissajous (.RAD) - Dual sine wave frequency & phase tuning
-/// 6. Relay Matrix Routing (.NET) - 4x4 directional arrow switchboard packet routing
-/// 7. Hamming Parity Matrix (.PAR) - Single-bit error correction in ferrite core matrix
-/// 8. Disk Sector Timing (.DSK) - Rotating platter sector read alignment
-/// 9. Stack Overflow LIFO (.STK) - Push/Pop register accumulation without overflow
-/// 10. Rotor Cipher Machine (.ROT) - 3-rotor mechanical cipher offset decryption
+/// 4. File Search (.LST) - 14-item realistic Soviet bureaucratic file search
+/// 5. Password PIN (.KEY) - 4-digit desk note PIN archive unlock (4821)
+/// 6. Network Restoration (.NET) - 6-channel telecom switchboard routing (Channels 1, 4, 6)
+/// 7. Caesar Archive (.ZIP) - Shift-3 Caesar cipher attack archive (DWWDFN -> ATTACK)
+/// 8. Password Formula (.ZIP) - Mathematical formula cipher ((17*23) - 42 = 0349)
+/// 9. Dossier Deduction (.DOC) - 4-candidate KGB saboteur deduction table (Baker / Dallas / 22:30)
+/// 10. Rotor Cipher Machine (.ROT) - 3-rotor Fialka mechanical cipher
+/// 11. Omega Master Protocol (.TOP) - Final 4-channel synchronization protocol
 /// </summary>
 public class SpyMiniGames : MonoBehaviour
 {
@@ -27,17 +28,17 @@ public class SpyMiniGames : MonoBehaviour
     public enum GameType
     {
         None,
-        TuringTape,         // .BIN
-        FrequencyAnalysis,  // .DOC
-        DatabaseFilter,     // .TXT
-        HexMemoryPatch,     // .MEM
-        Oscilloscope,       // .RAD
-        RelayRouting,       // .NET
-        HammingParity,      // .PAR
-        DiskSectorTiming,   // .DSK
-        StackOverflow,      // .STK
-        RotorCipher,        // .ROT
-        OmegaMasterProtocol // .TOP
+        TuringTape,            // 1. .BIN
+        FrequencyAnalysis,     // 2. .DOC
+        DatabaseFilter,        // 3. .TXT
+        FileSearch,            // 4. .LST (Поиск нужного файла среди 14 отчетов)
+        PasswordSimple,        // 5. .KEY (Подбор пароля 4821)
+        NetworkRestoration,    // 6. .NET (Восстановление 6-канальной связи A->B)
+        CaesarArchive,         // 7. .ZIP (Архив Цезаря ATTACK)
+        PasswordFormula,       // 8. .ZIP (Пароль (A*B)-C = 0349)
+        DossierDeduction,      // 9. .DOC (Досье Бейкер / Даллас)
+        RotorCipher,           // 10. .ROT
+        OmegaMasterProtocol    // 11. .TOP
     }
 
     [Header("UI Containers")]
@@ -68,6 +69,19 @@ public class SpyMiniGames : MonoBehaviour
     private Action<bool> onGameFinishedCallback;
     private bool isGameActive = false;
     private bool isHelpOpen = false;
+    private bool isNoteOpen = false;
+    private bool isSuccessTransition = false;
+
+    // Error lockout & Suspicion mechanics
+    private float errorLockoutTimer = 0f;
+    private int currentPuzzleErrors = 0;
+
+    // Common dynamic display text for the active game
+    private Text dynamicDisplayText;
+
+    public bool IsMiniGameActive => isGameActive;
+    public GameType ActiveGameType => currentGame;
+    public bool IsNoteOpen => isNoteOpen;
 
     // --- Sub-game data states ---
 
@@ -76,70 +90,94 @@ public class SpyMiniGames : MonoBehaviour
     private readonly char[] turingTargetTape  = { '_', '1', '1', '0', '0', '_' };
     private char[] turingTape = new char[6];
     private int turingHeadIndex = 1;
-    private int turingCurrentState = 0; // 0 = q0 (Seek LSB), 1 = q1 (Increment), 2 = HALT
+    private int turingCurrentState = 0; // 0 = q0, 1 = q1, 2 = HALT
     private int turingStepCount = 0;
     private bool turingIsRunning = false;
     private Coroutine turingRunCoroutine = null;
     private string turingLastActionNote = "Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для пошагового теста.";
-    private int turingActiveRuleIndex = -1; // 0..5
-    private int turingSelectedSlot = 0; // 0..5
-    private int[] turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 }; // Jumbled initial values
+    private int turingActiveRuleIndex = -1;
+    private int turingSelectedSlot = 0;
+    private int[] turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 };
 
-    // 2. Frequency
+    // 2. Frequency Analysis State
     private int freqShift = 4;
     private readonly int freqTargetShift = 7;
 
-    // 3. Database
-    private int dbDeptIndex = 0;  // 0: ВСЕ, 1: КРИПТО, 2: ОХРАНА, 3: СВЯЗЬ
-    private int dbClearance = 0;  // 0: ВСЕ, 1: ДОПУСК-1, 2: ОСОБЫЙ
-    private int dbShiftIndex = 0; // 0: ВСЕ, 1: ДЕНЬ, 2: НОЧЬ
+    // 3. Database Filter State
+    private int dbDeptIndex = 0;
+    private int dbClearance = 0;
+    private int dbShiftIndex = 0;
 
-    // 4. Hex Memory
-    private string hexTarget = "0x4F0A";
-    private int hexEntered = 0;
-    private readonly int hexRequired = 4;
+    // 4. File Search State: 14 realistic bureaucratic institute files
+    private int fileSearchSelectedIndex = 0;
+    private readonly string[] fileSearchList = new string[]
+    {
+        "01. РАСПИСАНИЕ_СТОЛОВОЙ_ОКТЯБРЬ.DOC      [4 КБ]   Хозяйственный",
+        "02. ВЫДАЧА_СПИРТА_ДЛЯ_ПРОТИРКИ_ЭВМ.DOC   [8 КБ]   Складской",
+        "03. ПОСТАВКА_ГАЗЕТ_ПРАВДА_ИЗВЕСТИЯ.LST   [2 КБ]   Хозяйственный",
+        "04. ГРАФИК_УБОРКИ_МАШИННОГО_ЗАЛА.TXT     [6 КБ]   Хозяйственный",
+        "05. АКТ_СПИСАНИЯ_СТУЛЬЕВ_И_МЕБЕЛИ.LOG    [3 КБ]   Складской",
+        "06. ЖУРНАЛ_ТЕМПЕРАТУР_СЕКТОРА_3.LOG      [14 КБ]  Технический",
+        "07. ОТ_ЦЕНТР_ДИРЕКТИВА_ОСОБАЯ_07.DAT     [64 КБ]  Спецхран", // <-- TARGET (Index 6)
+        "08. ЗАЯВКА_НА_ПЕРФОКАРТЫ_ГОСТ_10860.LST   [5 КБ]   Складской",
+        "09. СПИСОК_КАНЦТОВАРОВ_И_ЛЕНТЫ_АЦПУ.TXT   [7 КБ]   Хозяйственный",
+        "10. ТЕХНИЧЕСКИЙ_ПАСПОРТ_ЭЛЕКТРОЩИТА.SYS   [16 КБ]  Технический",
+        "11. ПРОТОКОЛ_ЗАМЕНЫ_ЛАМП_НАКАЛА_1984.LOG  [9 КБ]   Технический",
+        "12. ИНВЕНТАРНАЯ_ОПИСЬ_БИБЛИОТЕКИ_НИИ.DOC  [11 КБ]  Хозяйственный",
+        "13. РЕГЛАМЕНТ_ОБСЛУЖИВАНИЯ_ШПИНДЕЛЯ.SYS   [18 КБ]  Технический",
+        "14. СМЕТА_НА_ПОКРАСКУ_СТЕН_ВЦ.TXT         [4 КБ]   Хозяйственный"
+    };
+    private const int FILE_SEARCH_CORRECT_INDEX = 6; // 07. ОТ_ЦЕНТР_ДИРЕКТИВА_ОСОБАЯ_07.DAT
 
-    // 5. Oscilloscope
-    private float oscFrequency = 1.2f;
-    private float oscPhase = 45f;
-    private const float TARGET_FREQ = 2.5f;
-    private const float TARGET_PHASE = 180f;
+    // 5. Simple PIN State
+    private string simplePinInput = "";
+    private const string SIMPLE_PIN_CORRECT = "4821";
 
-    // 6. Relay Routing
-    private int[,] relayMatrix = new int[4, 4]; // 0: Right, 1: Down, 2: Left, 3: Up
-    private int packetX = 0, packetY = 0;
-    private float packetStepTimer = 0f;
+    // 6. Network Restoration State: 6-channel dual bus
+    private int netSelectedLine = 0; // 0..5
+    private bool[] netLinesConnected = new bool[6] { false, false, false, false, false, false };
+    // Correct active lines: 0 (Север), 3 (Оптика), 5 (Резерв)
+    // Faulty lines that must NOT be active: 1 (КЗ), 2 (Рассинхрон), 4 (Перегрев)
 
-    // 7. Hamming Parity
-    private int[,] parityBits = new int[4, 4];
-    private int badRow = 2, badCol = 1;
+    // 7. Caesar Archive State
+    private int caesarSelectedIndex = 0;
+    private readonly string[] caesarFiles = new string[]
+    {
+        "DWWDFN_80.ZIP    [128 КБ]  (Шифр Цезаря: DWWDFN)",
+        "UHWUHDW_80.ZIP   [96 КБ]   (Шифр Цезаря: UHWUHDW)",
+        "VXSSOB_80.ZIP    [64 КБ]   (Шифр Цезаря: VXSSOB)",
+        "UDGLR_77.ZIP     [48 КБ]   (Шифр Цезаря: UDGLR)"
+    };
+    private const int CAESAR_CORRECT_INDEX = 0; // DWWDFN -> ATTACK
 
-    // 8. Disk Sector
-    private float diskAngle = 0f;
-    private int sectorsCaptured = 0;
-    private const int SECTORS_NEEDED = 3;
-    private float targetSectorAngle = 180f;
+    // 8. Password Formula State
+    private string formulaPinInput = "";
+    private const int FORMULA_A = 17;
+    private const int FORMULA_B = 23;
+    private const int FORMULA_C = 42;
+    private const string FORMULA_PIN_CORRECT = "0349"; // (17 * 23) - 42 = 391 - 42 = 349 -> "0349"
 
-    // 9. Stack
-    private readonly List<int> stackRegisters = new List<int>();
-    private const int STACK_TARGET = 16;
-    private const int STACK_MAX_CAPACITY = 22;
+    // 9. Dossier Deduction State
+    private int dossierSelectedIndex = 0;
+    private readonly string[] dossierRows = new string[]
+    {
+        "1. Капитан Соколов   │ Москва    │ 19:40 │ Кабинет 1-02",
+        "2. Лейтенант Бейкер  │ Даллас    │ 22:30 │ Серверная 3-08",
+        "3. Инженер Морозов   │ Ленинград │ 08:15 │ Лаборатория 2-15",
+        "4. Майор Воронин     │ Минск     │ 14:00 │ Архив 1-09"
+    };
+    private const int DOSSIER_CORRECT_INDEX = 1; // Бейкер / Даллас / 22:30 / 3-08
 
-    // 10. Rotor Cipher
+    // 10. Rotor Cipher State
     private int rotor1 = 2, rotor2 = 5, rotor3 = 1;
     private readonly int targetR1 = 4, targetR2 = 2, targetR3 = 7;
 
-    // 11. Omega Master Protocol (.TOP)
-    private int omegaSelectedChannel = 0; // 0..3
-    private int omegaCh1Index = 1;        // Target: 3 ("1100")
-    private int omegaCh2Shift = 3;        // Target: 7 ("Δ = +7")
-    private int omegaCh3Index = 0;        // Target: 2 ("0x4F0A")
-    private int omegaCh4Index = 0;        // Target: 1 ("IV - II - VII")
-
-    // Common dynamic display text for the active game
-    private Text dynamicDisplayText;
-
-    public bool IsMiniGameActive => isGameActive;
+    // 11. Omega Master Protocol State
+    private int omegaSelectedChannel = 0;
+    private int omegaCh1Index = 1;
+    private int omegaCh2Shift = 3;
+    private int omegaCh3Index = 0;
+    private int omegaCh4Index = 0;
 
     private void Awake()
     {
@@ -178,30 +216,64 @@ public class SpyMiniGames : MonoBehaviour
 
     private void Update()
     {
-        if (!isGameActive) return;
+        if (!isGameActive || isSuccessTransition) return;
 
-        // If help overlay is open, route input to overlay
-        if (isHelpOpen)
+        // 1. Error lockout timer management
+        if (errorLockoutTimer > 0f)
         {
-            HandleKeyboardInput();
+            errorLockoutTimer -= Time.deltaTime;
+            if (errorLockoutTimer <= 0f)
+            {
+                errorLockoutTimer = 0f;
+                if (statusFeedbackText != null)
+                {
+                    statusFeedbackText.text = "<color=#00FFAA>[БЛОКИРОВКА СНЯТА: СИСТЕМА ГОТОВА К ВВОДУ]</color>";
+                }
+            }
+            else
+            {
+                if (statusFeedbackText != null)
+                {
+                    statusFeedbackText.text = $"<color=#FF5555><b>[ВВОД ЗАБЛОКИРОВАН: {errorLockoutTimer:F1}с] Ошибка ввода!</b></color>";
+                }
+            }
+        }
+
+        // 2. Guard breach auto-collapse check:
+        // If guard breaches the door into room, collapse puzzle window to let player hide/deceive
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards != null && guards.Length > 0)
+        {
+            foreach (var g in guards)
+            {
+                if (g != null && (g.CurrentState == GuardPawn.GuardState.BreachOpeningDoor || 
+                                  g.CurrentState == GuardPawn.GuardState.BreachEnteringRoom ||
+                                  g.CurrentState == GuardPawn.GuardState.InspectingRoomDoorway))
+                {
+                    if (isGameActive || (miniGameRootPanel != null && miniGameRootPanel.activeSelf))
+                    {
+                        OnGuardInspectionBreach();
+                    }
+                    return;
+                }
+            }
+        }
+
+        // 3. Handle Overlay input
+        if (isHelpOpen || isNoteOpen)
+        {
+            HandleOverlayKeyboardInput();
             return;
         }
 
-        // Active game update loops (no countdown timer - infinite calm analysis mode)
-        switch (currentGame)
+        // 4. Ignore input while locked out
+        if (errorLockoutTimer > 0f)
         {
-            case GameType.Oscilloscope:
-                UpdateOscilloscopeDisplay();
-                break;
-            case GameType.DiskSectorTiming:
-                UpdateDiskSectorGame();
-                break;
-            case GameType.RelayRouting:
-                UpdateRelayRoutingGame();
-                break;
+            if (IsKey(KeyCode.Escape)) CancelMiniGame();
+            return;
         }
 
-        // Keyboard controls
+        // 5. Active keyboard controls
         HandleKeyboardInput();
     }
 
@@ -210,16 +282,16 @@ public class SpyMiniGames : MonoBehaviour
         string upper = fileName.ToUpper();
         if (upper.EndsWith(".TOP") || upper.EndsWith(".FIN") || upper.EndsWith(".OMG")) return GameType.OmegaMasterProtocol;
         if (upper.EndsWith(".BIN") || upper.EndsWith(".EXE")) return GameType.TuringTape;
-        if (upper.EndsWith(".DOC") || upper.EndsWith(".DIR")) return GameType.FrequencyAnalysis;
-        if (upper.EndsWith(".TXT") || upper.EndsWith(".LST")) return GameType.DatabaseFilter;
-        if (upper.EndsWith(".MEM") || upper.EndsWith(".DMP")) return GameType.HexMemoryPatch;
-        if (upper.EndsWith(".RAD") || upper.EndsWith(".OSC")) return GameType.Oscilloscope;
-        if (upper.EndsWith(".NET") || upper.EndsWith(".ROU")) return GameType.RelayRouting;
-        if (upper.EndsWith(".PAR") || upper.EndsWith(".CHK")) return GameType.HammingParity;
-        if (upper.EndsWith(".DSK") || upper.EndsWith(".TRK")) return GameType.DiskSectorTiming;
-        if (upper.EndsWith(".STK") || upper.EndsWith(".BUF")) return GameType.StackOverflow;
-        if (upper.EndsWith(".ROT") || upper.EndsWith(".SHF") || upper.EndsWith(".СХМ")) return GameType.RotorCipher;
-        return GameType.TuringTape;
+        if (upper.EndsWith(".DOC") && (upper.Contains("ДИРЕКТИВА") || upper.Contains("СПЕКТР"))) return GameType.FrequencyAnalysis;
+        if (upper.EndsWith(".TXT") && (upper.Contains("КАРТОТЕКА") || upper.Contains("БАЗА"))) return GameType.DatabaseFilter;
+        if (upper.Contains("ПОИСК") || upper.EndsWith(".LST")) return GameType.FileSearch;
+        if (upper.Contains("СЕЙФ") || upper.EndsWith(".KEY")) return GameType.PasswordSimple;
+        if (upper.Contains("СВЯЗЬ") || upper.EndsWith(".NET")) return GameType.NetworkRestoration;
+        if (upper.Contains("АТАКИ") || (upper.EndsWith(".ZIP") && upper.Contains("ПЛАН"))) return GameType.CaesarArchive;
+        if (upper.Contains("КАРТЫ") || (upper.EndsWith(".ZIP") && upper.Contains("ГЕНШТАБ"))) return GameType.PasswordFormula;
+        if (upper.Contains("ДОСЬЕ") || upper.Contains("САБОТАЖ") || upper.EndsWith(".DOC")) return GameType.DossierDeduction;
+        if (upper.EndsWith(".ROT") || upper.EndsWith(".СХМ")) return GameType.RotorCipher;
+        return GameType.FileSearch;
     }
 
     public void LaunchMiniGame(VectorCommander.VirtualFile file, Action<bool> onComplete)
@@ -229,22 +301,23 @@ public class SpyMiniGames : MonoBehaviour
         currentGame = GetGameTypeForFile(file.name);
         isGameActive = true;
         isHelpOpen = false;
+        isNoteOpen = false;
+        errorLockoutTimer = 0f;
+        currentPuzzleErrors = 0;
 
         if (timerCountdownText != null)
         {
-            timerCountdownText.text = "<color=#00FFAA>РЕЖИМ: БЕЗ ОГРАНИЧЕНИЯ ВРЕМЕНИ</color>";
+            timerCountdownText.text = "<color=#00FFAA>РЕЖИМ: БЕЗ ОГРАНИЧЕНИЯ ВРЕМЕНИ (АНАЛИЗ)</color>";
         }
 
         if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
+        InitializeSpecificGame(currentGame);
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(true);
         PlayClick();
-
-        InitializeSpecificGame(currentGame);
     }
 
     private void InitializeSpecificGame(GameType type)
     {
-        // Clear dynamic display text reference
         if (gameContentArea != null)
         {
             dynamicDisplayText = gameContentArea.GetComponentInChildren<Text>();
@@ -264,13 +337,13 @@ public class SpyMiniGames : MonoBehaviour
                 turingActiveRuleIndex = -1;
                 turingLastActionNote = "Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для шага.";
                 turingSelectedSlot = 0;
-                turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 }; // Jumbled initial configuration
+                turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 };
                 UpdateTuringDisplay();
                 break;
 
             case GameType.FrequencyAnalysis:
                 gameTitleText.text = "╔════ ЧАСТОТНЫЙ СПЕКТР ШИФРА ПОДСТАНОВКИ ════╗";
-                gameDescriptionText.text = "[Стрелки Влево/Вправо] или регулятор: подберите сдвиг алфавита, чтобы пики гласных совпали с эталоном.";
+                gameDescriptionText.text = "[Стрелки Влево/Вправо]: подберите сдвиг алфавита, чтобы пики гласных совпали с эталоном (О, Е, А).";
                 freqShift = 2;
                 btnActionText.text = "[ПРИМЕНИТЬ КЛЮЧ]";
                 UpdateFrequencyDisplay();
@@ -286,55 +359,53 @@ public class SpyMiniGames : MonoBehaviour
                 UpdateDatabaseDisplay();
                 break;
 
-            case GameType.HexMemoryPatch:
-                gameTitleText.text = "╔════ HEX-ПАТЧЕР: СНЯТИЕ СТОРОЖЕВОГО БУФЕРА ════╗";
-                gameDescriptionText.text = "Введите NOP-инструкцию [F] [F] [0] [0] для нейтрализации сторожевого адреса 0x4F0A.";
-                hexEntered = 0;
-                btnActionText.text = "[ИНЪЕКЦИЯ БАЙТА]";
-                UpdateHexDisplay();
+            case GameType.FileSearch:
+                gameTitleText.text = "╔════ ПОИСК НУЖНОГО ФАЙЛА В КАТАЛОГЕ СИСТЕМЫ ════╗";
+                gameDescriptionText.text = "[Вверх/Вниз] Прокрутка каталога, [ENTER] Открыть. Найдите среди хозяйственных бумаг директиву Центра.";
+                fileSearchSelectedIndex = 0;
+                btnActionText.text = "[ОТКРЫТЬ ФАЙЛ]";
+                UpdateFileSearchDisplay();
                 break;
 
-            case GameType.Oscilloscope:
-                gameTitleText.text = "╔════ ОСЦИЛЛОГРАФ: СВЕДЕНИЕ РАДИОЧАСТОТЫ ════╗";
-                gameDescriptionText.text = "[A/D] — Частота несущей, [W/S] — Фаза. Сложите интерференцию в резонансный круг.";
-                oscFrequency = 1.0f;
-                oscPhase = 30f;
-                btnActionText.text = "[ЗАХВАТ СИГНАЛА]";
-                UpdateOscilloscopeDisplay();
+            case GameType.PasswordSimple:
+                gameTitleText.text = "╔════ ВВОД ПАРОЛЯ: ЗАЩИЩЕННЫЙ АРХИВ СВЯЗИ ════╗";
+                gameDescriptionText.text = "Введите 4-значный пин-код из записки связиста [4821]. [N] Прочесть записку, [ENTER] Проверить.";
+                simplePinInput = "";
+                btnActionText.text = "[ВВЕСТИ ПАРОЛЬ]";
+                UpdatePasswordSimpleDisplay();
                 break;
 
-            case GameType.RelayRouting:
-                gameTitleText.text = "╔════ РЕЛЕЙНЫЙ МАРШРУТИЗАТОР: ОБХОД ШЛЮЗОВ ════╗";
-                gameDescriptionText.text = "[Стрелки] — выбор узла, [Пробел] — повернуть стрелку. Проложите путь от (0,0) к (3,3).";
-                InitRelayMatrix();
-                btnActionText.text = "[ПЕРЕДАТЬ ПАКЕТ]";
-                UpdateRelayDisplay();
+            case GameType.NetworkRestoration:
+                gameTitleText.text = "╔════ КОММУТАТОР СВЯЗИ: ВОССТАНОВЛЕНИЕ ЛИНИИ A -> B ════╗";
+                gameDescriptionText.text = "[1..6 / Вверх / Вниз] Выбор канала, [ПРОБЕЛ] ВКЛ/ВЫКЛ, [ENTER] Проверить. Включите исправные каналы!";
+                netSelectedLine = 0;
+                netLinesConnected = new bool[6] { false, false, false, false, false, false };
+                btnActionText.text = "[ПРОВЕРИТЬ ЛИНИЮ]";
+                UpdateNetworkRestorationDisplay();
                 break;
 
-            case GameType.HammingParity:
-                gameTitleText.text = "╔════ МАТРИЦА ХЭММИНГА: КОРРЕКЦИЯ ЧЕТНОСТИ ════╗";
-                gameDescriptionText.text = "Строка 3 и Столбец 2 имеют нечетную сумму! [Стрелки] — курсор, [Enter/Пробел] — инвертировать бит.";
-                InitHammingMatrix();
-                btnActionText.text = "[ИНВЕРСИЯ БИТА]";
-                UpdateHammingDisplay();
+            case GameType.CaesarArchive:
+                gameTitleText.text = "╔════ АРХИВ: ПЛАН АТАКИ (ШИФР ЦЕЗАРЯ СО СДВИГОМ 3) ════╗";
+                gameDescriptionText.text = "[1..4 / Вверх / Вниз] Выбор архива, [ENTER] Открыть. Найдите архив со словом ATTACK (сдвиг назад на 3: D->A).";
+                caesarSelectedIndex = 0;
+                btnActionText.text = "[ИЗВЛЕЧЬ АРХИВ]";
+                UpdateCaesarArchiveDisplay();
                 break;
 
-            case GameType.DiskSectorTiming:
-                gameTitleText.text = "╔════ СЕКТОРНЫЙ ЗАХВАТ: ШПИНДЕЛЬ ЕС-5061 ════╗";
-                gameDescriptionText.text = "Нажимайте [Пробел] точно в момент прохождения головки над зеленым сектором дорожки!";
-                diskAngle = 0f;
-                sectorsCaptured = 0;
-                targetSectorAngle = 180f;
-                btnActionText.text = "[ЗАХВАТ СЕКТОРА]";
-                UpdateDiskSectorDisplay();
+            case GameType.PasswordFormula:
+                gameTitleText.text = "╔════ КРИПТОГРАФИЧЕСКИЙ ПАРОЛЬ: КАРТЫ ГЕНШТАБА ════╗";
+                gameDescriptionText.text = "Формула: (A × B) - C = (17 × 23) - 42. Введите 4 цифры [0..9], [Backspace], [ENTER] Открыть.";
+                formulaPinInput = "";
+                btnActionText.text = "[ВВЕСТИ КОД]";
+                UpdatePasswordFormulaDisplay();
                 break;
 
-            case GameType.StackOverflow:
-                gameTitleText.text = "╔════ СТЕК LIFO: ПЕРЕПОЛНЕНИЕ РЕГИСТРА ДОПУСКА ════╗";
-                gameDescriptionText.text = "[1] PUSH 2, [2] PUSH 4, [3] PUSH 8, [Back] POP. Наберите сумму ровно 16, не превысив 22!";
-                stackRegisters.Clear();
-                btnActionText.text = "[СБРОС ВЕРШИНЫ]";
-                UpdateStackDisplay();
+            case GameType.DossierDeduction:
+                gameTitleText.text = "╔════ ОСОБЫЙ ОТДЕЛ: ДЕДУКЦИЯ КАРТОТЕКИ ДИВЕРСАНТА ════╗";
+                gameDescriptionText.text = "[1..4 / Вверх / Вниз] Выбор подозреваемого, [ENTER] Указать цель. Ориентировка: город вне СССР, серверная ночью.";
+                dossierSelectedIndex = 0;
+                btnActionText.text = "[УКАЗАТЬ ПОДОЗРЕВАЕМОГО]";
+                UpdateDossierDeductionDisplay();
                 break;
 
             case GameType.RotorCipher:
@@ -364,13 +435,39 @@ public class SpyMiniGames : MonoBehaviour
         }
     }
 
+    public void TriggerErrorLockout(string reason)
+    {
+        errorLockoutTimer = 2.5f;
+        currentPuzzleErrors++;
+        PlayFail();
+
+        if (statusFeedbackText != null)
+        {
+            statusFeedbackText.text = $"<color=#FF3333><b>[ОШИБКА ВВОДА #{currentPuzzleErrors}/3] {reason} (Блокировка 2.5с)</b></color>";
+        }
+
+        if (currentPuzzleErrors >= 2)
+        {
+            ToggleHelp(true);
+        }
+
+        if (currentPuzzleErrors >= 3)
+        {
+            GuardPawn.DispatchGuardForTerminalInspection("3 ошибки криптографического ввода в терминале — аварийный протокол");
+            if (statusFeedbackText != null)
+            {
+                statusFeedbackText.text = "<color=#FF0000><b>[ТРЕВОГА!] Сбой терминала! Охрана идёт с проверкой!</b></color>";
+            }
+            MainframeBootQuest.Instance?.ShowNotification("<color=#FF0000>[⚠ ОХРАНА ИДЁТ!]</color> 1. Вырубите рубильник на стене [E]! 2. Спрячьтесь за стойку ЭВМ в тень!");
+        }
+    }
+
     // --- Mini-Game 1: Turing Tape Logic ---
 
     private void UpdateTuringDisplay()
     {
         if (dynamicDisplayText == null) return;
 
-        // 1. Initial and Target Tape
         string initTapeStr = "";
         string targTapeStr = "";
         string currTapeStr = "";
@@ -385,7 +482,6 @@ public class SpyMiniGames : MonoBehaviour
                 currTapeStr += $" [{turingTape[i]}]  ";
         }
 
-        // 2. Carriage Head Pointer
         string stateLabel = turingCurrentState == 0 ? "q0" : (turingCurrentState == 1 ? "q1" : "HALT");
         string stateCol   = turingCurrentState == 0 ? "#66CCFF" : (turingCurrentState == 1 ? "#FFAA33" : "#00FF88");
 
@@ -398,7 +494,6 @@ public class SpyMiniGames : MonoBehaviour
             $"             {spacePad}<b><color={stateCol}>   ▼   </color></b>\n" +
             $"  ПЕРФОЛЕНТА: {currTapeStr}";
 
-        // 3. Configurable slots
         string[] writeOptions = { "0", "1", "_" };
         string[] moveOptions  = { "← ВЛЕВО", "→ ВПРАВО", "• СТОП" };
         string[] stateOptions = { "q0", "q1", "HALT" };
@@ -419,7 +514,6 @@ public class SpyMiniGames : MonoBehaviour
         string slot4 = FormatSlot(4, moveOptions[turingSlotValues[4]]);
         string slot5 = FormatSlot(5, stateOptions[turingSlotValues[5]]);
 
-        // Active rule markers
         string r0Mark = turingActiveRuleIndex == 0 ? "<b><color=#FFFF33>►</color></b>" : " ";
         string r1Mark = turingActiveRuleIndex == 1 ? "<b><color=#FFFF33>►</color></b>" : " ";
         string r2Mark = turingActiveRuleIndex == 2 ? "<b><color=#FFFF33>►</color></b>" : " ";
@@ -439,13 +533,12 @@ public class SpyMiniGames : MonoBehaviour
             $"  {r4Mark} q1   │   0    │{slot3.PadRight(10)}│ {slot4.PadRight(16)}│ {slot5.PadRight(12)}│ <b>0+1=1 (останов!)</b>\n" +
             $"  {r5Mark} q1   │   _    │    1     │    • СТОП       │    HALT     │ Перенос за старший бит";
 
-        // Assemble screen
         dynamicDisplayText.text =
             $"<color=#88CCAA>ИСХОДНОЕ ЧИСЛО:</color> {initTapeStr} (11 в двоичной)   │   <color=#00FFAA>ЦЕЛЕВОЙ КЛЮЧ ЯДРА:</color> {targTapeStr} (12 = 11 + 1)\n\n" +
             $"{carriageVisual}\n" +
             $"  <color=#FFFF88>► {turingLastActionNote}</color>\n\n" +
             $"{tableVisual}\n\n" +
-            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг  │  [ENTER] Пуск  │  [R] В старт  │  [H] Справка</color>";
+            $"<color=#FFFF66>[СТРЕЛКИ ВВЕРХ/ВНИЗ] Слот  │  [ВЛЕВО/ВПРАВО] Значение  │  [ПРОБЕЛ] Шаг  │  [ENTER] Пуск  │  [N] Записка  │  [H] Справка</color>";
 
         if (btnActionText != null)
         {
@@ -464,10 +557,8 @@ public class SpyMiniGames : MonoBehaviour
         if (turingStepCount >= 25)
         {
             turingIsRunning = false;
-            PlayFail();
+            TriggerErrorLockout("Превышен лимит тактов (25)! Каретка зациклилась.");
             turingLastActionNote = "<color=#FF3333>ОШИБКА: Превышен лимит тактов (25)! Каретка зациклилась.</color>";
-            if (statusFeedbackText != null)
-                statusFeedbackText.text = "<color=#FF3333><b>[ЗАЦИКЛИВАНИЕ] Каретка застряла! Нажмите [R] для сброса.</b></color>";
             UpdateTuringDisplay();
             return;
         }
@@ -475,10 +566,8 @@ public class SpyMiniGames : MonoBehaviour
         if (turingHeadIndex < 0 || turingHeadIndex >= turingTape.Length)
         {
             turingIsRunning = false;
-            PlayFail();
+            TriggerErrorLockout("Каретка сошла с перфоленты за пределы буфера!");
             turingLastActionNote = "<color=#FF3333>ОШИБКА: Каретка сошла с перфоленты за пределы буфера!</color>";
-            if (statusFeedbackText != null)
-                statusFeedbackText.text = "<color=#FF3333><b>[ВЫХОД ЗА ПРЕДЕЛЫ ЛЕНТЫ] Нажмите [R] для сброса.</b></color>";
             UpdateTuringDisplay();
             return;
         }
@@ -489,26 +578,17 @@ public class SpyMiniGames : MonoBehaviour
         int nextState = turingCurrentState;
         int ruleIndex = -1;
 
-        if (turingCurrentState == 0) // q0: Seek right edge
+        if (turingCurrentState == 0)
         {
-            if (readSymbol == '0')
-            {
-                writeSymbol = '0'; moveDir = 1; nextState = 0; ruleIndex = 0;
-            }
-            else if (readSymbol == '1')
-            {
-                writeSymbol = '1'; moveDir = 1; nextState = 0; ruleIndex = 1;
-            }
-            else if (readSymbol == '_')
-            {
-                writeSymbol = '_'; moveDir = -1; nextState = 1; ruleIndex = 2;
-            }
+            if (readSymbol == '0') { writeSymbol = '0'; moveDir = 1; nextState = 0; ruleIndex = 0; }
+            else if (readSymbol == '1') { writeSymbol = '1'; moveDir = 1; nextState = 0; ruleIndex = 1; }
+            else if (readSymbol == '_') { writeSymbol = '_'; moveDir = -1; nextState = 1; ruleIndex = 2; }
         }
-        else if (turingCurrentState == 1) // q1: Increment
+        else if (turingCurrentState == 1)
         {
             char[] writes = { '0', '1', '_' };
-            int[] moves = { -1, 1, 0 }; // Left, Right, Stop
-            int[] states = { 0, 1, 2 }; // q0, q1, HALT
+            int[] moves = { -1, 1, 0 };
+            int[] states = { 0, 1, 2 };
 
             if (readSymbol == '1')
             {
@@ -533,7 +613,6 @@ public class SpyMiniGames : MonoBehaviour
         turingActiveRuleIndex = ruleIndex;
         turingStepCount++;
 
-        // Apply write
         turingTape[turingHeadIndex] = writeSymbol;
         PlayClick();
 
@@ -543,7 +622,6 @@ public class SpyMiniGames : MonoBehaviour
 
         turingLastActionNote = $"Такт #{turingStepCount}: [{stateNameBefore}] прочитал '{readSymbol}' ──► записал '{writeSymbol}', сдвиг {moveName}, перешел в [{stateNameAfter}]";
 
-        // Apply move and state
         turingHeadIndex += moveDir;
         turingCurrentState = nextState;
 
@@ -618,12 +696,10 @@ public class SpyMiniGames : MonoBehaviour
         }
         else
         {
-            PlayFail();
             string cur = new string(turingTape);
             string tgt = new string(turingTargetTape);
             turingLastActionNote = $"<color=#FF5555>ОСТАНОВ: Результат '{cur}' не совпадает с целью '{tgt}'!</color>";
-            if (statusFeedbackText != null)
-                statusFeedbackText.text = "<color=#FF3333><b>[НЕСООТВЕТСТВИЕ КЛЮЧА] Нажмите [R] для сброса и скорректируйте микрокод.</b></color>";
+            TriggerErrorLockout($"Результат '{cur}' не равен '{tgt}'!");
         }
         UpdateTuringDisplay();
     }
@@ -661,7 +737,7 @@ public class SpyMiniGames : MonoBehaviour
             $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
             $"<size=18>ПРЕДПРОСМОТР РАСШИФРОВКИ:</size>\n\n" +
             $"  {previewText}\n\n" +
-            $"<color=#FFFF66>[СТРЕЛКИ ВЛЕВО / ВПРАВО] — Сдвиг регистра | [ENTER] — Применить</color>";
+            $"<color=#FFFF66>[СТРЕЛКИ ВЛЕВО / ВПРАВО] Сдвиг  │  [ENTER] Применить  │  [N] Записка  │  [H] Справка</color>";
     }
 
     // --- Mini-Game 3: Database Filter ---
@@ -692,253 +768,208 @@ public class SpyMiniGames : MonoBehaviour
             $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
             $"<size=18>РЕЗУЛЬТАТ ПОИСКА:</size>\n\n" +
             $"  {cardInfo}\n\n" +
-            $"<color=#FFFF66>[1/2/3] — Переключить фильтр | [ENTER] — Зафиксировать пароль</color>";
+            $"<color=#FFFF66>[1/2/3] Фильтр  │  [ENTER] Зафиксировать пароль  │  [N] Записка  │  [H] Справка</color>";
     }
 
-    // --- Mini-Game 4: Hex Memory Patch ---
+    // --- Mini-Game 4: File Search (14 items, authentic Soviet bureaucracy) ---
 
-    private void UpdateHexDisplay()
+    private void UpdateFileSearchDisplay()
     {
         if (dynamicDisplayText == null) return;
 
-        string[] enteredBytes = { "??", "??", "??", "??" };
-        string[] targetBytes = { "FF", "FF", "00", "00" };
-        for (int i = 0; i < hexEntered; i++) enteredBytes[i] = targetBytes[i];
-
-        string statusCol = hexEntered == hexRequired ? "#00FF88" : "#FFCC00";
-
-        dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>ДАМП СТОРОЖЕВОГО БУФЕРА ТРЕВОГИ:</color></size>\n\n" +
-            $"  АДРЕС       00 01 02 03  ASCII\n" +
-            $"  0x4F00      5A 8C 12 00  Z...\n" +
-            $"  0x4F04      E4 10 99 AA  ....\n" +
-            $"  <color=#FF4444><b>0x4F08      01 00 [{enteredBytes[0]} {enteredBytes[1]}]</b></color>  <color=#FFFF66><-- СТОРОЖЕВОЙ ВЕКТОР ({hexTarget})</color>\n" +
-            $"  <color=#FF4444><b>0x4F0C      [{enteredBytes[2]} {enteredBytes[3]}] 82 C0</b></color>\n\n" +
-            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"  ВВЕДЕНО БАЙТОВ ПАТЧА: <color={statusCol}>{hexEntered} / {hexRequired}</color>\n\n" +
-            $"<color=#FFFF66>[ПРОБЕЛ / ENTER] — Инъекция байта NOP (FF/00) в память</color>";
-    }
-
-    // --- Mini-Game 5: Oscilloscope Signal Tuning ---
-
-    private void UpdateOscilloscopeDisplay()
-    {
-        if (dynamicDisplayText == null) return;
-
-        float freqDiff = Mathf.Abs(oscFrequency - TARGET_FREQ);
-        float phaseDiff = Mathf.Abs(oscPhase - TARGET_PHASE);
-        bool inResonance = freqDiff < 0.25f && phaseDiff < 15f;
-
-        string waveVisual = inResonance ?
-            "<color=#00FFAA>       ╭───────────╮       \n    ╭──╯           ╰──╮    \n────╯                 ╰────\n    ╰──╮           ╭──╯    \n       ╰───────────╯       </color>" :
-            "<color=#558866>   ~  ^  ~  v  ~  ^  ~     \n ~~   ~~   ~~   ~~   ~~    \n---------------------------\n ~~   ~~   ~~   ~~   ~~    \n   v  ~  ^  ~  v  ~  ^     </color>";
-
-        string audioStatus = inResonance ?
-            "<color=#00FF88>РЕЗОНАНС! [ПЕРЕХВАТ 144.200 МГц]: «ВЫЗЫВАЮ БАЗУ, КОД: 7392»</color>" :
-            "<color=#88AA99>ПОМЕХИ В ЭФИРЕ: ШУМ НЕСУЩЕЙ ЧАСТОТЫ...</color>";
-
-        dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>ЭКРАН ЭЛТ-ОСЦИЛЛОГРАФА (ФИГУРЫ ЛИССАЖУ):</color></size>\n\n" +
-            $"{waveVisual}\n\n" +
-            $"  ЧАСТОТА: <b><color=#00FFAA>{oscFrequency:F1} МГц</color></b> (Цель: 2.5)  |  ФАЗА: <b><color=#00FFAA>{Mathf.RoundToInt(oscPhase)}°</color></b> (Цель: 180°)\n" +
-            $"  {audioStatus}\n\n" +
-            $"<color=#FFFF66>[A/D] — Частота  |  [W/S] — Фаза  |  [ENTER] — Захватить частоту</color>";
-    }
-
-    // --- Mini-Game 6: Relay Matrix Routing ---
-
-    private void InitRelayMatrix()
-    {
-        relayMatrix = new int[4, 4];
-        packetX = 0; packetY = 0;
-        packetStepTimer = 0f;
-        // Default arrows
-        for (int r = 0; r < 4; r++)
-            for (int c = 0; c < 4; c++)
-                relayMatrix[r, c] = 0; // Right
-    }
-
-    private void UpdateRelayRoutingGame()
-    {
-        packetStepTimer += Time.deltaTime;
-        if (packetStepTimer >= 0.75f)
+        string fileListStr = "";
+        for (int i = 0; i < fileSearchList.Length; i++)
         {
-            packetStepTimer = 0f;
-            int dir = relayMatrix[packetY, packetX];
-            if (dir == 0 && packetX < 3) packetX++;
-            else if (dir == 1 && packetY < 3) packetY++;
-            else if (dir == 2 && packetX > 0) packetX--;
-            else if (dir == 3 && packetY > 0) packetY--;
+            bool isSelected = (i == fileSearchSelectedIndex);
+            string prefix = isSelected ? "<b><color=#FFFF00>► </color></b>" : "  ";
+            string colorTag = isSelected ? "#00FFAA" : "#88CCAA";
 
-            PlayClick();
-            UpdateRelayDisplay();
-
-            // Destination reached?
-            if (packetX == 3 && packetY == 3)
-            {
-                OnGameSuccess("ПАКЕТ ДАННЫХ УСПЕШНО ДОСТАВЛЕН В ОБХОД ШЛЮЗОВ СЕТИ!");
-            }
-        }
-    }
-
-    private void UpdateRelayDisplay()
-    {
-        if (dynamicDisplayText == null) return;
-
-        string[] arrowSymbols = { "→", "↓", "←", "↑" };
-        string gridStr = "";
-
-        for (int r = 0; r < 4; r++)
-        {
-            gridStr += "    ";
-            for (int c = 0; c < 4; c++)
-            {
-                bool isPacket = (r == packetY && c == packetX);
-                bool isStart = (r == 0 && c == 0);
-                bool isGoal = (r == 3 && c == 3);
-                bool isFirewall = (r == 1 && c == 2) || (r == 2 && c == 1);
-
-                if (isPacket)
-                    gridStr += "<b><color=#FFFF00>[●]</color></b> ";
-                else if (isStart)
-                    gridStr += "<color=#00FFAA>[S]</color> ";
-                else if (isGoal)
-                    gridStr += "<b><color=#00FF88>[G]</color></b> ";
-                else if (isFirewall)
-                    gridStr += "<color=#FF3333>[X]</color> ";
-                else
-                    gridStr += $"<color=#72D572>[{arrowSymbols[relayMatrix[r, c]]}]</color> ";
-            }
-            gridStr += "\n";
+            fileListStr += $"{prefix}<color={colorTag}>{fileSearchList[i]}</color>\n";
         }
 
         dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>МАТРИЦА ПАКЕТНОЙ МАРШРУТИЗАЦИИ (4x4):</color></size>\n\n" +
-            $"{gridStr}\n" +
-            $"  [S] — ВХОД  |  [G] — ПРИЕМНИК (КАРТРИДЖ)  |  [X] — БРАНДМАУЭР\n" +
+            $"<size=20><color=#66CCAA>КАТАЛОГ СЛУЖЕБНОЙ ДОКУМЕНТАЦИИ И ОТЧЕТОВ (C:\\СЕКРЕТНО):</color></size>\n\n" +
+            $"{fileListStr}\n" +
             $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"<color=#FFFF66>[ПРОБЕЛ / КЛИК] — Повернуть текущее реле по часовой стрелке</color>";
+            $"  <b>ОРИЕНТИРОВКА:</b> Найдите среди рутинной канцелярии секретную директиву Центра!\n\n" +
+            $"<color=#FFFF66>[ВВЕРХ / ВНИЗ / W / S] Выбор строки  │  [ENTER / ПРОБЕЛ] Открыть  │  [N] Записка</color>";
     }
 
-    // --- Mini-Game 7: Hamming Parity ---
+    // --- Mini-Game 5: Simple PIN Password ---
 
-    private void InitHammingMatrix()
+    private void UpdatePasswordSimpleDisplay()
     {
-        parityBits = new int[4, 4]
+        if (dynamicDisplayText == null) return;
+
+        string pinDisplay = "";
+        for (int i = 0; i < 4; i++)
         {
-            { 1, 0, 1, 0 },
-            { 0, 1, 1, 0 },
-            { 1, 1, 0, 1 }, // Corrupted bit at [2, 1]
-            { 0, 1, 0, 1 }
+            if (i < simplePinInput.Length)
+                pinDisplay += $"<b><color=#00FFAA>[ {simplePinInput[i]} ]</color></b>  ";
+            else
+                pinDisplay += "<color=#558866>[ _ ]</color>  ";
+        }
+
+        dynamicDisplayText.text =
+            $"<size=22><color=#66CCAA>АРХИВ СВЯЗИ «СЕЙФ_СВЯЗИ.KEY» ЗАЩИЩЕН ПИН-КОДОМ:</color></size>\n\n" +
+            $"          ┌───────────────────────────────────┐\n" +
+            $"          │      ВВЕДИТЕ 4-ЗНАЧНЫЙ ПАРОЛЬ     │\n" +
+            $"          │                                   │\n" +
+            $"          │       {pinDisplay}│\n" +
+            $"          │                                   │\n" +
+            $"          └───────────────────────────────────┘\n\n" +
+            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
+            $"  <b>► СЛУЖЕБНАЯ ЗАПИСКА ДЕЖУРНОГО [N]:</b> Код архива связи: <b>[ 4 8 2 1 ]</b>\n\n" +
+            $"<color=#FFFF66>[0..9] Ввод цифр  │  [BACKSPACE] Стереть  │  [ENTER] Подтвердить  │  [N] Записка  │  [H] Справка</color>";
+    }
+
+    // --- Mini-Game 6: Network Restoration (6 channels switchboard) ---
+
+    private void UpdateNetworkRestorationDisplay()
+    {
+        if (dynamicDisplayText == null) return;
+
+        string[] channelNames = new string[]
+        {
+            "КАНАЛ I (СЕВЕРНАЯ МАГИСТРАЛЬ):    ",
+            "КАНАЛ II (ЦЕНТРАЛЬНЫЙ КАБЕЛЬ):     ",
+            "КАНАЛ III (ЮЖНЫЙ РЕТРАНСЛЯТОР):    ",
+            "КАНАЛ IV (ОПТИЧЕСКИЙ ВОЛНОВОД):    ",
+            "КАНАЛ V (ФЕРРИТОВЫЙ ДРОССЕЛЬ):     ",
+            "КАНАЛ VI (РЕЗЕРВНАЯ ВИТАЯ ПАРА):   "
         };
-        badRow = 2; badCol = 1;
-    }
 
-    private void UpdateHammingDisplay()
-    {
-        if (dynamicDisplayText == null) return;
-
-        string grid = "       КОЛ:  0   1   2   3    ЧЕТНОСТЬ\n";
-        for (int r = 0; r < 4; r++)
+        string[] channelTelemetry = new string[]
         {
-            int rowSum = 0;
-            grid += $"  СТР {r}:  ";
-            for (int c = 0; c < 4; c++)
-            {
-                rowSum += parityBits[r, c];
-                if (r == badRow && c == badCol)
-                    grid += $"<b><color=#FFCC00>[{parityBits[r, c]}]</color></b> ";
-                else
-                    grid += $"[{parityBits[r, c]}] ";
-            }
-            bool rowEven = (rowSum % 2 == 0);
-            grid += rowEven ? " <color=#00FF88>[OK]</color>\n" : " <color=#FF3333>[СБОЙ]</color>\n";
+            "U=220В, f=50Гц, Затухание: 0.8дБ  [ИСПРАВЕН, ОБРЫВ ЦЕПИ]",
+            "U=0В, КЗ НА КОРПУС                [АВАРИЯ: УТЕЧКА ТОКА НА ЗЕМЛЮ!]",
+            "Δφ=180°, ПРОТИВОФАЗА              [СБОЙ: ДЕСТРУКТИВНАЯ ФАЗА!]",
+            "Лазер 1310нм, Затухание: 0.15дБ   [ИСПРАВЕН, ШЛЮЗ ЗАКРЫТ]",
+            "I=48А, Температура: 110°C         [ПЕРЕГРЕВ: РИСК ВОЗГОРАНИЯ!]",
+            "R=600 Ом, Экран заземлен          [ИСПРАВЕН, ОБРЫВ ЦЕПИ]"
+        };
+
+        string channelListStr = "";
+        bool hasShortCircuit = netLinesConnected[1] || netLinesConnected[2] || netLinesConnected[4];
+        int correctConnected = 0;
+        if (netLinesConnected[0]) correctConnected++;
+        if (netLinesConnected[3]) correctConnected++;
+        if (netLinesConnected[5]) correctConnected++;
+
+        for (int i = 0; i < 6; i++)
+        {
+            bool isSelected = (i == netSelectedLine);
+            bool isConn = netLinesConnected[i];
+
+            string prefix = isSelected ? "<b><color=#FFFF00>► </color></b>" : "  ";
+            string stateBadge = isConn ? "<b><color=#00FF88>[● ВКЛ]</color></b>" : "<color=#888888>[○ ВЫКЛ]</color>";
+            string col = isSelected ? "#FFFF88" : "#AACCBB";
+
+            channelListStr += $"{prefix}<color={col}>[{i + 1}] {channelNames[i]}</color> {stateBadge}\n" +
+                              $"     <color=#669988>Диагностика: {channelTelemetry[i]}</color>\n";
         }
 
-        dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>ФЕРРИТОВАЯ МАТРИЦА ОПЕРАТИВНОЙ ПАМЯТИ:</color></size>\n\n" +
-            $"{grid}\n" +
-            $"  Обнаружена ошибка четности на пересечении Стр {badRow} и Кол {badCol}!\n" +
-            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"<color=#FFFF66>[ПРОБЕЛ / ENTER] — Инвертировать битый бит и восстановить матрицу</color>";
-    }
-
-    // --- Mini-Game 8: Disk Sector Timing ---
-
-    private void UpdateDiskSectorGame()
-    {
-        diskAngle = (diskAngle + 180f * Time.deltaTime) % 360f;
-        UpdateDiskSectorDisplay();
-    }
-
-    private void UpdateDiskSectorDisplay()
-    {
-        if (dynamicDisplayText == null) return;
-
-        float diff = Mathf.Abs(Mathf.DeltaAngle(diskAngle, targetSectorAngle));
-        bool isAligned = diff < 28f;
-
-        string alignIndicator = isAligned ?
-            "<b><color=#00FFAA>[ ГОЛОВКА НАД СЕКТОРОМ! ЖМИТЕ ПРОБЕЛ! ]</color></b>" :
-            "<color=#558866>[ ВРАЩЕНИЕ ШПИНДЕЛЯ... ОЖИДАНИЕ ДОРОЖКИ ]</color>";
-
-        dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>СКОРОСТЬ ВРАЩЕНИЯ ШПИНДЕЛЯ: 2400 ОБ/МИН</color></size>\n\n" +
-            $"  УГОЛ ГОЛОВКИ: {Mathf.RoundToInt(diskAngle)}°   |   СЕКТОР ЦЕЛИ: {Mathf.RoundToInt(targetSectorAngle)}°\n\n" +
-            $"  {alignIndicator}\n\n" +
-            $"  ЗАХВАЧЕНО СЕКТОРОВ: <b><color=#00FF88>{sectorsCaptured} / {SECTORS_NEEDED}</color></b>\n" +
-            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"<color=#FFFF66>[ПРОБЕЛ] — Захват кластера в тайминг (Промах = нагрев диска!)</color>";
-    }
-
-    public void AttemptDiskSectorCapture()
-    {
-        float diff = Mathf.Abs(Mathf.DeltaAngle(diskAngle, targetSectorAngle));
-        if (diff < 32f)
+        string integrityStr;
+        if (hasShortCircuit)
         {
-            sectorsCaptured++;
-            PlayClick();
-            targetSectorAngle = (targetSectorAngle + 110f) % 360f;
-            if (sectorsCaptured >= SECTORS_NEEDED)
-            {
-                OnGameSuccess("ВСЕ КЛАСТЕРЫ ДИСКА УСПЕШНО СЧИТАНЫ И СОБРАНЫ В АРХИВ!");
-            }
+            integrityStr = "<color=#FF2222><b>[КЗ / ПЕРЕГРУЗКА!] АВАРИЙНЫЙ КАНАЛ ЗАМКНУЛ ШИНУ! СИГНАЛ: 0%</b></color>";
         }
         else
         {
-            PlayFail();
-            if (DiskDriveBay.Instance != null)
-            {
-                // Penalty heat on miss
-                MainframeBootQuest.Instance?.ShowNotification("<color=#FF5555>[ПРОМАХ!] Холостой оборот шпинделя (+4°C к диску)</color>");
-            }
+            int percent = Mathf.RoundToInt((correctConnected / 3.0f) * 100f);
+            if (percent == 100)
+                integrityStr = $"<b><color=#00FF88>● СВЯЗЬ 100% (СЕВЕР + ОПТИКА + РЕЗЕРВ). ШИНА ГОТОВА К ЗАПУСКУ!</color></b>";
+            else
+                integrityStr = $"<color=#FFCC00>○ ЦЕЛОСТНОСТЬ ЛИНИИ: {percent}% ({correctConnected}/3 исправных каналов)</color>";
         }
+
+        dynamicDisplayText.text =
+            $"<size=20><color=#66CCAA>КОММУТАЦИОННАЯ ПАНЕЛЬ СЕТИ: ПЕРЕДАТЧИК [A] ─────► СЕРВЕР [B]</color></size>\n\n" +
+            $"{channelListStr}\n" +
+            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
+            $"  СТАТУС ШИНЫ: {integrityStr}\n\n" +
+            $"<color=#FFFF66>[1..6 / ВВЕРХ / ВНИЗ] Канал  │  [ПРОБЕЛ] ВКЛ / ВЫКЛ  │  [ENTER] Проверить  │  [N] Записка</color>";
     }
 
-    // --- Mini-Game 9: Stack Overflow LIFO ---
+    // --- Mini-Game 7: Caesar Archive ---
 
-    private void UpdateStackDisplay()
+    private void UpdateCaesarArchiveDisplay()
     {
         if (dynamicDisplayText == null) return;
 
-        int currentSum = 0;
-        string stackVisual = "";
-        for (int i = stackRegisters.Count - 1; i >= 0; i--)
+        string listStr = "";
+        for (int i = 0; i < caesarFiles.Length; i++)
         {
-            currentSum += stackRegisters[i];
-            stackVisual += $"    │  [{stackRegisters[i]}]  │\n";
+            string prefix = (i == caesarSelectedIndex) ? "<b><color=#FFFF00>► </color></b>" : "  ";
+            string col = (i == caesarSelectedIndex) ? "#00FFAA" : "#88CCAA";
+            listStr += $"{prefix}<color={col}>[{i + 1}] {caesarFiles[i]}</color>\n";
         }
-        if (stackRegisters.Count == 0) stackVisual = "    │ (ПУСТО) │\n";
-        stackVisual += "    └───┴───┘";
-
-        string sumColor = currentSum == STACK_TARGET ? "#00FF88" : (currentSum > STACK_MAX_CAPACITY ? "#FF3333" : "#FFFF00");
 
         dynamicDisplayText.text =
-            $"<size=22><color=#66CCAA>СТЕК РЕГИСТРОВ ПРОЦЕССОРА (LIFO):</color></size>\n\n" +
-            $"{stackVisual}\n\n" +
-            $"  ТЕКУЩАЯ СУММА: <b><color={sumColor}>{currentSum}</color></b>  |  ЦЕЛЬ: <b><color=#00FFAA>{STACK_TARGET}</color></b>  (МАКС: {STACK_MAX_CAPACITY})\n" +
+            $"<size=22><color=#66CCAA>СПИСОК ЗАШИФРОВАННЫХ АРХИВОВ ШТАБА:</color></size>\n\n" +
+            $"{listStr}\n" +
             $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
-            $"<color=#FFFF66>[1] PUSH 2  |  [2] PUSH 4  |  [3] PUSH 8  |  [BACKSPACE] POP  |  [ENTER] Проверить</color>";
+            $"  <b>ЗАДАНИЕ:</b> «Найди архив с планом атаки. Файлы зашифрованы Цезарем».\n" +
+            $"  <b>КЛЮЧ СДВИГА:</b> Сдвиг на 3 буквы вперед (A ──► D). Для чтения сдвигайте назад (D ──► A).\n" +
+            $"  <b>ЦЕЛЬ:</b> Имя расшифрованного архива должно быть <b>«ATTACK»</b>.\n\n" +
+            $"<color=#FFFF66>[1..4 / ВВЕРХ / ВНИЗ] Выбор файла  │  [ENTER] Извлечь  │  [N] Записка  │  [H] Справка</color>";
+    }
+
+    // --- Mini-Game 8: Password Formula ---
+
+    private void UpdatePasswordFormulaDisplay()
+    {
+        if (dynamicDisplayText == null) return;
+
+        string pinDisplay = "";
+        for (int i = 0; i < 4; i++)
+        {
+            if (i < formulaPinInput.Length)
+                pinDisplay += $"<b><color=#00FFAA>[ {formulaPinInput[i]} ]</color></b>  ";
+            else
+                pinDisplay += "<color=#558866>[ _ ]</color>  ";
+        }
+
+        dynamicDisplayText.text =
+            $"<size=22><color=#66CCAA>РАЗВЕДДАННЫЕ: ШИФРОВАННЫЙ АРХИВ «КАРТЫ_ГЕНШТАБА.ZIP»</color></size>\n\n" +
+            $"  СЧИТАННЫЕ С РЕГИСТРОВ ПАРАМЕТРЫ ШИФРА:\n" +
+            $"      <b><color=#00FFAA>[ A = {FORMULA_A} ]</color></b>        <b><color=#00FFAA>[ B = {FORMULA_B} ]</color></b>        <b><color=#00FFAA>[ C = {FORMULA_C} ]</color></b>\n\n" +
+            $"  ФОРМУЛА РАСШИФРОВКИ ИЗ ОРИЕНТИРОВКИ:   <b><color=#FFFF00>PIN = (A × B) - C</color></b>\n\n" +
+            $"          ┌───────────────────────────────────┐\n" +
+            $"          │    ВВЕДИТЕ 4-ЗНАЧНЫЙ РЕЗУЛЬТАТ    │\n" +
+            $"          │                                   │\n" +
+            $"          │       {pinDisplay}│\n" +
+            $"          │                                   │\n" +
+            $"          └───────────────────────────────────┘\n\n" +
+            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
+            $"  <b>ПРИМЕЧАНИЕ:</b> Если итог состоит из 3 цифр, дополните его нулем слева (0XXX)!\n\n" +
+            $"<color=#FFFF66>[0..9] Ввод цифр  │  [BACKSPACE] Стереть  │  [ENTER] Подтвердить  │  [N] Записка  │  [H] Справка</color>";
+    }
+
+    // --- Mini-Game 9: Dossier Deduction ---
+
+    private void UpdateDossierDeductionDisplay()
+    {
+        if (dynamicDisplayText == null) return;
+
+        string rowsStr = "     СОТРУДНИК           │ ГОРОД     │ ВРЕМЯ │ МЕСТОПОЛОЖЕНИЕ\n" +
+                         "  ───────────────────────┼───────────┼───────┼───────────────────\n";
+
+        for (int i = 0; i < dossierRows.Length; i++)
+        {
+            string prefix = (i == dossierSelectedIndex) ? "<b><color=#FFFF00>► </color></b>" : "  ";
+            string col = (i == dossierSelectedIndex) ? "#00FFAA" : "#88CCAA";
+            rowsStr += $"{prefix}<color={col}>{dossierRows[i]}</color>\n";
+        }
+
+        dynamicDisplayText.text =
+            $"<size=22><color=#66CCAA>КАРТОТЕКА ОСОБОГО ОТДЕЛА: ПОИСК ДИВЕРСАНТА</color></size>\n\n" +
+            $"{rowsStr}\n" +
+            $"<color=#00AA77>───────────────────────────────────────────────────────────</color>\n" +
+            $"  <b>ОРИЕНТИРОВКА РАЗВЕДКИ:</b>\n" +
+            $"  • Прибыл не из СССР (город за пределами Советского Союза);\n" +
+            $"  • Находился в серверном секторе (блок 3-XX) в ночное время (после 22:00).\n\n" +
+            $"<color=#FFFF66>[1..4 / ВВЕРХ / ВНИЗ] Строка  │  [ENTER] Указать цель  │  [N] Записка  │  [H] Справка</color>";
     }
 
     // --- Mini-Game 10: Rotor Cipher (Fialka / Enigma) ---
@@ -965,7 +996,7 @@ public class SpyMiniGames : MonoBehaviour
             $"     ╚═══════╝      ╚═══════╝      ╚═══════╝  \n\n" +
             $"  ПОДСКАЗКА ИЗ БЛОКНОТА: Ключ дежурного криптографа [ IV - II - VII ]\n" +
             $"  {resultText}\n\n" +
-            $"<color=#FFFF66>[1/2/3] Выбор ротора  |  [ВВЕРХ / ВНИЗ] Проворот  |  [ENTER] Пуск  |  [H] Справка</color>";
+            $"<color=#FFFF66>[1/2/3] Выбор ротора  │  [ВВЕРХ / ВНИЗ] Проворот  │  [ENTER] Пуск  │  [N] Записка  │  [H] Справка</color>";
     }
 
     // --- Mini-Game 11: Omega Master Protocol (.TOP) ---
@@ -975,7 +1006,7 @@ public class SpyMiniGames : MonoBehaviour
         if (dynamicDisplayText == null) return;
 
         string[] ch1Options = { "0000 [СБРОС]", "1011 [ИСХОДНЫЙ]", "0101 [ИНВЕРСИЯ]", "1100 [СИНХРОНИЗИРОВАН]" };
-        string[] ch3Options = { "0x0000 [ПУСТО]", "0x1A2F [СБОЙ ОЗУ]", "0x4F0A [СИНХРОНИЗИРОВАН]", "0xFFFF [ТРЕВОГА]" };
+        string[] ch3Options = { "0000 [ПУСТО]", "4821 [АРХИВ СВЯЗИ]", "0349 [СИНХРОНИЗИРОВАН]", "9999 [ТРЕВОГА]" };
         string[] ch4Options = { "I - I - I [ДЕФОЛТ]", "IV - II - VII [СИНХРОНИЗИРОВАН]", "III - V - I [ВЧ-СВЯЗЬ]", "VII - VII - VII [СБРОС]" };
 
         bool ch1Ok = (omegaCh1Index == 3);
@@ -991,7 +1022,7 @@ public class SpyMiniGames : MonoBehaviour
 
         string cur1 = (omegaSelectedChannel == 0) ? "<b><color=#FFFF00>► 1. ЯДРО ТЬЮРИНГА (ИНКРЕМЕНТ):</color></b>" : "  1. ЯДРО ТЬЮРИНГА (ИНКРЕМЕНТ):";
         string cur2 = (omegaSelectedChannel == 1) ? "<b><color=#FFFF00>► 2. ЧАСТОТНЫЙ СПЕКТР (СДВИГ):</color></b>" : "  2. ЧАСТОТНЫЙ СПЕКТР (СДВИГ):";
-        string cur3 = (omegaSelectedChannel == 2) ? "<b><color=#FFFF00>► 3. СТОРОЖЕВОЙ АДРЕС ОЗУ:</color></b>" : "  3. СТОРОЖЕВОЙ АДРЕС ОЗУ:";
+        string cur3 = (omegaSelectedChannel == 2) ? "<b><color=#FFFF00>► 3. КРИПТОКОД АРХИВА КАРТ:</color></b>" : "  3. КРИПТОКОД АРХИВА КАРТ:";
         string cur4 = (omegaSelectedChannel == 3) ? "<b><color=#FFFF00>► 4. РОТОРНЫЙ КЛЮЧ «ФИАЛКА»:</color></b>" : "  4. РОТОРНЫЙ КЛЮЧ «ФИАЛКА»:";
 
         string val1 = (omegaSelectedChannel == 0) ? $"<b><color=#00FFAA>◄ [ {ch1Options[omegaCh1Index]} ] ►</color></b>" : $"[ {ch1Options[omegaCh1Index]} ]";
@@ -1013,14 +1044,15 @@ public class SpyMiniGames : MonoBehaviour
             "<color=#00AA77>───────────────────────────────────────────────────────────────────────────────────</color>\n" +
             $"{statusLine}\n\n" +
             "<color=#FFFF66>УПРАВЛЕНИЕ: [1..4] Выбор канала │ [← / → / ПРОБЕЛ] Значение │ [ENTER] Взлом архива</color>\n" +
-            "<color=#88CCAA>ПОДСКАЗКА: Ключи из расшифрованных файлов: 1) 1100  2) +7  3) 0x4F0A  4) IV-II-VII</color>";
+            "<color=#88CCAA>ПОДСКАЗКА: Ключи из расшифрованных файлов: 1) 1100  2) +7  3) 0349  4) IV-II-VII</color>";
     }
 
-    // --- In-Game Help Overlay System ---
+    // --- Overlay System: Help & Desk Note ---
 
     public void ToggleHelp(bool open)
     {
         isHelpOpen = open;
+        if (isHelpOpen) isNoteOpen = false;
         PlayClick();
         if (helpOverlayPanel != null)
         {
@@ -1029,6 +1061,22 @@ public class SpyMiniGames : MonoBehaviour
         if (isHelpOpen && helpOverlayText != null)
         {
             helpOverlayText.text = GetHelpTextForCurrentGame();
+        }
+    }
+
+    public void ToggleDeskNote(bool open)
+    {
+        isNoteOpen = open;
+        if (isNoteOpen) isHelpOpen = false;
+        PlayClick();
+        if (helpOverlayPanel != null)
+        {
+            helpOverlayPanel.SetActive(isNoteOpen);
+        }
+        if (isNoteOpen && helpOverlayText != null)
+        {
+            helpOverlayText.text = "<color=#FFFF88><b>СЛУЖЕБНАЯ ЗАПИСКА СО СТОЛА ОПЕРАТОРА:</b></color>\n\n" +
+                                  DeskPaperNote.GetNoteText(currentGame);
         }
     }
 
@@ -1042,147 +1090,127 @@ public class SpyMiniGames : MonoBehaviour
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
                     "<color=#FFFF88><b>ЗАДАЧА:</b></color> Прибавить 1 к двоичному числу <b>1011</b> (11 в дес.) и получить <b>1100</b> (12 в дес.).\n\n" +
                     "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ АВТОМАТА:</b></color>\n" +
-                    "1. <b>Состояние q0 (Поиск младшего разряда):</b>\n" +
-                    "   Каретка сканирует перфоленту вправо до пробела '_', затем делает шаг влево на младший значащий бит.\n" +
-                    "2. <b>Состояние q1 (Сложение в столбик с флагом переноса):</b>\n" +
-                    "   • Если под кареткой <color=#FFFF33>'1'</color>: <b>1 + 1 = 10 (двоичное)</b>.\n" +
-                    "     Требуется: Запись <color=#00FFAA>[0]</color>, Сдвиг <color=#00FFAA>[← ВЛЕВО]</color>, Переход в <color=#00FFAA>[q1]</color> (перенос дальше).\n" +
-                    "   • Если под кареткой <color=#00FFAA>'0'</color>: <b>0 + 1 = 1 (двоичное)</b>.\n" +
-                    "     Требуется: Запись <color=#00FFAA>[1]</color>, Сдвиг <color=#00FFAA>[• СТОП ]</color>, Переход в <color=#00FFAA>[HALT]</color> (перенос исчерпан!).\n" +
-                    "   • Если под кареткой <color=#66CCFF>'_'</color> (выход за число): Запись [1], СТОП, HALT.\n\n" +
+                    "1. <b>Состояние q0:</b> Перемотка вправо до знака '_', шаг влево на младший значащий бит.\n" +
+                    "2. <b>Состояние q1 (Сложение с переносом):</b>\n" +
+                    "   • Если под кареткой <color=#FFFF33>'1'</color>: 1+1=0 с переносом ──► Запись [0], Сдвиг [← ВЛЕВО], Переход в [q1].\n" +
+                    "   • Если под кареткой <color=#00FFAA>'0'</color>: 0+1=1 без переноса ──► Запись [1], Сдвиг [• СТОП ], Переход в [HALT].\n\n" +
                     "<color=#FFFF88><b>УПРАВЛЕНИЕ:</b></color>\n" +
-                    "• <b>[СТРЕЛКИ ВВЕРХ/ВНИЗ]</b> — выбор слота таблицы микрокода q1.\n" +
-                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО]</b> — изменение значения (0/1/_, ←/→/СТОП, q0/q1/HALT).\n" +
-                    "• <b>[ПРОБЕЛ]</b> — пошаговый тест (STEP) для пошаговой проверки логики каретки.\n" +
-                    "• <b>[ENTER]</b> — непрерывный пуск до останова (HALT).\n" +
-                    "• <b>[R]</b> — сброс перфоленты и каретки в исходное положение.";
+                    "• [ВВЕРХ/ВНИЗ] выбор ячейки таблицы, [ВЛЕВО/ВПРАВО] изменение значения.\n" +
+                    "• [ПРОБЕЛ] пошаговый тест, [ENTER] непрерывный пуск, [R] сброс.";
 
             case GameType.FrequencyAnalysis:
                 return
                     "<b><color=#00FFAA>МОДУЛЬ 02: ЧАСТОТНЫЙ СПЕКТРОАНАЛИЗАТОР (ШИФР ПОДСТАНОВКИ)</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Вскрыть шифр сдвига (шифр Цезаря) секретной директивы управления.\n\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Вскрыть шифр сдвига секретной директивы управления.\n\n" +
                     "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "В русском языке гласные буквы встречаются с известной эталонной частотой (О, Е, А).\n" +
-                    "• Верхняя гистограмма (зеленая) отображает частотный спектр перехваченного документа.\n" +
-                    "• Нижняя гистограмма (желтая) отображает эталонный акустический спектр естественного языка.\n" +
-                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО]</b> — циклический сдвиг фазы алфавита (подбор ключа сдвига).\n" +
-                    "• Совместите главные резонансные пики обеих кривых и нажмите <b>[ENTER]</b>.";
+                    "• [СТРЕЛКИ ВЛЕВО/ВПРАВО] — циклический сдвиг фазы алфавита.\n" +
+                    "• Совместите главные резонансные пики обеих кривых (буквы О, Е, А) и нажмите [ENTER].";
 
             case GameType.DatabaseFilter:
                 return
                     "<b><color=#00FFAA>МОДУЛЬ 03: РЕЛЯЦИОННЫЙ ФИЛЬТР КАРТОТЕКИ (БАЗА СЕКТОРА 7)</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Локализовать карточку дежурного офицера и считать пароль администратора.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "Согласно регламенту безопасности, мастер-пароль хранится у ночного криптографа:\n" +
-                    "• <b>[1]</b> — Выбор отдела: переключите на <b>[КРИПТО]</b>.\n" +
-                    "• <b>[2]</b> — Уровень допуска: переключите на <b>[ОСОБЫЙ]</b>.\n" +
-                    "• <b>[3]</b> — Смена дежурства: переключите на <b>[НОЧЬ]</b>.\n" +
-                    "• Когда фильтр сузит выборку до 1 сотрудника (Смирнов В.П.), нажмите <b>[ENTER]</b>.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Локализовать карточку ночного криптографа и считать пароль.\n\n" +
+                    "<color=#FFFF88><b>РЕШЕНИЕ:</b></color>\n" +
+                    "• [1] Отдел: [КРИПТОГРАФИЯ], [2] Допуск: [ОСОБЫЙ], [3] Смена: [НОЧНАЯ].\n" +
+                    "• Выборка сузится до 1 сотрудника с паролем [ 8 4 9 1 ]. Нажмите [ENTER].";
 
-            case GameType.HexMemoryPatch:
+            case GameType.FileSearch:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 04: HEX-ПАТЧЕР ОПЕРАТИВНОЙ ПАМЯТИ (СТОРОЖЕВОЙ БУФЕР)</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 04: ПОИСК НУЖНОГО ФАЙЛА В КАТАЛОГЕ</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Заморозить сторожевой вектор тревоги по адресу 0x4F0A.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "Для нейтрализации процедуры тревоги необходимо переписать ячейки инструкциями NOP:\n" +
-                    "• Нажимайте клавишу <b>[F]</b>, <b>[ПРОБЕЛ]</b> или <b>[ENTER]</b> для последовательной инъекции 4 байт NOP.\n" +
-                    "• После заполнения сторожевой буфер отключится без срабатывания сигнализации.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Найти в списке файлов системы секретную директиву Центра.\n\n" +
+                    "<color=#FFFF88><b>ПОДСКАЗКА:</b></color>\n" +
+                    "• Среди столовых расписаний, списаний мебели и заявок на спирт найдите документ:\n" +
+                    "  <b>«07. ОТ_ЦЕНТР_ДИРЕКТИВА_ОСОБАЯ_07.DAT»</b>.\n" +
+                    "• Наведите курсор стрелками [ВВЕРХ/ВНИЗ] или клавишами [W/S] и нажмите [ENTER].";
 
-            case GameType.Oscilloscope:
+            case GameType.PasswordSimple:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 05: ЭЛЕКТРОННО-ЛУЧЕВОЙ ОСЦИЛЛОГРАФ (ФИГУРЫ ЛИССАЖУ)</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 05: ПОДБОР ПАРОЛЯ ЗАЩИЩЕННОГО АРХИВА</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Свести интерференционную фигуру радиосигнала в резонансный круг.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "• <b>[A] / [D]</b> — плавная регулировка частоты несущей генератора.\n" +
-                    "• <b>[W] / [S]</b> — регулировка фазового сдвига сигнала.\n" +
-                    "• Сведите две синусоиды в стабильный симметричный круг и нажмите <b>[ENTER]</b>.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Ввести 4-значный пин-код доступа к секретному архиву связи.\n\n" +
+                    "<color=#FFFF88><b>ПОДСКАЗКА:</b></color>\n" +
+                    "• На столе возле монитора лежит служебная записка связиста с кодом: <b>[ 4 8 2 1 ]</b>.\n" +
+                    "• Наберите [4] [8] [2] [1] и нажмите [ENTER] для разблокировки архива.";
 
-            case GameType.RelayRouting:
+            case GameType.NetworkRestoration:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 06: РЕЛЕЙНЫЙ МАРШРУТИЗАТОР (ОБХОД ШЛЮЗОВ)</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 06: ВОССТАНОВЛЕНИЕ СОЕДИНЕНИЯ С СЕРВЕРОМ</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Проложить непрерывный маршрут для пакета данных от узла (0,0) к (3,3).\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "• <b>[СТРЕЛКИ]</b> — выбор ячейки коммутационной панели 4х4.\n" +
-                    "• <b>[ПРОБЕЛ]</b> или <b>[ENTER]</b> — поворот стрелки электромагнитного реле на 90°.\n" +
-                    "• Настройте стрелки цепочкой от левого верхнего угла до правого нижнего приемника.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Восстановить разорванную магистраль от узла [A] к узлу [B].\n\n" +
+                    "<color=#FFFF88><b>ПОДСКАЗКА ПО ТЕЛЕМЕТРИИ:</b></color>\n" +
+                    "• Включите <b>[1] Канал I (Север)</b> ──► [ВКЛ] (исправен).\n" +
+                    "• Включите <b>[4] Канал IV (Оптика)</b> ──► [ВКЛ] (исправен).\n" +
+                    "• Включите <b>[6] Канал VI (Резерв)</b> ──► [ВКЛ] (исправен).\n" +
+                    "• Каналы II (КЗ), III (Рассинхрон) и V (Перегрев 48А) оставьте [ВЫКЛ]!\n" +
+                    "• Нажмите [ENTER] для восстановления связи на 100%.";
 
-            case GameType.HammingParity:
+            case GameType.CaesarArchive:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 07: МАТРИЦА ХЭММИНГА (КОРРЕКЦИЯ ОШИБКИ ПАМЯТИ)</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 07: ДЕШИФРАТОР АРХИВА (ШИФР ЦЕЗАРЯ СО СДВИГОМ 3)</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Найти и инвертировать сбойный бит в ферритовой матрице.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "По алгоритму Хэмминга четность бит в каждой строке и столбце должна быть четной (0):\n" +
-                    "• Строка с нечетной суммой подсвечена маркером [НЕЧЕТ!].\n" +
-                    "• Столбец с нечетной суммой также имеет сбойный бит четности.\n" +
-                    "• <b>[СТРЕЛКИ]</b> — курсор, <b>[ПРОБЕЛ] / [ENTER]</b> — инвертировать бит на пересечении.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Найти архив с директивой «ATTACK».\n\n" +
+                    "<color=#FFFF88><b>ПОДСКАЗКА:</b></color>\n" +
+                    "• Буквы в названиях сдвинуты на 3 вперед: A->D, T->W, C->F, K->N.\n" +
+                    "• Слово «ATTACK» зашифровано как <b>«DWWDFN_80.ZIP»</b>.\n" +
+                    "• Выберите первый архив в списке и нажмите [ENTER].";
 
-            case GameType.DiskSectorTiming:
+            case GameType.PasswordFormula:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 08: СЕКТОРНЫЙ СИНХРОНИЗАТОР НАКОПИТЕЛЯ ЕС-5061</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 08: ВЫЧИСЛИТЕЛЬНЫЙ ШИФР (АРХИВ КАРТ ГЕНШТАБА)</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Захватить 3 контрольных сектора на вращающемся магнитном диске.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "• Следите за вращением сектора диска по круговой шкале.\n" +
-                    "• Нажимайте <b>[ПРОБЕЛ]</b> ровно в момент, когда метка сектора проходит через створ головки!\n" +
-                    "• Не допускайте промахов: захватите 3 сектора подряд для считывания дорожки.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Вычислить 4-значный PIN по формуле (A × B) - C.\n\n" +
+                    "<color=#FFFF88><b>ВЫЧИСЛЕНИЕ:</b></color>\n" +
+                    "• A = 17,  B = 23,  C = 42.\n" +
+                    "• (17 × 23) = 391.\n" +
+                    "• 391 - 42 = 349.\n" +
+                    "• Дополняем нулем до 4 знаков: <b>[ 0 3 4 9 ]</b>. Нажмите [ENTER].";
 
-            case GameType.StackOverflow:
+            case GameType.DossierDeduction:
                 return
-                    "<b><color=#00FFAA>МОДУЛЬ 09: РЕГИСТРОВЫЙ СТЕК LIFO (КОНТРОЛЬ ПЕРЕПОЛНЕНИЯ)</color></b>\n" +
+                    "<b><color=#00FFAA>МОДУЛЬ 09: ДЕДУКЦИЯ КАРТОТЕКИ САБОТАЖНИКА</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Набрать сумму ровно 16 в стеке регистров без превышения лимита (22).\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "• <b>[1]</b> — PUSH 2 (поместить 2 в стек).\n" +
-                    "• <b>[2]</b> — PUSH 4 (поместить 4 в стек).\n" +
-                    "• <b>[3]</b> — PUSH 8 (поместить 8 в стек).\n" +
-                    "• <b>[BACKSPACE]</b> — POP (извлечь верхний элемент).\n" +
-                    "• При точной сумме 16 нажмите <b>[ENTER]</b>.";
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Вычислить диверсанта по ориентировке контрразведки.\n\n" +
+                    "<color=#FFFF88><b>ДЕДУКТИВНЫЙ АНАЛИЗ:</b></color>\n" +
+                    "• Город вне СССР: Москва, Ленинград, Минск исключаются ──► только Даллас!\n" +
+                    "• Время после 22:00 в серверном блоке (3-08) ──► 22:30.\n" +
+                    "• Подозреваемый: <b>Строка 2: Лейтенант Бейкер</b>. Нажмите [ENTER].";
 
             case GameType.RotorCipher:
                 return
                     "<b><color=#00FFAA>МОДУЛЬ 10: ШИФРОВАЛЬНАЯ МАШИНА «ФИАЛКА-М125»</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
                     "<color=#FFFF88><b>ЗАДАЧА:</b></color> Выставить суточный ключ на роторах шифратора.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "• <b>[1], [2], [3]</b> — выбор ротора (I, II или III).\n" +
-                    "• <b>[СТРЕЛКИ ВВЕРХ/ВНИЗ]</b> — поворот выбранного роторного барабана.\n" +
-                    "• Из служебного блокнота дежурного: Ключ дня <b>[ IV - II - VII ]</b> (4 - 2 - 7).\n" +
-                    "• После установки правильной комбинации нажмите <b>[ENTER]</b>.";
+                    "<color=#FFFF88><b>РЕШЕНИЕ:</b></color>\n" +
+                    "• Роторы: [1] IV (4), [2] II (2), [3] VII (7).\n" +
+                    "• Выставьте комбинацию <b>[ IV - II - VII ]</b> и нажмите [ENTER].";
 
             case GameType.OmegaMasterProtocol:
                 return
                     "<b><color=#00FFAA>ФИНАЛЬНЫЙ МОДУЛЬ: МАСТЕР-ПРОТОКОЛ «ОМЕГА»</color></b>\n" +
                     "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
-                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Снять генеральный криптозамок главного архива операции.\n\n" +
-                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
-                    "Для дешифрации архива «ОМЕГА» требуется объединить 4 ключа, добытых при взломе файлов архива:\n" +
-                    "1. <b>Ядро Тьюринга:</b> Контрольный результат инкремента <b>[ 1 1 0 0 ]</b>.\n" +
-                    "2. <b>Частотный сдвиг Цезаря:</b> Шаг совмещения гласных <b>[ Δ = +7 ]</b>.\n" +
-                    "3. <b>Сторожевой адрес ОЗУ:</b> Адрес нейтрализации тревоги <b>[ 0x4F0A ]</b>.\n" +
-                    "4. <b>Роторы «Фиалка»:</b> Код дня из шифроблокнота <b>[ IV - II - VII ]</b>.\n\n" +
-                    "<color=#FFFF88><b>УПРАВЛЕНИЕ:</b></color>\n" +
-                    "• <b>[1..4] / [ВВЕРХ/ВНИЗ]</b> — переключение между 4 криптоканалами.\n" +
-                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО] или [ПРОБЕЛ]</b> — калибровка значения канала.\n" +
-                    "• После того, как все 4 канала перейдут в статус [● ЗАХВАЧЕН], нажмите <b>[ENTER]</b>.";
+                    "<color=#FFFF88><b>КЛЮЧИ ИЗ РАСШИФРОВАННЫХ ФАЙЛОВ:</b></color>\n" +
+                    "1. Тьюринг: [ 1 1 0 0 ]\n" +
+                    "2. Сдвиг Цезаря: [ Δ = +7 ]\n" +
+                    "3. Код карт: [ 0 3 4 9 ]\n" +
+                    "4. Роторы «Фиалка»: [ IV - II - VII ]\n" +
+                    "Синхронизируйте все 4 канала и нажмите [ENTER].";
 
             default:
-                return "Служебная инструкция отсутствует.";
+                return "Инструкция отсутствует.";
         }
     }
-
-    // --- Restart To Starting Point ---
 
     public void RestartCurrentGameToStartingPoint()
     {
         if (!isGameActive) return;
 
         PlayClick();
+        errorLockoutTimer = 0f;
+        currentPuzzleErrors = 0;
+
         if (turingRunCoroutine != null)
         {
             StopCoroutine(turingRunCoroutine);
@@ -1216,40 +1244,35 @@ public class SpyMiniGames : MonoBehaviour
                 UpdateDatabaseDisplay();
                 break;
 
-            case GameType.HexMemoryPatch:
-                hexEntered = 0;
-                UpdateHexDisplay();
+            case GameType.FileSearch:
+                fileSearchSelectedIndex = 0;
+                UpdateFileSearchDisplay();
                 break;
 
-            case GameType.Oscilloscope:
-                oscFrequency = 1.0f;
-                oscPhase = 30f;
-                UpdateOscilloscopeDisplay();
+            case GameType.PasswordSimple:
+                simplePinInput = "";
+                UpdatePasswordSimpleDisplay();
                 break;
 
-            case GameType.RelayRouting:
-                InitRelayMatrix();
-                packetX = 0;
-                packetY = 0;
-                packetStepTimer = 0f;
-                UpdateRelayDisplay();
+            case GameType.NetworkRestoration:
+                netSelectedLine = 0;
+                netLinesConnected = new bool[6] { false, false, false, false, false, false };
+                UpdateNetworkRestorationDisplay();
                 break;
 
-            case GameType.HammingParity:
-                InitHammingMatrix();
-                UpdateHammingDisplay();
+            case GameType.CaesarArchive:
+                caesarSelectedIndex = 0;
+                UpdateCaesarArchiveDisplay();
                 break;
 
-            case GameType.DiskSectorTiming:
-                diskAngle = 0f;
-                sectorsCaptured = 0;
-                targetSectorAngle = 180f;
-                UpdateDiskSectorDisplay();
+            case GameType.PasswordFormula:
+                formulaPinInput = "";
+                UpdatePasswordFormulaDisplay();
                 break;
 
-            case GameType.StackOverflow:
-                stackRegisters.Clear();
-                UpdateStackDisplay();
+            case GameType.DossierDeduction:
+                dossierSelectedIndex = 0;
+                UpdateDossierDeductionDisplay();
                 break;
 
             case GameType.RotorCipher:
@@ -1273,25 +1296,28 @@ public class SpyMiniGames : MonoBehaviour
         {
             statusFeedbackText.text = "<color=#00FFAA><b>[ПЕРЕЗАПУСК] Задача возвращена в стартовую точку!</b></color>";
         }
-        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ПЕРЕЗАПУСК]</color> Задача возвращена в стартовую точку.");
     }
 
-    // --- Interaction Input Router ---
+    private void HandleOverlayKeyboardInput()
+    {
+        if (IsKey(KeyCode.H) || IsKey(KeyCode.Escape) || IsKey(KeyCode.Return) || IsKey(KeyCode.Space) || IsKey(KeyCode.N))
+        {
+            if (isHelpOpen) ToggleHelp(false);
+            if (isNoteOpen) ToggleDeskNote(false);
+        }
+    }
 
     private void HandleKeyboardInput()
     {
-        if (isHelpOpen)
+        if (IsKey(KeyCode.H))
         {
-            if (IsKey(KeyCode.H) || IsKey(KeyCode.Escape) || IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
-            {
-                ToggleHelp(false);
-            }
+            ToggleHelp(!isHelpOpen);
             return;
         }
 
-        if (IsKey(KeyCode.H))
+        if (IsKey(KeyCode.N))
         {
-            ToggleHelp(true);
+            ToggleDeskNote(!isNoteOpen);
             return;
         }
 
@@ -1344,10 +1370,6 @@ public class SpyMiniGames : MonoBehaviour
                 {
                     RunTuringContinuous();
                 }
-                else if (IsKey(KeyCode.R))
-                {
-                    ResetTuringTape();
-                }
                 break;
 
             case GameType.FrequencyAnalysis:
@@ -1365,10 +1387,7 @@ public class SpyMiniGames : MonoBehaviour
                 }
                 else if (IsKey(KeyCode.Return))
                 {
-                    if (freqShift == freqTargetShift)
-                        OnGameSuccess("ШИФР ПОДСТАНОВКИ ВЗЛОМАН! ТЕКСТ ДИРЕКТИВЫ ЧИТАЕМ.");
-                    else
-                        OnGameFailed("НЕВЕРНЫЙ СДВИГ ФАЗЫ! ТЕКСТ ОСТАЕТСЯ ЗАШИФРОВАННЫМ.");
+                    OnMainActionButtonPressed();
                 }
                 break;
 
@@ -1378,85 +1397,111 @@ public class SpyMiniGames : MonoBehaviour
                 else if (IsKey(KeyCode.Alpha3)) { dbShiftIndex = (dbShiftIndex + 1) % 3; PlayClick(); UpdateDatabaseDisplay(); }
                 else if (IsKey(KeyCode.Return))
                 {
-                    if (dbDeptIndex == 1 && dbClearance == 2 && dbShiftIndex == 2)
-                        OnGameSuccess("ПАРОЛЬ АДМИНИСТРАТОРА НАЙДЕН: 8491!");
-                    else
-                        OnGameFailed("ВЫБОРКА СЛИШКОМ ШИРОКАЯ! УТОЧНИТЕ ВСЕ 3 КРИТЕРИЯ.");
+                    OnMainActionButtonPressed();
                 }
                 break;
 
-            case GameType.HexMemoryPatch:
-                if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space) || IsKey(KeyCode.F))
+            case GameType.FileSearch:
+                if (IsKey(KeyCode.UpArrow) || IsKey(KeyCode.W))
                 {
-                    hexEntered = Mathf.Clamp(hexEntered + 1, 0, hexRequired);
+                    fileSearchSelectedIndex = (fileSearchSelectedIndex - 1 + fileSearchList.Length) % fileSearchList.Length;
                     PlayClick();
-                    UpdateHexDisplay();
-                    if (hexEntered == hexRequired)
-                    {
-                        OnGameSuccess("СТОРОЖЕВОЙ БУФЕР НЕЙТРАЛИЗОВАН БАЙТАМИ NOP!");
-                    }
+                    UpdateFileSearchDisplay();
                 }
-                break;
-
-            case GameType.Oscilloscope:
-                if (IsKey(KeyCode.A)) { oscFrequency = Mathf.Max(0.5f, oscFrequency - 0.2f); PlayClick(); }
-                if (IsKey(KeyCode.D)) { oscFrequency = Mathf.Min(4.0f, oscFrequency + 0.2f); PlayClick(); }
-                if (IsKey(KeyCode.W)) { oscPhase = (oscPhase + 15f) % 360f; PlayClick(); }
-                if (IsKey(KeyCode.S)) { oscPhase = (oscPhase - 15f + 360f) % 360f; PlayClick(); }
-                if (IsKey(KeyCode.Return))
+                else if (IsKey(KeyCode.DownArrow) || IsKey(KeyCode.S))
                 {
-                    float diff = Mathf.Abs(oscFrequency - TARGET_FREQ) + Mathf.Abs(oscPhase - TARGET_PHASE);
-                    if (diff < 20f)
-                        OnGameSuccess("РЕЗОНАНС ДОСТИГНУТ! РАДИОКАНАЛ ПЕРЕХВАЧЕН.");
-                    else
-                        OnGameFailed("ЧАСТОТА РАССИНХРОНИЗИРОВАНА. СИГНАЛ УТОНУЛ В ШУМАХ.");
-                }
-                break;
-
-            case GameType.RelayRouting:
-                if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
-                {
-                    relayMatrix[packetY, packetX] = (relayMatrix[packetY, packetX] + 1) % 4;
-                    PlayRelay();
-                    UpdateRelayDisplay();
-                }
-                break;
-
-            case GameType.HammingParity:
-                if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
-                {
-                    parityBits[badRow, badCol] = 1 - parityBits[badRow, badCol];
-                    PlayRelay();
-                    UpdateHammingDisplay();
-                    OnGameSuccess("БИТОВЫЙ СБОЙ ПАМЯТИ УСТРАНЕН! КОД ХЭММИНГА ВОССТАНОВЛЕН.");
-                }
-                break;
-
-            case GameType.DiskSectorTiming:
-                if (IsKey(KeyCode.Space) || IsKey(KeyCode.Return))
-                {
-                    AttemptDiskSectorCapture();
-                }
-                break;
-
-            case GameType.StackOverflow:
-                if (IsKey(KeyCode.Alpha1)) { stackRegisters.Add(2); PlayClick(); UpdateStackDisplay(); }
-                else if (IsKey(KeyCode.Alpha2)) { stackRegisters.Add(4); PlayClick(); UpdateStackDisplay(); }
-                else if (IsKey(KeyCode.Alpha3)) { stackRegisters.Add(8); PlayClick(); UpdateStackDisplay(); }
-                else if (IsKey(KeyCode.Backspace))
-                {
-                    if (stackRegisters.Count > 0) stackRegisters.RemoveAt(stackRegisters.Count - 1);
+                    fileSearchSelectedIndex = (fileSearchSelectedIndex + 1) % fileSearchList.Length;
                     PlayClick();
-                    UpdateStackDisplay();
+                    UpdateFileSearchDisplay();
+                }
+                else if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
+                {
+                    OnMainActionButtonPressed();
+                }
+                break;
+
+            case GameType.PasswordSimple:
+                HandlePinDigitInput(ref simplePinInput, UpdatePasswordSimpleDisplay);
+                break;
+
+            case GameType.NetworkRestoration:
+                if (IsKey(KeyCode.UpArrow) || IsKey(KeyCode.W))
+                {
+                    netSelectedLine = (netSelectedLine - 1 + 6) % 6;
+                    PlayClick();
+                    UpdateNetworkRestorationDisplay();
+                }
+                else if (IsKey(KeyCode.DownArrow) || IsKey(KeyCode.S))
+                {
+                    netSelectedLine = (netSelectedLine + 1) % 6;
+                    PlayClick();
+                    UpdateNetworkRestorationDisplay();
+                }
+                else if (IsKey(KeyCode.Alpha1)) { netSelectedLine = 0; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Alpha2)) { netSelectedLine = 1; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Alpha3)) { netSelectedLine = 2; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Alpha4)) { netSelectedLine = 3; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Alpha5)) { netSelectedLine = 4; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Alpha6)) { netSelectedLine = 5; PlayClick(); UpdateNetworkRestorationDisplay(); }
+                else if (IsKey(KeyCode.Space))
+                {
+                    netLinesConnected[netSelectedLine] = !netLinesConnected[netSelectedLine];
+                    PlayRelay();
+                    UpdateNetworkRestorationDisplay();
                 }
                 else if (IsKey(KeyCode.Return))
                 {
-                    int sum = 0;
-                    foreach (var v in stackRegisters) sum += v;
-                    if (sum == STACK_TARGET)
-                        OnGameSuccess("РЕГИСТР ПЕРЕПОЛНЕН ДО УРОВНЯ АДМИНИСТРАТОРА (16)!");
-                    else
-                        OnGameFailed($"СУММА {sum} НЕ РАВНА 16! ДОСТУП ЗАПРЕЩЕН.");
+                    OnMainActionButtonPressed();
+                }
+                break;
+
+            case GameType.CaesarArchive:
+                if (IsKey(KeyCode.UpArrow) || IsKey(KeyCode.W))
+                {
+                    caesarSelectedIndex = (caesarSelectedIndex - 1 + caesarFiles.Length) % caesarFiles.Length;
+                    PlayClick();
+                    UpdateCaesarArchiveDisplay();
+                }
+                else if (IsKey(KeyCode.DownArrow) || IsKey(KeyCode.S))
+                {
+                    caesarSelectedIndex = (caesarSelectedIndex + 1) % caesarFiles.Length;
+                    PlayClick();
+                    UpdateCaesarArchiveDisplay();
+                }
+                else if (IsKey(KeyCode.Alpha1)) { caesarSelectedIndex = 0; PlayClick(); UpdateCaesarArchiveDisplay(); }
+                else if (IsKey(KeyCode.Alpha2)) { caesarSelectedIndex = 1; PlayClick(); UpdateCaesarArchiveDisplay(); }
+                else if (IsKey(KeyCode.Alpha3)) { caesarSelectedIndex = 2; PlayClick(); UpdateCaesarArchiveDisplay(); }
+                else if (IsKey(KeyCode.Alpha4)) { caesarSelectedIndex = 3; PlayClick(); UpdateCaesarArchiveDisplay(); }
+                else if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
+                {
+                    OnMainActionButtonPressed();
+                }
+                break;
+
+            case GameType.PasswordFormula:
+                HandlePinDigitInput(ref formulaPinInput, UpdatePasswordFormulaDisplay);
+                break;
+
+            case GameType.DossierDeduction:
+                if (IsKey(KeyCode.UpArrow) || IsKey(KeyCode.W))
+                {
+                    dossierSelectedIndex = (dossierSelectedIndex - 1 + dossierRows.Length) % dossierRows.Length;
+                    PlayClick();
+                    UpdateDossierDeductionDisplay();
+                }
+                else if (IsKey(KeyCode.DownArrow) || IsKey(KeyCode.S))
+                {
+                    dossierSelectedIndex = (dossierSelectedIndex + 1) % dossierRows.Length;
+                    PlayClick();
+                    UpdateDossierDeductionDisplay();
+                }
+                else if (IsKey(KeyCode.Alpha1)) { dossierSelectedIndex = 0; PlayClick(); UpdateDossierDeductionDisplay(); }
+                else if (IsKey(KeyCode.Alpha2)) { dossierSelectedIndex = 1; PlayClick(); UpdateDossierDeductionDisplay(); }
+                else if (IsKey(KeyCode.Alpha3)) { dossierSelectedIndex = 2; PlayClick(); UpdateDossierDeductionDisplay(); }
+                else if (IsKey(KeyCode.Alpha4)) { dossierSelectedIndex = 3; PlayClick(); UpdateDossierDeductionDisplay(); }
+                else if (IsKey(KeyCode.Return) || IsKey(KeyCode.Space))
+                {
+                    OnMainActionButtonPressed();
                 }
                 break;
 
@@ -1466,10 +1511,7 @@ public class SpyMiniGames : MonoBehaviour
                 else if (IsKey(KeyCode.Alpha3)) { rotor3 = (rotor3 + 1) % 10; PlayRelay(); UpdateRotorDisplay(); }
                 else if (IsKey(KeyCode.Return))
                 {
-                    if (rotor1 == targetR1 && rotor2 == targetR2 && rotor3 == targetR3)
-                        OnGameSuccess("МАШИНА «ФИАЛКА» РАСШИФРОВАЛА ВЕКТОРНЫЙ ПЛАН БУНКЕРА!");
-                    else
-                        OnGameFailed("НЕВЕРНАЯ КОМБИНАЦИЯ РОТОРОВ! КЛЮЧ НЕ ПОДОШЕЛ.");
+                    OnMainActionButtonPressed();
                 }
                 break;
 
@@ -1516,53 +1558,153 @@ public class SpyMiniGames : MonoBehaviour
         }
     }
 
+    private void HandlePinDigitInput(ref string pinStr, Action updateAction)
+    {
+        for (int d = 0; d <= 9; d++)
+        {
+            if (IsDigitPressed(d))
+            {
+                if (pinStr.Length < 4)
+                {
+                    pinStr += d.ToString();
+                    PlayClick();
+                    updateAction?.Invoke();
+                }
+                return;
+            }
+        }
+
+        if (IsKey(KeyCode.Backspace))
+        {
+            if (pinStr.Length > 0)
+            {
+                pinStr = pinStr.Substring(0, pinStr.Length - 1);
+                PlayClick();
+                updateAction?.Invoke();
+            }
+            return;
+        }
+
+        if (IsKey(KeyCode.Return))
+        {
+            OnMainActionButtonPressed();
+        }
+    }
+
     private void OnMainActionButtonPressed()
     {
+        if (errorLockoutTimer > 0f) return;
+
         switch (currentGame)
         {
-            case GameType.TuringTape: RunTuringContinuous(); break;
+            case GameType.TuringTape:
+                RunTuringContinuous();
+                break;
+
             case GameType.FrequencyAnalysis:
-                if (freqShift == freqTargetShift) OnGameSuccess("ШИФР ПОДСТАНОВКИ ВЗЛОМАН!");
-                else OnGameFailed("НЕВЕРНЫЙ СДВИГ ФАЗЫ!");
+                if (freqShift == freqTargetShift)
+                    OnGameSuccess("ШИФР ПОДСТАНОВКИ ВЗЛОМАН! ТЕКСТ ДИРЕКТИВЫ ЧИТАЕМ.");
+                else
+                    TriggerErrorLockout("Неверный сдвиг фазы! Текст остается зашифрованным.");
                 break;
+
             case GameType.DatabaseFilter:
-                if (dbDeptIndex == 1 && dbClearance == 2 && dbShiftIndex == 2) OnGameSuccess("ПАРОЛЬ АДМИНИСТРАТОРА НАЙДЕН!");
-                else OnGameFailed("УТОЧНИТЕ ВСЕ 3 КРИТЕРИЯ ВЫБОРКИ!");
+                if (dbDeptIndex == 1 && dbClearance == 2 && dbShiftIndex == 2)
+                    OnGameSuccess("ПАРОЛЬ АДМИНИСТРАТОРА НАЙДЕН: 8491!");
+                else
+                    TriggerErrorLockout("Выборка слишком широкая! Уточните все 3 критерия.");
                 break;
-            case GameType.HexMemoryPatch:
-                hexEntered = Mathf.Clamp(hexEntered + 1, 0, hexRequired);
-                PlayClick();
-                UpdateHexDisplay();
-                if (hexEntered == hexRequired) OnGameSuccess("СТОРОЖЕВОЙ БУФЕР НЕЙТРАЛИЗОВАН!");
+
+            case GameType.FileSearch:
+                if (fileSearchSelectedIndex == FILE_SEARCH_CORRECT_INDEX)
+                {
+                    OnGameSuccess("ДИРЕКТИВА ЦЕНТРА «ОТ_ЦЕНТР_07.DAT» НАЙДЕНА И СЧИТАНА В ПАМЯТЬ!");
+                }
+                else
+                {
+                    TriggerErrorLockout("Это рядовой хозяйственный документ! Найдите секретную директиву Центра.");
+                }
                 break;
-            case GameType.Oscilloscope:
-                float diff = Mathf.Abs(oscFrequency - TARGET_FREQ) + Mathf.Abs(oscPhase - TARGET_PHASE);
-                if (diff < 20f) OnGameSuccess("РЕЗОНАНС ДОСТИГНУТ! РАДИОКАНАЛ ПЕРЕХВАЧЕН.");
-                else OnGameFailed("СИГНАЛ УТОНУЛ В ШУМАХ.");
+
+            case GameType.PasswordSimple:
+                if (simplePinInput.Length < 4)
+                {
+                    TriggerErrorLockout("Введите все 4 цифры пароля!");
+                }
+                else if (simplePinInput == SIMPLE_PIN_CORRECT)
+                {
+                    OnGameSuccess("ПАРОЛЬ ПРИНЯТ! ЗАЩИЩЕННЫЙ АРХИВ СВЯЗИ РАЗБЛОКИРОВАН.");
+                }
+                else
+                {
+                    TriggerErrorLockout("Неверный пин-код! Сверьтесь с запиской на столе (4821).");
+                    simplePinInput = "";
+                    UpdatePasswordSimpleDisplay();
+                }
                 break;
-            case GameType.RelayRouting:
-                relayMatrix[packetY, packetX] = (relayMatrix[packetY, packetX] + 1) % 4;
-                PlayRelay();
-                UpdateRelayDisplay();
+
+            case GameType.NetworkRestoration:
+                bool hasShortCircuit = netLinesConnected[1] || netLinesConnected[2] || netLinesConnected[4];
+                bool allCorrectActive = netLinesConnected[0] && netLinesConnected[3] && netLinesConnected[5];
+
+                if (!hasShortCircuit && allCorrectActive)
+                {
+                    OnGameSuccess("СВЯЗЬ С СЕРВЕРОМ ВОССТАНОВЛЕНА НА 100%! МАРШРУТ A ──► B АКТИВЕН.");
+                }
+                else if (hasShortCircuit)
+                {
+                    TriggerErrorLockout("Авария на линии! Канал с коротким замыканием или перегрузкой замкнул шину!");
+                }
+                else
+                {
+                    TriggerErrorLockout("Шина не скоммутирована! Подключите все 3 исправных канала (Север, Оптика, Резерв).");
+                }
                 break;
-            case GameType.HammingParity:
-                parityBits[badRow, badCol] = 1 - parityBits[badRow, badCol];
-                PlayRelay();
-                UpdateHammingDisplay();
-                OnGameSuccess("БИТОВЫЙ СБОЙ ПАМЯТИ УСТРАНЕН!");
+
+            case GameType.CaesarArchive:
+                if (caesarSelectedIndex == CAESAR_CORRECT_INDEX)
+                {
+                    OnGameSuccess("АРХИВ «DWWDFN_80.ZIP» РАСШИФРОВАН: ПЛАН АТАКИ ИЗВЛЕЧЕН!");
+                }
+                else
+                {
+                    TriggerErrorLockout("Выбран неверный архив! Сдвиг букв не соответствует слову «ATTACK».");
+                }
                 break;
-            case GameType.DiskSectorTiming: AttemptDiskSectorCapture(); break;
-            case GameType.StackOverflow:
-                int sum = 0;
-                foreach (var v in stackRegisters) sum += v;
-                if (sum == STACK_TARGET) OnGameSuccess("РЕГИСТР ПЕРЕПОЛНЕН!");
-                else OnGameFailed($"СУММА {sum} НЕ РАВНА 16!");
+
+            case GameType.PasswordFormula:
+                if (formulaPinInput.Length < 4)
+                {
+                    TriggerErrorLockout("Введите все 4 цифры вычисленного пароля!");
+                }
+                else if (formulaPinInput == FORMULA_PIN_CORRECT)
+                {
+                    OnGameSuccess("ПАРОЛЬ 0349 ВЕРЕН! ТОПОГРАФИЧЕСКИЕ КАРТЫ РАСШИФРОВАНЫ.");
+                }
+                else
+                {
+                    TriggerErrorLockout("Неверный результат формулы! Пересчитайте (17 * 23) - 42.");
+                    formulaPinInput = "";
+                    UpdatePasswordFormulaDisplay();
+                }
                 break;
+
+            case GameType.DossierDeduction:
+                if (dossierSelectedIndex == DOSSIER_CORRECT_INDEX)
+                {
+                    OnGameSuccess("ДИВЕРСАНТ ВЫЧИСЛЕН: ЛЕЙТЕНАНТ БЕЙКЕР! ДОСЬЕ ПЕРЕДАНО В ОСОБЫЙ ОТДЕЛ.");
+                }
+                else
+                {
+                    TriggerErrorLockout("Ошибка дедукции! Проверьте город прибытия и ночное время по ориентировке.");
+                }
+                break;
+
             case GameType.RotorCipher:
                 if (rotor1 == targetR1 && rotor2 == targetR2 && rotor3 == targetR3)
-                    OnGameSuccess("МАШИНА «ФИАЛКА» РАСШИФРОВАЛА ПЛАН!");
+                    OnGameSuccess("МАШИНА «ФИАЛКА» РАСШИФРОВАЛА ВЕКТОРНЫЙ ПЛАН БУНКЕРА!");
                 else
-                    OnGameFailed("НЕВЕРНАЯ КОМБИНАЦИЯ РОТОРОВ!");
+                    TriggerErrorLockout("Неверная комбинация роторов! Ключ дня не подошел.");
                 break;
 
             case GameType.OmegaMasterProtocol:
@@ -1572,11 +1714,11 @@ public class SpyMiniGames : MonoBehaviour
                 bool ch4Ok = (omegaCh4Index == 1);
                 if (ch1Ok && ch2Ok && ch3Ok && ch4Ok)
                 {
-                    OnGameSuccess("МАСТЕР-АРХИВ «ОМЕГА» ПОЛНОСТЬЮ ДЕШИФРОВАН! ИГРА ПРОЙДЕНА!");
+                    OnGameSuccess("МАСТЕР-АРХИВ «ОМЕГА» ПОЛНОСТЬЮ ДЕШИФРОВАН! СТРАТЕГИЧЕСКАЯ ПОБЕДА!");
                 }
                 else
                 {
-                    OnGameFailed("НЕ ВСЕ КРИПТОКАНАЛЫ СИНХРОНИЗИРОВАНЫ! ПРОВЕРЬТЕ КЛЮЧИ.");
+                    TriggerErrorLockout("Не все криптоканалы синхронизированы! Проверьте ключи взлома.");
                 }
                 break;
         }
@@ -1584,7 +1726,7 @@ public class SpyMiniGames : MonoBehaviour
 
     private void OnGameSuccess(string message)
     {
-        isGameActive = false;
+        isSuccessTransition = true;
         PlaySuccess();
         if (statusFeedbackText != null)
         {
@@ -1592,23 +1734,15 @@ public class SpyMiniGames : MonoBehaviour
         }
         MainframeBootQuest.Instance?.ShowNotification($"<color=#00FF88>[ДЕШИФРОВКА УСПЕШНА]</color> {message}");
 
-        StartCoroutine(CloseAfterDelay(true, 1.8f));
-    }
-
-    private void OnGameFailed(string message)
-    {
-        PlayFail();
-        if (statusFeedbackText != null)
-        {
-            statusFeedbackText.text = $"<color=#FF3333><b>[ОШИБКА] {message}</b></color>";
-        }
-        MainframeBootQuest.Instance?.ShowNotification($"<color=#FF4444>[ОТКАЗ ДЕШИФРАТОРА]</color> {message}");
+        StartCoroutine(CloseAfterDelay(true, 1.4f));
     }
 
     public void CancelMiniGame()
     {
         isGameActive = false;
+        isSuccessTransition = false;
         isHelpOpen = false;
+        isNoteOpen = false;
         if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (turingRunCoroutine != null) StopCoroutine(turingRunCoroutine);
         turingIsRunning = false;
@@ -1617,13 +1751,78 @@ public class SpyMiniGames : MonoBehaviour
         onGameFinishedCallback?.Invoke(false);
     }
 
+    /// <summary>
+    /// Forcibly collapses the puzzle window, closes any viewer/modal, and unzooms player from the monitor
+    /// when the guard comes to inspect the room, allowing the player to sit in the chair and deceive the guard.
+    /// </summary>
+    public void OnGuardInspectionBreach()
+    {
+        if (isGameActive || (miniGameRootPanel != null && miniGameRootPanel.activeSelf))
+        {
+            CancelMiniGame();
+        }
+
+        if (VectorCommander.Instance != null)
+        {
+            VectorCommander.Instance.CloseHelp();
+            VectorCommander.Instance.CloseViewer();
+        }
+
+        if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+        {
+            PlayerController.Instance.ExitMonitor();
+        }
+
+        MainframeBootQuest.Instance?.ShowNotification("<color=#FF3333>[⚠ ОХРАНА У ДВЕРИ!]</color> Шаги в тамбуре! Опустите рубильник питания и спрячьтесь за ЭВМ!");
+    }
+
+    /// <summary>
+    /// Called when the deceit event succeeds: resets the error count so the player can retry the puzzle.
+    /// </summary>
+    public void OnDeceitSuccess()
+    {
+        currentPuzzleErrors = 0;
+        errorLockoutTimer = 0f;
+        Debug.Log("<color=#00FFAA><b>[ДЕШИФРОВКА]</b></color> Скрытность успешна! Счётчик ошибок терминала сброшен (0/3).");
+        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ОХРАНА УШЛА]</color> Охранник проверил тёмный зал и ушёл. Включите рубильник [E] и продолжайте взлом.");
+    }
+
     private IEnumerator CloseAfterDelay(bool success, float delay)
     {
         yield return new WaitForSeconds(delay);
+        isGameActive = false;
+        isSuccessTransition = false;
         isHelpOpen = false;
+        isNoteOpen = false;
         if (helpOverlayPanel != null) helpOverlayPanel.SetActive(false);
         if (miniGameRootPanel != null) miniGameRootPanel.SetActive(false);
         onGameFinishedCallback?.Invoke(success);
+    }
+
+    private bool IsDigitPressed(int d)
+    {
+#if ENABLE_INPUT_SYSTEM
+        var kb = Keyboard.current;
+        if (kb == null) return false;
+        switch (d)
+        {
+            case 0: return kb.digit0Key.wasPressedThisFrame || kb.numpad0Key.wasPressedThisFrame;
+            case 1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
+            case 2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;
+            case 3: return kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame;
+            case 4: return kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame;
+            case 5: return kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame;
+            case 6: return kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame;
+            case 7: return kb.digit7Key.wasPressedThisFrame || kb.numpad7Key.wasPressedThisFrame;
+            case 8: return kb.digit8Key.wasPressedThisFrame || kb.numpad8Key.wasPressedThisFrame;
+            case 9: return kb.digit9Key.wasPressedThisFrame || kb.numpad9Key.wasPressedThisFrame;
+            default: return false;
+        }
+#else
+        KeyCode main = (KeyCode)((int)KeyCode.Alpha0 + d);
+        KeyCode num = (KeyCode)((int)KeyCode.Keypad0 + d);
+        return Input.GetKeyDown(main) || Input.GetKeyDown(num);
+#endif
     }
 
     private bool IsKey(KeyCode code)
@@ -1647,19 +1846,20 @@ public class SpyMiniGames : MonoBehaviour
             case KeyCode.S: return kb.sKey.wasPressedThisFrame;
             case KeyCode.F: return kb.fKey.wasPressedThisFrame;
             case KeyCode.H: return kb.hKey.wasPressedThisFrame;
+            case KeyCode.N: return kb.nKey.wasPressedThisFrame;
             case KeyCode.R: return kb.rKey.wasPressedThisFrame;
             case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
             case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;
             case KeyCode.Alpha3: return kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame;
             case KeyCode.Alpha4: return kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame;
+            case KeyCode.Alpha5: return kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame;
+            case KeyCode.Alpha6: return kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame;
             default: return false;
         }
 #else
         return Input.GetKeyDown(code);
 #endif
     }
-
-    // --- Audio Synthesis ---
 
     private void GenerateAudioClips()
     {

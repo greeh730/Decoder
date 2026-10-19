@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -987,6 +987,9 @@ public class PlayerController : MonoBehaviour
 
         GUI.color = Color.white;
 
+        // Draw stealth status indicators (Lamp & Eye) before and during guard raids
+        StealthIndicatorUI.DrawHUD();
+
         // Top-left status box (only visible in room mode, hidden when zoomed into monitor terminal)
         if (currentState != PlayerState.InspectingMonitor)
         {
@@ -1310,6 +1313,27 @@ public class PlayerController : MonoBehaviour
                     else cheatKeyStep = pressedG ? 1 : 0;
                     break;
             }
+        }
+
+        if (GuardPawn.IsCheatPeaceMode)
+        {
+#if ENABLE_INPUT_SYSTEM
+            var kbCurrent = Keyboard.current;
+            if (kbCurrent != null)
+            {
+                if (kbCurrent.digit1Key.wasPressedThisFrame || kbCurrent.numpad1Key.wasPressedThisFrame) GuardPawn.TriggerCheatBreach();
+                if (kbCurrent.digit2Key.wasPressedThisFrame || kbCurrent.numpad2Key.wasPressedThisFrame) GuardPawn.TriggerCheatDoorwayInspect();
+                if (kbCurrent.digit3Key.wasPressedThisFrame || kbCurrent.numpad3Key.wasPressedThisFrame) GuardPawn.TriggerCheatStealthSuccess();
+                if (kbCurrent.digit4Key.wasPressedThisFrame || kbCurrent.numpad4Key.wasPressedThisFrame) GuardPawn.TriggerCheatAlertChase();
+                if (kbCurrent.digit0Key.wasPressedThisFrame || kbCurrent.numpad0Key.wasPressedThisFrame) GuardPawn.ResetAllToPatrol();
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) GuardPawn.TriggerCheatBreach();
+            if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) GuardPawn.TriggerCheatDoorwayInspect();
+            if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) GuardPawn.TriggerCheatStealthSuccess();
+            if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) GuardPawn.TriggerCheatAlertChase();
+            if (Input.GetKeyDown(KeyCode.Alpha0) || Input.GetKeyDown(KeyCode.Keypad0)) GuardPawn.ResetAllToPatrol();
+#endif
         }
     }
 }

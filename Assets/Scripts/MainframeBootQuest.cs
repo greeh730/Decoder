@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -42,6 +42,10 @@ public class MainframeBootQuest : MonoBehaviour
     [SerializeField] private bool isTapeInserted = false;
     [SerializeField] private bool[] addressSwitches = new bool[4] { false, false, false, false };
     private readonly bool[] targetCode = new bool[4] { true, false, true, true }; // 1-0-1-1
+    private bool isPowerCutByBreaker = false;
+    private BootStage stageBeforeBreakerCut = BootStage.PowerOff;
+
+    public bool IsPowerCutByBreaker => isPowerCutByBreaker;
 
     [Header("Breaker (Cube.009)")]
     [SerializeField] private Transform breakerHandle;
@@ -130,6 +134,7 @@ public class MainframeBootQuest : MonoBehaviour
     {
         get
         {
+            if (isPowerCutByBreaker) return false;
             if (DiskDriveBay.Instance != null && (DiskDriveBay.Instance.IsCrashNoiseActive || DiskDriveBay.Instance.IsAlarmBeeping))
                 return true;
             return (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline);
@@ -140,6 +145,7 @@ public class MainframeBootQuest : MonoBehaviour
     {
         get
         {
+            if (isPowerCutByBreaker) return 0f;
             if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsCrashNoiseActive)
                 return 12.0f;
             if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsAlarmBeeping)
@@ -154,6 +160,8 @@ public class MainframeBootQuest : MonoBehaviour
     {
         get
         {
+            if (isPowerCutByBreaker)
+                return "ЭВМ обесточена рубильником (Тишина, 0м)";
             if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsCrashNoiseActive)
                 return "Аварийный запил / электродуга накопителя (12.0м)";
             if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsAlarmBeeping)
@@ -300,17 +308,46 @@ public class MainframeBootQuest : MonoBehaviour
         if (currentStage == BootStage.PowerOff)
         {
             currentStage = BootStage.BreakerOn;
+            isPowerCutByBreaker = false;
             ShowNotification("Главный рубильник ВКЛЮЧЕН. Силовая сеть под напряжением.");
         }
         else if (currentStage == BootStage.BreakerOn)
         {
             currentStage = BootStage.PowerOff;
+            isPowerCutByBreaker = true;
             ShowNotification("Главный рубильник ВЫКЛЮЧЕН. Питание обесточено.");
         }
         else
         {
-            ShowNotification("Питание серверов активно. Не отключайте рубильник во время работы.");
-            return;
+            // System is warming up, online, or in standby
+            if (!isPowerCutByBreaker)
+            {
+                // Pulling breaker down cuts power to the room!
+                isPowerCutByBreaker = true;
+                stageBeforeBreakerCut = currentStage;
+                StopTransformerHum();
+                ShowNotification("<color=#FFFF00>[СИЛОВАЯ СЕТЬ ОБЕСТОЧЕНА]</color> Рубильник опущен! ЭВМ выключена, терминал погас. Быстро прячьтесь за стойку!");
+
+                if (MonitorTerminal.Instance != null)
+                {
+                    MonitorTerminal.Instance.SetStandbyState(true);
+                    MonitorTerminal.Instance.SetMainframeOnline(false);
+                }
+            }
+            else
+            {
+                // Raising breaker restores power!
+                isPowerCutByBreaker = false;
+                currentStage = (stageBeforeBreakerCut != BootStage.PowerOff) ? stageBeforeBreakerCut : BootStage.SystemOnline;
+                StartTransformerHum();
+                ShowNotification("<color=#00FFAA>[ПИТАНИЕ ВОССТАНОВЛЕНО]</color> Рубильник поднят! ЭВМ запущена. Терминал готов к работе.");
+
+                if (MonitorTerminal.Instance != null)
+                {
+                    MonitorTerminal.Instance.SetStandbyState(false);
+                    MonitorTerminal.Instance.SetMainframeOnline(true);
+                }
+            }
         }
 
         UpdateAllVisuals();
@@ -589,19 +626,24 @@ public class MainframeBootQuest : MonoBehaviour
     public void UpdateAllVisuals()
     {
         // 1. Breaker
+        bool isBreakerUp = (currentStage >= BootStage.BreakerOn && !isPowerCutByBreaker);
         if (breakerHandle != null)
         {
-            breakerHandle.localRotation = Quaternion.Euler(currentStage >= BootStage.BreakerOn ? -35f : 35f, 0f, 0f);
+            breakerHandle.localRotation = Quaternion.Euler(isBreakerUp ? -35f : 35f, 0f, 0f);
         }
         if (breakerLed != null)
         {
-            breakerLed.sharedMaterial = currentStage >= BootStage.BreakerOn ? ledGreenMat : ledRedMat;
+            breakerLed.sharedMaterial = isBreakerUp ? ledGreenMat : ledRedMat;
+        }
+        if (breakerInteractable != null)
+        {
+            breakerInteractable.PromptText = isBreakerUp ? "Нажмите [E] — Отключить главный рубильник питания" : "Нажмите [E] — Включить главный рубильник питания";
         }
 
         EnsureSwitchBases();
 
         // 2. Filament switch (Cube.099)
-        bool filamentOn = currentStage >= BootStage.FilamentWarming;
+        bool filamentOn = currentStage >= BootStage.FilamentWarming && !isPowerCutByBreaker;
         if (filamentSwitch != null)
         {
             float pitch = filamentOn ? -22f : 0f;
@@ -615,12 +657,12 @@ public class MainframeBootQuest : MonoBehaviour
         }
         if (filamentStatusLed != null)
         {
-            filamentStatusLed.sharedMaterial = currentStage >= BootStage.FilamentReady ? ledGreenMat :
-                                               (currentStage == BootStage.FilamentWarming ? ledYellowMat : ledOffMat);
+            filamentStatusLed.sharedMaterial = (currentStage >= BootStage.FilamentReady && !isPowerCutByBreaker) ? ledGreenMat :
+                                               ((currentStage == BootStage.FilamentWarming && !isPowerCutByBreaker) ? ledYellowMat : ledOffMat);
         }
 
         // 3. High Voltage switch (Cube.101)
-        bool hvActive = (currentStage >= BootStage.HighVoltageOn && currentStage != BootStage.HotStandby);
+        bool hvActive = (currentStage >= BootStage.HighVoltageOn && currentStage != BootStage.HotStandby && !isPowerCutByBreaker);
         if (hvSwitch != null)
         {
             float pitch = hvActive ? -22f : 0f;
@@ -645,8 +687,8 @@ public class MainframeBootQuest : MonoBehaviour
         }
 
         // 4. Tube glow
-        bool isWarm = currentStage >= BootStage.FilamentReady;
-        bool isWarming = currentStage == BootStage.FilamentWarming;
+        bool isWarm = currentStage >= BootStage.FilamentReady && !isPowerCutByBreaker;
+        bool isWarming = currentStage == BootStage.FilamentWarming && !isPowerCutByBreaker;
         if (filamentPointLight != null)
         {
             filamentPointLight.enabled = isWarm || isWarming;
@@ -713,6 +755,7 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void OnGUI()
     {
+        GUIFontHelper.Apply();
         float sw = Screen.width;
         float sh = Screen.height;
 

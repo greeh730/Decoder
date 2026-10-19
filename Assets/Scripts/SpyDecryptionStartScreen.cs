@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
@@ -129,6 +129,8 @@ public class SpyDecryptionStartScreen : MonoBehaviour
     public void OnStartScreenClicked()
     {
         PlayKeyBeep();
+        if (MonitorTerminal.Instance != null) MonitorTerminal.Instance.SetLoggedIn(true);
+
         MainframeBootQuest.Instance?.ShowNotification(
             "<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка «ВЕКТОР-КОМАНДИР» v2.1...");
 

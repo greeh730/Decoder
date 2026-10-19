@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -43,10 +43,13 @@ public class MonitorTerminal : MonoBehaviour
     private bool isZoomedIn = false;
     private bool isMainframeOnline = false;
     private bool isStandby = false;
+    private bool hasLoggedIn = false;
     private float cursorBlinkTimer = 0f;
     private bool cursorVisible = true;
     private Coroutine crtTestCoroutine;
     private readonly List<string> logLines = new List<string>();
+
+    public void SetLoggedIn(bool loggedIn) => hasLoggedIn = loggedIn;
 
     // Procedural sound clips
     private AudioClip crtStartupClip;
@@ -59,7 +62,7 @@ public class MonitorTerminal : MonoBehaviour
     public bool IsStandby => isStandby;
     public float BrightnessLevel => brightnessLevel;
 
-    public bool IsLightEmitting => isMainframeOnline && !isStandby && brightnessLevel > 0.05f && (roomLight == null || !roomLight.enabled);
+    public bool IsLightEmitting => isMainframeOnline && !isStandby && !(MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker) && brightnessLevel > 0.05f && (roomLight == null || !roomLight.enabled);
     public float LightEmissionDistance => IsLightEmitting ? 22.0f : 0f;
 
     private void Awake()
@@ -150,7 +153,10 @@ public class MonitorTerminal : MonoBehaviour
                 UpdateIdleScreenText();
             }
 
-            if (isZoomedIn)
+            bool isVcActive = VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeInHierarchy;
+            bool isMgActive = SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive;
+
+            if (isZoomedIn && !isVcActive && !isMgActive)
             {
                 HandleKeyboardShortcuts();
             }
@@ -321,7 +327,18 @@ public class MonitorTerminal : MonoBehaviour
             return;
         }
 
-        if (startScreenPanel != null)
+        if (offScreenPanel != null) offScreenPanel.SetActive(false);
+
+        bool isVcActive = VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeSelf;
+        bool isMgActive = SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive;
+
+        if (isVcActive || isMgActive || hasLoggedIn)
+        {
+            if (startScreenPanel != null) startScreenPanel.SetActive(false);
+            if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
+            if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+        }
+        else if (startScreenPanel != null)
         {
             startScreenPanel.SetActive(true);
             if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
@@ -332,7 +349,6 @@ public class MonitorTerminal : MonoBehaviour
             if (activeScreenPanel != null) activeScreenPanel.SetActive(zoomed);
             if (idleScreenPanel != null) idleScreenPanel.SetActive(!zoomed);
         }
-        if (offScreenPanel != null) offScreenPanel.SetActive(false);
 
         if (terminalAudio != null && keyClickClip != null)
         {

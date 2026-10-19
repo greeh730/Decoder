@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -219,6 +219,7 @@ public class GameVictorySystem : MonoBehaviour
 
     private void OnGUI()
     {
+        GUIFontHelper.Apply();
         // Persistent victory badge when dossier is minimized
         if (IsGameWon && !IsVictoryScreenOpen)
         {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -746,6 +746,8 @@ public class GuardPawn : MonoBehaviour
         BreachMovingToDoor,
         BreachOpeningDoor,
         BreachEnteringRoom,
+        InspectingRoomDoorway,
+        ClosingDoorReturning,
         ChasingPlayer,
         GameOver
     }
@@ -764,13 +766,17 @@ public class GuardPawn : MonoBehaviour
             {
                 if (g == null) continue;
                 g.suspicion = 0f;
+                g.isTerminalInspectionActive = false;
                 if (IsCheatPeaceMode && (g.currentState == GuardState.BreachMovingToDoor || 
                                          g.currentState == GuardState.BreachOpeningDoor || 
                                          g.currentState == GuardState.BreachEnteringRoom || 
+                                         g.currentState == GuardState.InspectingRoomDoorway ||
+                                         g.currentState == GuardState.ClosingDoorReturning ||
                                          g.currentState == GuardState.ChasingPlayer || 
                                          g.currentState == GuardState.InvestigatingSuspicious))
                 {
                     g.currentState = GuardState.Patrolling;
+                    if (g.doorHingePivot != null) g.doorHingePivot.localRotation = Quaternion.identity;
                 }
             }
         }
@@ -785,6 +791,120 @@ public class GuardPawn : MonoBehaviour
         }
     }
 
+    public static GuardPawn GetClosestGuardToDoor()
+    {
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards == null || guards.Length == 0) return null;
+        GuardPawn best = null;
+        float minD = float.MaxValue;
+        Vector3 doorPos = new Vector3(9.67f, 0f, -0.52f);
+        foreach (var g in guards)
+        {
+            if (g == null) continue;
+            float d = Vector3.Distance(g.transform.position, doorPos);
+            if (d < minD) { minD = d; best = g; }
+        }
+        return best;
+    }
+
+    public static void TriggerCheatBreach()
+    {
+        var guard = GetClosestGuardToDoor();
+        if (guard == null) return;
+        guard.FindDoorHingePivot();
+        guard.transform.position = guard.outsideDoorPos;
+        guard.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+        guard.currentState = GuardState.BreachOpeningDoor;
+        guard.doorOpenProgress = 0f;
+        if (guard.animator != null)
+        {
+            guard.animator.SetBool("IsMoving", false);
+            guard.animator.SetTrigger("OpenDoor");
+        }
+        if (guard.sfxAudioSource != null && guard.doorCreakClip != null)
+        {
+            guard.sfxAudioSource.PlayOneShot(guard.doorCreakClip, 1f);
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>[ЧИТ-ТЕСТ]</color> Охранник подошел к двери и открывает её (анимация OpenDoor)!");
+    }
+
+    public static void TriggerCheatDoorwayInspect()
+    {
+        var guard = GetClosestGuardToDoor();
+        if (guard == null) return;
+        guard.FindDoorHingePivot();
+        if (guard.doorHingePivot != null) guard.doorHingePivot.localRotation = Quaternion.Euler(0f, -90f, 0f);
+        guard.transform.position = guard.doorwayThresholdPos;
+        guard.transform.rotation = Quaternion.LookRotation(new Vector3(8.30f - guard.doorwayThresholdPos.x, 0f, 3.95f - guard.doorwayThresholdPos.z));
+        guard.currentState = GuardState.InspectingRoomDoorway;
+        guard.inspectionTimer = 6.0f;
+        if (guard.animator != null)
+        {
+            guard.animator.SetBool("IsMoving", false);
+            guard.animator.SetTrigger("Inspect");
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>[ЧИТ-ТЕСТ]</color> Охранник в дверях осматривает зал (анимация Hard Head Nod)!");
+    }
+
+    public static void TriggerCheatStealthSuccess()
+    {
+        var guard = GetClosestGuardToDoor();
+        if (guard == null) return;
+        guard.FindDoorHingePivot();
+        if (guard.doorHingePivot != null) guard.doorHingePivot.localRotation = Quaternion.Euler(0f, -90f, 0f);
+        guard.transform.position = guard.doorwayThresholdPos;
+        guard.currentState = GuardState.ClosingDoorReturning;
+        if (guard.animator != null)
+        {
+            guard.animator.SetBool("IsMoving", false);
+            guard.animator.SetTrigger("StealthSuccess");
+        }
+        guard.returnPath.Clear();
+        guard.returnPath.Add(guard.outsideDoorPos);
+        guard.returnPath.Add(new Vector3(12.0f, 0.03f, -1.65f));
+        guard.returnPath.Add(new Vector3(13.5f, 0.03f, -1.65f));
+        guard.returnPathIndex = 0;
+        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ЧИТ-ТЕСТ]</color> Охранник качает головой («никого нет») и закрывает дверь (Shaking Head No)!");
+    }
+
+    public static void TriggerCheatAlertChase()
+    {
+        var guard = GetClosestGuardToDoor();
+        if (guard == null) return;
+        guard.FindDoorHingePivot();
+        if (guard.doorHingePivot != null) guard.doorHingePivot.localRotation = Quaternion.Euler(0f, -90f, 0f);
+        guard.transform.position = guard.doorwayThresholdPos;
+        guard.currentState = GuardState.ChasingPlayer;
+        if (guard.animator != null)
+        {
+            guard.animator.SetBool("IsMoving", false);
+            guard.animator.SetTrigger("Alert");
+        }
+        if (guard.sfxAudioSource != null && guard.alertStingClip != null)
+        {
+            guard.sfxAudioSource.PlayOneShot(guard.alertStingClip, 1f);
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#FF2222>[ЧИТ-ТЕСТ]</color> Тревога! Охранник вскидывает руки и начинает погоню (Reacting -> Chase)!");
+    }
+
+    public static void ResetAllToPatrol()
+    {
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Include);
+        if (guards != null)
+        {
+            foreach (var g in guards)
+            {
+                if (g == null) continue;
+                g.currentState = GuardState.Patrolling;
+                g.suspicion = 0f;
+                g.isTerminalInspectionActive = false;
+                if (g.doorHingePivot != null) g.doorHingePivot.localRotation = Quaternion.identity;
+                if (g.animator != null) g.animator.SetBool("IsMoving", true);
+            }
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFFF>[ЧИТ-ТЕСТ]</color> Все охранники возвращены на штатные маршруты патрулирования.");
+    }
+
     private GuardPatrolSystem.PatrolRoute route;
     private int currentWaypointIndex = 0;
     private float walkSpeed = 1.8f;
@@ -794,6 +914,11 @@ public class GuardPawn : MonoBehaviour
 
     // State machine
     private GuardState currentState = GuardState.Patrolling;
+    private bool isTerminalInspectionActive = false;
+    private float inspectionTimer = 0f;
+    private float inspectionApproachTimer = 0f;
+    private readonly List<Vector3> returnPath = new List<Vector3>();
+    private int returnPathIndex = 0;
 
     // Door and room breach points
     private readonly Vector3 vestibuleEntrancePos = new Vector3(12.0f, 0.0f, -1.65f);
@@ -812,12 +937,15 @@ public class GuardPawn : MonoBehaviour
     private float lastAlertNotifyTime = -10f;
     private float stepTimer = 0f;
     private bool isLeftStep = false;
-
     // Logging & Aggro state tracking
     private bool hasLoggedInitialDetect = false;
     private bool hasLoggedYellowAlert = false;
     private float lastAggroLogTime = -99f;
     private bool isAnyAlertSourceActive = false;
+
+    // Character Model & Animations
+    private Animator animator;
+    private bool wasMoving = false;
 
     // Procedural Audio
     private AudioSource footstepAudioSource;
@@ -831,6 +959,76 @@ public class GuardPawn : MonoBehaviour
     public bool IsInvestigating => suspicion > 0.35f;
     public bool IsHighAlert => suspicion >= 0.85f;
     public GuardState CurrentState => currentState;
+    public bool IsTerminalInspectionActive => isTerminalInspectionActive;
+
+    public static bool IsAnyGuardAtDoorOrInspecting()
+    {
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards == null) return false;
+        foreach (var g in guards)
+        {
+            if (g == null) continue;
+            if (g.currentState == GuardState.BreachOpeningDoor ||
+                g.currentState == GuardState.BreachEnteringRoom ||
+                g.currentState == GuardState.InspectingRoomDoorway ||
+                g.currentState == GuardState.ClosingDoorReturning)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void DispatchGuardForTerminalInspection(string reason)
+    {
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards == null || guards.Length == 0) return;
+
+        GuardPawn bestGuard = null;
+        float bestDist = float.MaxValue;
+        Vector3 doorPos = new Vector3(9.67f, 0.0f, -0.52f);
+
+        foreach (var g in guards)
+        {
+            if (g == null || IsGameOver || IsCheatPeaceMode || GameVictorySystem.IsGameWon) continue;
+            float d = Vector3.Distance(g.transform.position, doorPos);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestGuard = g;
+            }
+        }
+
+        if (bestGuard != null)
+        {
+            bestGuard.StartTerminalInspection(reason);
+        }
+
+        // Raise corridor alertness on any other guards
+        foreach (var g in guards)
+        {
+            if (g != null && g != bestGuard)
+            {
+                g.AddSuspicion(0.30f, "Тревога терминала в Секторе 7");
+            }
+        }
+    }
+
+    public void StartTerminalInspection(string reason)
+    {
+        if (IsCheatPeaceMode || IsGameOver || GameVictorySystem.IsGameWon) return;
+
+        isTerminalInspectionActive = true;
+        inspectionTimer = 4.2f;
+        inspectionApproachTimer = 6.2f;
+        suspicion = 1.0f;
+
+        Debug.Log($"<color=#FF2222><b>[AGGRO: ВЫЗОВ ОХРАНЫ ПО ТРЕВОГЕ ТЕРМИНАЛА]</b></color> <b>{name}</b> направлен к машинному залу!\n" +
+                  $"• Причина: <b>{reason}</b>\n" +
+                  $"• Дистанция до двери: {Vector3.Distance(transform.position, labDoorCoord):F1}м");
+
+        StartBreachSequence();
+    }
 
     public void AddSuspicion(float amount, string reason)
     {
@@ -1048,9 +1246,10 @@ public class GuardPawn : MonoBehaviour
         if (IsCheatPeaceMode)
         {
             suspicion = 0f;
-            if (currentState != GuardState.Patrolling)
+            if (currentState >= GuardState.BreachMovingToDoor)
             {
-                currentState = GuardState.Patrolling;
+                UpdateBreach();
+                return;
             }
             PatrolWaypoints();
             return;
@@ -1158,8 +1357,11 @@ public class GuardPawn : MonoBehaviour
         }
         else
         {
-            // Rapid decay when quiet (rewards flipping switch to Hot Standby)
-            suspicion = Mathf.Max(0f, suspicion - 0.45f * Time.deltaTime);
+            // Rapid decay when quiet (rewards flipping switch to Hot Standby), but NOT when terminal inspection was ordered!
+            if (!isTerminalInspectionActive)
+            {
+                suspicion = Mathf.Max(0f, suspicion - 0.45f * Time.deltaTime);
+            }
         }
 
         suspicion = Mathf.Clamp01(suspicion);
@@ -1238,7 +1440,7 @@ public class GuardPawn : MonoBehaviour
         {
             case GuardState.BreachMovingToDoor:
                 // If noise stopped completely and suspicion decayed below 0.35f before door opened:
-                if (!isAnyAlertSourceActive && suspicion <= 0.35f)
+                if (!isTerminalInspectionActive && !isAnyAlertSourceActive && suspicion <= 0.35f)
                 {
                     currentState = GuardState.Patrolling;
                     breachPath.Clear();
@@ -1268,7 +1470,7 @@ public class GuardPawn : MonoBehaviour
                         if (breachPathIndex >= breachPath.Count)
                         {
                             // If sound stopped while guard was on his way, guard listens at door in silence!
-                            if (!isAnyAlertSourceActive && suspicion <= 0.55f)
+                            if (!isTerminalInspectionActive && !isAnyAlertSourceActive && suspicion <= 0.55f)
                             {
                                 currentState = GuardState.Patrolling;
                                 breachPath.Clear();
@@ -1281,15 +1483,28 @@ public class GuardPawn : MonoBehaviour
                                 return;
                             }
 
+                            // If player still has approach prep time, guard is outside door listening/checking
+                            if (isTerminalInspectionActive && inspectionApproachTimer > 0f)
+                            {
+                                inspectionApproachTimer -= Time.deltaTime;
+                                return;
+                            }
+
                             // Reached outside door! Begin opening!
                             currentState = GuardState.BreachOpeningDoor;
                             doorOpenProgress = 0f;
+                            if (animator != null)
+                            {
+                                animator.SetBool("IsMoving", false);
+                                animator.SetTrigger("OpenDoor");
+                            }
 
                             if (sfxAudioSource != null && doorCreakClip != null)
                             {
                                 sfxAudioSource.PlayOneShot(doorCreakClip, 1.0f);
                             }
 
+                            SpyMiniGames.Instance?.OnGuardInspectionBreach();
                             MainframeBootQuest.Instance?.ShowNotification("<color=#FF2222>[⚠ ДВЕРЬ ВЗЛОМАНА!]</color> «Служба безопасности! Всем оставаться на местах!»");
                             return;
                         }
@@ -1299,7 +1514,7 @@ public class GuardPawn : MonoBehaviour
                 }
                 else
                 {
-                    if (!isAnyAlertSourceActive && suspicion <= 0.55f)
+                    if (!isTerminalInspectionActive && !isAnyAlertSourceActive && suspicion <= 0.55f)
                     {
                         currentState = GuardState.Patrolling;
                         breachPath.Clear();
@@ -1312,8 +1527,20 @@ public class GuardPawn : MonoBehaviour
                         return;
                     }
 
+                    if (isTerminalInspectionActive && inspectionApproachTimer > 0f)
+                    {
+                        inspectionApproachTimer -= Time.deltaTime;
+                        return;
+                    }
+
                     currentState = GuardState.BreachOpeningDoor;
                     doorOpenProgress = 0f;
+                    if (animator != null)
+                    {
+                        animator.SetBool("IsMoving", false);
+                        animator.SetTrigger("OpenDoor");
+                    }
+                    SpyMiniGames.Instance?.OnGuardInspectionBreach();
                 }
                 break;
 
@@ -1322,17 +1549,49 @@ public class GuardPawn : MonoBehaviour
                 Quaternion faceDoor = Quaternion.LookRotation(Vector3.forward);
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, faceDoor, turnSpeed * Time.deltaTime);
 
-                // Swing door open
-                doorOpenProgress += Time.deltaTime * 0.9f; // opens in ~1.1s
-                float openAngle = Mathf.Lerp(0f, -90f, Mathf.Clamp01(doorOpenProgress));
+                // doorOpenProgress tracks elapsed animation time (total clip: 6.38s)
+                doorOpenProgress += Time.deltaTime;
+
+                float openAngle = 0f;
+                // Timeline:
+                // 0.0s - 2.8s: Guard approaches handle and turns knob (door stays closed, 0 deg)
+                // 2.8s - 3.8s: Door swings inwards from 0 deg to -90 deg
+                // 3.8s - 4.8s: Door held fully open at -90 deg
+                // 4.8s - 6.2s: Guard lets go and door swings closed from -90 deg back to 0 deg
+                // 6.2s+: Animation finishes -> transition to Inspecting / entering
+                if (doorOpenProgress < 2.8f)
+                {
+                    openAngle = 0f;
+                }
+                else if (doorOpenProgress < 3.8f)
+                {
+                    // Swings open
+                    float t = (doorOpenProgress - 2.8f) / 1.0f;
+                    openAngle = Mathf.Lerp(0f, -90f, Mathf.SmoothStep(0f, 1f, t));
+                }
+                else if (doorOpenProgress < 4.8f)
+                {
+                    openAngle = -90f;
+                }
+                else if (doorOpenProgress < 6.2f)
+                {
+                    // Swings closed
+                    float t = (doorOpenProgress - 4.8f) / 1.4f;
+                    openAngle = Mathf.Lerp(-90f, 0f, Mathf.SmoothStep(0f, 1f, t));
+                }
+                else
+                {
+                    openAngle = 0f;
+                }
 
                 if (doorHingePivot != null)
                 {
                     doorHingePivot.localRotation = Quaternion.Euler(0f, openAngle, 0f);
                 }
 
-                if (doorOpenProgress >= 1.0f)
+                if (doorOpenProgress >= 6.35f)
                 {
+                    if (doorHingePivot != null) doorHingePivot.localRotation = Quaternion.identity;
                     currentState = GuardState.BreachEnteringRoom;
                 }
                 break;
@@ -1343,11 +1602,166 @@ public class GuardPawn : MonoBehaviour
                 toThresh.y = 0f;
                 if (toThresh.magnitude > 0.35f)
                 {
-                    MoveTowards(doorwayThresholdPos, walkSpeed * 1.1f);
+                    MoveTowards(doorwayThresholdPos, walkSpeed * 1.0f);
                 }
                 else
                 {
+                    currentState = GuardState.InspectingRoomDoorway;
+                    inspectionTimer = 4.2f;
+                    if (animator != null)
+                    {
+                        animator.SetBool("IsMoving", false);
+                        animator.SetTrigger("Inspect");
+                    }
+                    MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>[ПРОВЕРКА ОХРАНЫ]</color> Дверь открыта! Не шевелитесь в укрытии!");
+                    Debug.Log($"<color=#FFCC00><b>[AGGRO: ОСМОТР КОМНАТЫ]</b></color> <b>{name}</b> стоит в дверях и осматривает машинный зал (4.2с)...");
+                }
+                break;
+
+            case GuardState.InspectingRoomDoorway:
+                // Sweep gaze across the room (towards desk & room center)
+                Vector3 lookTarget = new Vector3(8.30f, transform.position.y, 3.95f);
+                Vector3 dirToRoom = lookTarget - transform.position;
+                dirToRoom.y = 0f;
+                if (dirToRoom.sqrMagnitude > 0.01f)
+                {
+                    Quaternion rotRoom = Quaternion.LookRotation(dirToRoom.normalized);
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, rotRoom, turnSpeed * Time.deltaTime);
+                }
+
+                // 1. Check if server power / breaker was cut (Light safe check)
+                bool isBreakerCut = StealthIndicatorUI.IsLightSafe();
+                if (!isBreakerCut)
+                {
+                    // Guard immediately sees the glowing green CRT screen and active server running!
+                    string failMsg = "«Стоп! Почему аппаратура включена ночью?! Кто здесь?!»";
+                    Debug.Log($"<color=#FF2222><b>[AGGRO: ПРОВАЛ МАСКИРОВКИ]</b></color> <b>{name}</b> заметил включенный терминал: рубильник не был выключен!");
+                    MainframeBootQuest.Instance?.ShowNotification($"<color=#FF0000>[ПРОВАЛ МАСКИРОВКИ!]</color> {failMsg}");
+                    if (animator != null) animator.SetTrigger("Alert");
+                    isTerminalInspectionActive = false;
                     currentState = GuardState.ChasingPlayer;
+                    return;
+                }
+
+                // 2. Check if disk crashed in fire/alarm
+                bool isDiskCrash = DiskDriveBay.Instance != null && DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.OverheatedCrash;
+                if (isDiskCrash)
+                {
+                    string failMsg = "«Сервер горит! Диверсия!»";
+                    Debug.Log($"<color=#FF2222><b>[AGGRO: ОБНАРУЖЕН]</b></color> <b>{name}</b> увидел аварию оборудования!");
+                    MainframeBootQuest.Instance?.ShowNotification($"<color=#FF0000>[ТРЕВОГА!]</color> {failMsg}");
+                    if (animator != null) animator.SetTrigger("Alert");
+                    isTerminalInspectionActive = false;
+                    currentState = GuardState.ChasingPlayer;
+                    return;
+                }
+
+                // 3. Line of sight and stealth cover check (Eye hidden check)
+                if (!StealthIndicatorUI.IsPlayerHidden(out string failReason))
+                {
+                    string failMsg = failReason.Contains("кресле")
+                        ? "«СТОЯТЬ! ДИВЕРСАНТ В МАШИННОМ ЗАЛЕ! РУКИ ЗА ГОЛОВУ!»"
+                        : (failReason.Contains("Бег")
+                            ? "«Куда бежишь?! Стоять на месте!»"
+                            : "«СТОЯТЬ! КТО ЗДЕСЬ?! РУКИ ЗА ГОЛОВУ!»");
+
+                    Debug.Log($"<color=#FF2222><b>[AGGRO: ОБНАРУЖЕН ({failReason})]</b></color> <b>{name}</b> заметил нарушителя в комнате!");
+                    MainframeBootQuest.Instance?.ShowNotification($"<color=#FF0000>[ОБНАРУЖЕН: {failReason.ToUpper()}]</color> {failMsg}");
+                    if (animator != null) animator.SetTrigger("Alert");
+                    isTerminalInspectionActive = false;
+                    currentState = GuardState.ChasingPlayer;
+                    return;
+                }
+
+                // 6. Inspection timer: player is hidden behind server AND breaker is cut!
+                inspectionTimer -= Time.deltaTime;
+                if (inspectionTimer <= 0f)
+                {
+                    // Deceit & Stealth SUCCESS!
+                    Debug.Log($"<color=#00FFAA><b>[AGGRO: СКРЫТНОСТЬ УСПЕШНА]</b></color> <b>{name}</b> осмотрел тёмный зал: никого нет, аппаратура обесточена. Ложная тревога.");
+                    MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ОХРАНА УШЛА]</color> «Хм... зал обесточен, никого. Видимо, скачок напряжения». Включите рубильник [E]!");
+
+                    if (animator != null) animator.SetTrigger("StealthSuccess");
+
+                    SpyMiniGames.Instance?.OnDeceitSuccess();
+
+                    currentState = GuardState.ClosingDoorReturning;
+                    returnPath.Clear();
+                    returnPath.Add(outsideDoorPos); // Step back out of room
+
+                    // Determine route corridor junction
+                    if (transform.position.x < 0f || (route != null && route.routeName.Contains("Западный")))
+                    {
+                        returnPath.Add(new Vector3(8.90f, 0.03f, -1.65f));
+                        returnPath.Add(new Vector3(-8.0f, 0.03f, -1.65f));
+                    }
+                    else
+                    {
+                        returnPath.Add(new Vector3(12.0f, 0.03f, -1.65f));
+                        returnPath.Add(new Vector3(13.5f, 0.03f, -1.65f));
+                    }
+                    returnPathIndex = 0;
+                }
+                break;
+
+            case GuardState.ClosingDoorReturning:
+                // Step 0: Step back outside to outsideDoorPos and swing door shut
+                if (returnPathIndex == 0)
+                {
+                    Vector3 toOutside = outsideDoorPos - transform.position;
+                    toOutside.y = 0f;
+                    if (toOutside.magnitude > 0.30f)
+                    {
+                        MoveTowards(outsideDoorPos, walkSpeed * 0.9f);
+                    }
+                    else
+                    {
+                        // Swing door shut
+                        doorOpenProgress -= Time.deltaTime * 0.9f;
+                        float closeAngle = Mathf.Lerp(0f, -90f, Mathf.Clamp01(doorOpenProgress));
+                        if (doorHingePivot != null)
+                        {
+                            doorHingePivot.localRotation = Quaternion.Euler(0f, closeAngle, 0f);
+                        }
+
+                        if (doorOpenProgress <= 0.02f)
+                        {
+                            doorOpenProgress = 0f;
+                            if (doorHingePivot != null) doorHingePivot.localRotation = Quaternion.identity;
+                            returnPathIndex = 1;
+                        }
+                    }
+                }
+                else
+                {
+                    if (returnPathIndex < returnPath.Count)
+                    {
+                        Vector3 targetWp = returnPath[returnPathIndex];
+                        targetWp.y = transform.position.y;
+                        Vector3 toWp = targetWp - transform.position;
+                        toWp.y = 0f;
+
+                        if (toWp.magnitude <= 0.45f)
+                        {
+                            returnPathIndex++;
+                        }
+                        else
+                        {
+                            MoveTowards(targetWp, walkSpeed);
+                        }
+                    }
+                    else
+                    {
+                        // Safely back in corridor highway!
+                        suspicion = 0f;
+                        isTerminalInspectionActive = false;
+                        hasLoggedYellowAlert = false;
+                        hasLoggedInitialDetect = false;
+                        currentState = GuardState.Patrolling;
+                        returnPath.Clear();
+                        returnPathIndex = 0;
+                        Debug.Log($"<color=#00FF88><b>[AGGRO: ВОЗВРАТ НА МАРШРУТ]</b></color> <b>{name}</b> вернулся в коридор и возобновил патруль.");
+                    }
                 }
                 break;
 
@@ -1547,6 +1961,7 @@ public class GuardPawn : MonoBehaviour
         {
             isWaiting = true;
             waitTimer = route.waitTimeAtWaypoint;
+            if (animator != null) animator.SetBool("IsMoving", false);
             return;
         }
 
@@ -1565,7 +1980,12 @@ public class GuardPawn : MonoBehaviour
             transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
             transform.position += transform.forward * (speed * Time.deltaTime);
 
+            if (animator != null) animator.SetBool("IsMoving", true);
             UpdateFootstepSounds(speed);
+        }
+        else
+        {
+            if (animator != null) animator.SetBool("IsMoving", false);
         }
     }
 
@@ -1620,9 +2040,14 @@ public class GuardPawn : MonoBehaviour
 
     private void OnGUI()
     {
-        // Active cheat mode indicator badge in top right corner
+        GUIFontHelper.Apply();
+        // Active cheat mode indicator badge and test event panel in top right corner
         if (IsCheatPeaceMode && !IsGameOver)
         {
+            float panelW = 260f;
+            float panelX = Screen.width - panelW - 12f;
+            float panelY = 12f;
+
             var badgeStyle = new GUIStyle(GUI.skin.box)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -1630,9 +2055,54 @@ public class GuardPawn : MonoBehaviour
                 fontStyle = FontStyle.Bold
             };
             badgeStyle.normal.textColor = new Color(0.2f, 1.0f, 0.85f);
-            GUI.color = new Color(0.08f, 0.18f, 0.12f, 0.85f);
-            GUI.Box(new Rect(Screen.width - 245f, 12f, 230f, 28f), "★ ЧИТ: GreeH [ОХРАНА OFF]", badgeStyle);
+            GUI.color = new Color(0.08f, 0.18f, 0.12f, 0.92f);
+            GUI.Box(new Rect(panelX, panelY, panelW, 26f), "★ ЧИТ: GreeH [ТЕСТ ОХРАНЫ]", badgeStyle);
             GUI.color = Color.white;
+
+            var testBtnStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            float btnH = 26f;
+            float btnSpacing = 3f;
+            float currentY = panelY + 30f;
+
+            // Button 1: Breach & Open Door
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[1] Открытие двери (Штурм)", testBtnStyle))
+            {
+                TriggerCheatBreach();
+            }
+            currentY += btnH + btnSpacing;
+
+            // Button 2: Inspect room doorway (nodding)
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[2] Осмотр зала (В проеме)", testBtnStyle))
+            {
+                TriggerCheatDoorwayInspect();
+            }
+            currentY += btnH + btnSpacing;
+
+            // Button 3: Stealth success (shake head & leave)
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[3] Успех скрытности (Уход)", testBtnStyle))
+            {
+                TriggerCheatStealthSuccess();
+            }
+            currentY += btnH + btnSpacing;
+
+            // Button 4: Alert reaction & chase
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[4] Тревога / Поимка (Alert)", testBtnStyle))
+            {
+                TriggerCheatAlertChase();
+            }
+            currentY += btnH + btnSpacing;
+
+            // Button 5: Reset back to corridor patrol
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[0] Сброс на патруль", testBtnStyle))
+            {
+                ResetAllToPatrol();
+            }
         }
 
         if (!IsGameOver) return;
@@ -1717,22 +2187,48 @@ public class GuardPawn : MonoBehaviour
 
     private void BuildGuardMesh()
     {
+        var prefab = Resources.Load<GameObject>("Guard_Enemy");
+        if (prefab != null)
+        {
+            var model = Instantiate(prefab, transform);
+            model.name = "GuardModel";
+            model.transform.localPosition = Vector3.zero;
+            model.transform.localRotation = Quaternion.identity;
+
+            animator = model.GetComponent<Animator>();
+            if (animator == null) animator = model.GetComponentInChildren<Animator>();
+
+            // Flashlight on guard hand
+            var flashLightObj = new GameObject("GuardFlashlight");
+            flashLightObj.transform.SetParent(model.transform, false);
+            flashLightObj.transform.localPosition = new Vector3(0.25f, 1.15f, 0.35f);
+            flashLightObj.transform.localRotation = Quaternion.Euler(15f, 0f, 0f);
+
+            var light = flashLightObj.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.color = new Color(1.0f, 0.95f, 0.75f);
+            light.range = 10.0f;
+            light.spotAngle = 45f;
+            light.intensity = 1.8f;
+            return;
+        }
+
+        // Fallback procedural visuals if prefab not found
         var toonShader = Shader.Find("Custom/SovietToonLit");
         if (toonShader == null) toonShader = Shader.Find("Universal Render Pipeline/Lit");
 
         var coatMat = new Material(toonShader);
-        coatMat.SetColor("_BaseColor", new Color(0.18f, 0.24f, 0.20f)); // Soviet security olive-grey overcoat
+        coatMat.SetColor("_BaseColor", new Color(0.18f, 0.24f, 0.20f));
 
         var headMat = new Material(toonShader);
-        headMat.SetColor("_BaseColor", new Color(0.85f, 0.72f, 0.60f)); // Flesh tone
+        headMat.SetColor("_BaseColor", new Color(0.85f, 0.72f, 0.60f));
 
         var capMat = new Material(toonShader);
-        capMat.SetColor("_BaseColor", new Color(0.15f, 0.18f, 0.22f)); // Peaked cap dark navy
+        capMat.SetColor("_BaseColor", new Color(0.15f, 0.18f, 0.22f));
 
         var redMat = new Material(toonShader);
-        redMat.SetColor("_BaseColor", new Color(0.82f, 0.12f, 0.12f)); // Red star / armband
+        redMat.SetColor("_BaseColor", new Color(0.82f, 0.12f, 0.12f));
 
-        // Body Coat
         var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         body.name = "Coat";
         DestroyImmediate(body.GetComponent<Collider>());
@@ -1741,7 +2237,6 @@ public class GuardPawn : MonoBehaviour
         body.transform.localScale = new Vector3(0.55f, 0.85f, 0.45f);
         body.GetComponent<MeshRenderer>().sharedMaterial = coatMat;
 
-        // Head
         var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         head.name = "Head";
         DestroyImmediate(head.GetComponent<Collider>());
@@ -1749,34 +2244,5 @@ public class GuardPawn : MonoBehaviour
         head.transform.localPosition = new Vector3(0f, 1.72f, 0f);
         head.transform.localScale = new Vector3(0.32f, 0.35f, 0.32f);
         head.GetComponent<MeshRenderer>().sharedMaterial = headMat;
-
-        // Officer Peaked Cap
-        var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cap.name = "PeakedCap";
-        DestroyImmediate(cap.GetComponent<Collider>());
-        cap.transform.SetParent(transform, false);
-        cap.transform.localPosition = new Vector3(0f, 1.90f, 0.02f);
-        cap.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
-        cap.transform.localScale = new Vector3(0.38f, 0.08f, 0.42f);
-        cap.GetComponent<MeshRenderer>().sharedMaterial = capMat;
-
-        // Red Cockade / Star on Cap
-        var star = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        star.name = "CapStar";
-        DestroyImmediate(star.GetComponent<Collider>());
-        star.transform.SetParent(transform, false);
-        star.transform.localPosition = new Vector3(0f, 1.92f, 0.22f);
-        star.transform.localScale = new Vector3(0.06f, 0.06f, 0.04f);
-        star.GetComponent<MeshRenderer>().sharedMaterial = redMat;
-
-        // Flashlight beam cone (Semi-transparent yellow cone)
-        var flash = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        flash.name = "Flashlight";
-        DestroyImmediate(flash.GetComponent<Collider>());
-        flash.transform.SetParent(transform, false);
-        flash.transform.localPosition = new Vector3(0.24f, 1.05f, 0.25f);
-        flash.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        flash.transform.localScale = new Vector3(0.06f, 0.16f, 0.06f);
-        if (capMat != null) flash.GetComponent<MeshRenderer>().sharedMaterial = capMat;
     }
 }

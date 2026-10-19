@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -55,7 +55,7 @@ public class VectorCommander : MonoBehaviour
             if (isFinalObjective)
             {
                 if (isDecrypted) return "<color=#00FFAA>ПОБЕДА </color>";
-                if (vc == null) vc = VectorCommander.Instance != null ? VectorCommander.Instance : GameObject.FindObjectOfType<VectorCommander>(true);
+                if (vc == null) vc = VectorCommander.Instance != null ? VectorCommander.Instance : UnityEngine.Object.FindAnyObjectByType<VectorCommander>(UnityEngine.FindObjectsInactive.Include);
                 if (vc != null && !vc.IsFinalFileUnlocked())
                 {
                     int cur = vc.GetDecryptedRegularFilesCount();
@@ -192,23 +192,48 @@ public class VectorCommander : MonoBehaviour
             "• Выберите файл стрелками и нажмите [4] ДЕШИФР или [ENTER] для запуска модуля.\n" +
             "• После решения криптозадачи файл переходит в статус [РАСШИФР].\n" +
             "• Нажмите [5] КОПИЯ для записи на сменный картридж в накопителе A:\\.\n" +
-            "• Следите за нагревом диска! При 90°C сработает защита от расплавления.\n\n" +
-            "2. МОДУЛЬ «МАШИНА ТЬЮРИНГА» (ФАЙЛ ДЕКОДЕР_V2.BIN):\n" +
-            "Главное ядро защищено контрольным числом инкремента (+1):\n" +
-            "• Состояние q0: автоматическая перемотка каретки к младшему биту.\n" +
-            "• Состояние q1: сложение двоичных разрядов в столбик (1011 + 1 = 1100):\n" +
-            "  - При чтении '1': 1 + 1 = 10 ──► Запись [0], Сдвиг [← ВЛЕВО], Состояние [q1]\n" +
-            "  - При чтении '0': 0 + 1 = 1  ──► Запись [1], Сдвиг [• СТОП ], Состояние [HALT]\n" +
-            "• Управление: [ПРОБЕЛ] — шаг каретки (отладка), [ENTER] — пуск, [R] — сброс.\n\n" +
-            "3. ЧАСТОТНЫЙ СПЕКТР (ДИРЕКТИВА_42.DOC):\n" +
-            "Сдвигайте алфавит стрелками, пока пики гласных не совпадут с буквами О, Е, А.\n\n" +
-            "4. КАРТОТЕКА НИИ (КАРТОТЕКА_НИИ.TXT):\n" +
-            "Пароль администратора: Отдел [КРИПТОГРАФИЯ], Допуск [ОСОБЫЙ], Смена [НОЧНАЯ].\n\n" +
-            "5. ДАМП ОЗУ (ДАМП_ПАМЯТИ.MEM):\n" +
-            "Адрес тревоги 0x4F0A замораживается инъекцией NOP-байтов [FF] [FF] [00] [00].", true));
+            "• Нажмите [N] в терминале или [E] на столе, чтобы прочесть записку с ключами!\n" +
+            "• Ошибки блокируют терминал на 2.5с. При 3 ошибках охрана поднимет тревогу!\n\n" +
+            "2. КЛЮЧИ И ПОДСКАЗКИ К НОВЫМ МОДУЛЯМ:\n" +
+            "• ПОИСК_ДАННЫХ.LST — найдите файл с пометкой ★ [ЦЕЛЕВОЙ ОТЧЕТ ЦЕНТРА].\n" +
+            "• СЕЙФ_СВЯЗИ.KEY — пин-код из записки связиста: [ 4 8 2 1 ].\n" +
+            "• СВЯЗЬ_СЕРВЕР.NET — включите Канал I (Север) и III (Резерв), оставьте II выключенным.\n" +
+            "• ПЛАН_АТАКИ.ZIP — шифр Цезаря (сдвиг 3 назад): ATTACK -> DWWDFN_80.ZIP.\n" +
+            "• КАРТЫ_ГЕНШТАБА.ZIP — формула PIN = (17 * 23) - 42 = 349 -> [ 0 3 4 9 ].\n" +
+            "• ДОСЬЕ_САБОТАЖ.DOC — диверсант не из СССР: Лейтенант Бейкер (Даллас, 22:30, 3-08).", true));
 
+        // 1. ПОИСК_ДАННЫХ.LST (Первая головоломка: поиск директивы Центра)
+        leftFiles.Add(new VirtualFile("ПОИСК_ДАННЫХ.LST", 28 * 1024, "14.10.84", false,
+            "Каталог служебных отчетов вычислительного узла.\n" +
+            "Требуется поиск и утверждение целевого пакета Центра (ОТ_ЦЕНТР_ДИРЕКТИВА_ОСОБАЯ_07.DAT).", false));
+
+        // 2. СЕЙФ_СВЯЗИ.KEY (Вторая головоломка: 4-значный ПИН из записки)
+        leftFiles.Add(new VirtualFile("СЕЙФ_СВЯЗИ.KEY", 16 * 1024, "12.10.84", false,
+            "Защищенный архив спецсвязи дежурного шифровальщика.\n" +
+            "Требуется ввод 4-значного пин-кода из служебной записки на столе [4821].", false));
+
+        // 3. СВЯЗЬ_СЕРВЕР.NET (Третья головоломка: восстановление каналов связи)
+        leftFiles.Add(new VirtualFile("СВЯЗЬ_СЕРВЕР.NET", 48 * 1024, "11.10.84", false,
+            "Схема коммутации оптоволоконных и релейных каналов передачи данных.\n" +
+            "Требуется восстановление разорванных линий связи от узла A к узлу B.", false));
+
+        // 4. ПЛАН_АТАКИ.ZIP (Четвертая головоломка: Цезарь со сдвигом 3)
+        leftFiles.Add(new VirtualFile("ПЛАН_АТАКИ.ZIP", 128 * 1024, "09.10.84", false,
+            "Архив с оперативным планом наступления штаба.\n" +
+            "Файлы зашифрованы шифром Цезаря (сдвиг на 3). Найдите директиву «ATTACK».", false));
+
+        // 5. КАРТЫ_ГЕНШТАБА.ZIP (Пятая головоломка: математический расчет пароля)
+        leftFiles.Add(new VirtualFile("КАРТЫ_ГЕНШТАБА.ZIP", 256 * 1024, "07.10.84", false,
+            "Секретный архив топографических карт Генерального Штаба.\n" +
+            "Требуется математическая расшифровка PIN-кода по формуле (A × B) - C.", false));
+
+        // 6. ДОСЬЕ_САБОТАЖ.DOC (Шестая головоломка: дедукция диверсанта)
+        leftFiles.Add(new VirtualFile("ДОСЬЕ_САБОТАЖ.DOC", 36 * 1024, "05.10.84", false,
+            "Картотека сотрудников, находившихся на объекте во время инцидента.\n" +
+            "Требуется дедуктивный анализ ориентировки и вычисление диверсанта.", false));
+
+        // Мастер-модули института:
         leftFiles.Add(new VirtualFile("ДЕКОДЕР_V2.BIN", 64 * 1024, "18.10.84", false,
-            ">> ГЛАВНАЯ ЦЕЛЬ ОПЕРАЦИИ <<\n" +
             "Исполняемое ядро криптоалгоритма «Вектор-70».\n" +
             "Защищено контрольной суммой перфоленты. Требуется Машина Тьюринга.", false));
 
@@ -220,30 +245,6 @@ public class VectorCommander : MonoBehaviour
             "База данных личного состава дежурной смены Сектора 7.\n" +
             "Требуется Реляционный фильтр для нахождения пароля администратора.", false));
 
-        leftFiles.Add(new VirtualFile("ДАМП_ПАМЯТИ.MEM", 128 * 1024, "14.10.84", false,
-            "Дамп сторожевого вектора оперативной памяти.\n" +
-            "Требуется Hex-инъекция байтов NOP для заморозки тревоги.", false));
-
-        leftFiles.Add(new VirtualFile("ПЕРЕХВАТ_УКВ.RAD", 48 * 1024, "12.10.84", false,
-            "Запись эфира армейской радиостанции 144.200 МГц.\n" +
-            "Требуется Осциллограф Лиссажу для слияния несущей частоты.", false));
-
-        leftFiles.Add(new VirtualFile("МАРШРУТЫ_СЕТИ.NET", 64 * 1024, "11.10.84", false,
-            "Таблица коммутации релейных шлюзов подземного бункера.\n" +
-            "Требуется матричная маршрутизация пакета данных.", false));
-
-        leftFiles.Add(new VirtualFile("КОД_ХЭММИНГА.PAR", 24 * 1024, "09.10.84", false,
-            "Ферритовая матрица контрольных сумм ОЗУ.\n" +
-            "Требуется устранение битового сбоя по алгоритму Хэмминга.", false));
-
-        leftFiles.Add(new VirtualFile("СЕКТОРЫ_ДИСКА.DSK", 256 * 1024, "07.10.84", false,
-            "Фрагментированный секторный архив жесткого диска ЕС-5061.\n" +
-            "Требуется секторный захват кластеров в тайминг вращения.", false));
-
-        leftFiles.Add(new VirtualFile("БУФЕР_СТЕКА.STK", 16 * 1024, "05.10.84", false,
-            "Стек регистров доступа операционной системы.\n" +
-            "Требуется переполнение буфера до значения 16 командами PUSH/POP.", false));
-
         leftFiles.Add(new VirtualFile("ШИФР_ФИАЛКА.ROT", 96 * 1024, "03.10.84", false,
             "Векторная схема объекта, зашифрованная машиной «Фиалка-М125».\n" +
             "Требуется установка роторов по ключу дня [ IV - II - VII ].", false));
@@ -254,7 +255,7 @@ public class VectorCommander : MonoBehaviour
             "Главная цель миссии. Заблокирован аппаратным шифром.\n" +
             "Для взлома требуется расшифровать не менее 80% файлов базы данных.", false, true));
 
-        leftSelectedIndex = 2; // Initially highlight ДЕКОДЕР_V2.BIN
+        leftSelectedIndex = 2; // Initially highlight ПОИСК_ДАННЫХ.LST (the first puzzle!)
     }
 
     public int GetTotalRegularFilesCount()
@@ -357,11 +358,11 @@ public class VectorCommander : MonoBehaviour
         }
 
         // Navigation
-        if (IsKeyPressed(KeyCode.UpArrow))
+        if (IsKeyPressed(KeyCode.UpArrow) || IsKeyPressed(KeyCode.W))
         {
             MoveSelection(-1);
         }
-        else if (IsKeyPressed(KeyCode.DownArrow))
+        else if (IsKeyPressed(KeyCode.DownArrow) || IsKeyPressed(KeyCode.S))
         {
             MoveSelection(1);
         }
@@ -441,6 +442,8 @@ public class VectorCommander : MonoBehaviour
             case KeyCode.Alpha5: return kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame;
             case KeyCode.Alpha8: return kb.digit8Key.wasPressedThisFrame || kb.numpad8Key.wasPressedThisFrame;
             case KeyCode.Alpha0: return kb.digit0Key.wasPressedThisFrame || kb.numpad0Key.wasPressedThisFrame;
+            case KeyCode.W: return kb.wKey.wasPressedThisFrame;
+            case KeyCode.S: return kb.sKey.wasPressedThisFrame;
             default: return false;
         }
 #else
@@ -932,6 +935,11 @@ public class VectorCommander : MonoBehaviour
             return;
         }
 
+        StartDecryptorForFile(file);
+    }
+
+    private void StartDecryptorForFile(VirtualFile file)
+    {
         var hub = SpyMiniGames.Instance;
         if (hub == null)
         {
@@ -945,7 +953,6 @@ public class VectorCommander : MonoBehaviour
             gameObject.SetActive(false);
             hub.LaunchMiniGame(file, (success) =>
             {
-                gameObject.SetActive(true);
                 if (success)
                 {
                     file.isDecrypted = true;
@@ -962,16 +969,51 @@ public class VectorCommander : MonoBehaviour
                     // If final objective was successfully decrypted: VICTORY!
                     if (file.isFinalObjective)
                     {
+                        gameObject.SetActive(true);
                         GameVictorySystem.TriggerVictory("ДЕШИФРОВКА ФИНАЛЬНОГО АРХИВА «АРХИВ_ОМЕГА.TOP»");
+                        return;
+                    }
+
+                    // Auto-chain to the next puzzle in sequence (as defined in game design)
+                    int nextIndex = FindNextEncryptedFileIndex(leftSelectedIndex);
+                    if (nextIndex >= 0)
+                    {
+                        leftSelectedIndex = nextIndex;
+                        UpdateAllVisuals();
+                        var nextFile = leftFiles[nextIndex];
+                        MainframeBootQuest.Instance?.ShowNotification(
+                            $"<color=#00FFAA>[СЛЕДУЮЩИЙ АРХИВ]</color> Переход к задаче: {nextFile.name}...");
+                        StartDecryptorForFile(nextFile);
+                        return;
                     }
                 }
+
+                // If user pressed Cancel / Esc or all puzzles done:
+                gameObject.SetActive(true);
+                UpdateAllVisuals();
             });
         }
         else
         {
+            gameObject.SetActive(true);
             PlayErrorBuzz();
             MainframeBootQuest.Instance?.ShowNotification("<color=#FF4444>[ОШИБКА]</color> Модуль криптоанализа не обнаружен в памяти!");
         }
+    }
+
+    private int FindNextEncryptedFileIndex(int startIndex)
+    {
+        for (int i = startIndex + 1; i < leftFiles.Count; i++)
+        {
+            if (!leftFiles[i].isDirectory && !leftFiles[i].isDecrypted && !leftFiles[i].isFinalObjective)
+                return i;
+        }
+        for (int i = 0; i <= startIndex; i++)
+        {
+            if (!leftFiles[i].isDirectory && !leftFiles[i].isDecrypted && !leftFiles[i].isFinalObjective)
+                return i;
+        }
+        return -1;
     }
 
     public void CheckCoolingStatus()

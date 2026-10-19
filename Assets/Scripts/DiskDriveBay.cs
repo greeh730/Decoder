@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -503,6 +503,20 @@ public class DiskDriveBay : MonoBehaviour
         StopSpindleHum();
         PlayHeadCrashSound();
         UpdateLamps();
+
+        // Immediately close minigames and modals
+        SpyMiniGames.Instance?.CancelMiniGame();
+        if (VectorCommander.Instance != null)
+        {
+            VectorCommander.Instance.CloseHelp();
+            VectorCommander.Instance.CloseViewer();
+        }
+
+        // Auto-unzoom monitor so player is never trapped
+        if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+        {
+            PlayerController.Instance.ExitMonitor();
+        }
 
         if (MonitorTerminal.Instance != null)
         {

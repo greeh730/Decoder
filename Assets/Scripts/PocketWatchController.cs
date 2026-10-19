@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -1319,6 +1319,7 @@ public class PocketWatchController : MonoBehaviour
 
     private void OnGUI()
     {
+        GUIFontHelper.Apply();
         if (!isRaised) return;
 
         float sw = Screen.width;
