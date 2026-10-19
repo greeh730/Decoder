@@ -184,6 +184,16 @@ public class MainframeBootQuest : MonoBehaviour
     private AudioClip errorAlarmClip;
 
     private float manualCooldownTimer = 0f;
+    private int lastBreakerToggleFrame = -1;
+    private float lastBreakerToggleTime = -1f;
+    private int lastFilamentToggleFrame = -1;
+    private float lastFilamentToggleTime = -1f;
+    private int lastHvToggleFrame = -1;
+    private float lastHvToggleTime = -1f;
+    private int[] lastSwitchToggleFrame = new int[4] { -1, -1, -1, -1 };
+    private float[] lastSwitchToggleTime = new float[4] { -1f, -1f, -1f, -1f };
+    private int lastIplFrame = -1;
+    private float lastIplTime = -1f;
 
     private void Awake()
     {
@@ -194,9 +204,24 @@ public class MainframeBootQuest : MonoBehaviour
         isTapeInserted = false;
         addressSwitches = new bool[4] { false, false, false, false };
 
+        ResolveReferences();
         CreateMaterials();
         SetupAudio();
         EnsureSwitchBases();
+    }
+
+    private void ResolveReferences()
+    {
+        if (breakerInteractable == null)
+        {
+            var c9 = GameObject.Find("comnata/Cube.009") ?? GameObject.Find("Cube.009");
+            if (c9 != null) breakerInteractable = c9.GetComponent<WorldInteractable>();
+        }
+        if (breakerHandle == null)
+        {
+            var w2 = GameObject.Find("comnata/Walec.002") ?? GameObject.Find("Walec.002");
+            if (w2 != null) breakerHandle = w2.transform;
+        }
     }
 
     private void Start()
@@ -206,27 +231,47 @@ public class MainframeBootQuest : MonoBehaviour
         ShowNotification("ЭВМ обесточена. Найдите документацию в шкафчике или осмотрите щиток.");
     }
 
+    private void SafeBind(WorldInteractable wi, UnityEngine.Events.UnityAction action)
+    {
+        if (wi == null || action == null) return;
+        wi.onInteract.RemoveListener(action);
+        bool hasPersistent = false;
+        for (int i = 0; i < wi.onInteract.GetPersistentEventCount(); i++)
+        {
+            if (wi.onInteract.GetPersistentMethodName(i) == action.Method.Name)
+            {
+                hasPersistent = true;
+                break;
+            }
+        }
+        if (!hasPersistent)
+        {
+            wi.onInteract.AddListener(action);
+        }
+    }
+
     private void BindInteractables()
     {
         if (breakerInteractable != null)
         {
-            breakerInteractable.onInteract.RemoveListener(ToggleBreaker);
-            breakerInteractable.onInteract.AddListener(ToggleBreaker);
+            SafeBind(breakerInteractable, ToggleBreaker);
+        }
+        if (breakerHandle != null)
+        {
+            var handleWi = breakerHandle.GetComponent<WorldInteractable>();
+            if (handleWi != null) SafeBind(handleWi, ToggleBreaker);
         }
         if (filamentInteractable != null)
         {
-            filamentInteractable.onInteract.RemoveListener(ToggleFilament);
-            filamentInteractable.onInteract.AddListener(ToggleFilament);
+            SafeBind(filamentInteractable, ToggleFilament);
         }
         if (hvInteractable != null)
         {
-            hvInteractable.onInteract.RemoveListener(ToggleHighVoltage);
-            hvInteractable.onInteract.AddListener(ToggleHighVoltage);
+            SafeBind(hvInteractable, ToggleHighVoltage);
         }
         if (iplInteractable != null)
         {
-            iplInteractable.onInteract.RemoveListener(PressIPL);
-            iplInteractable.onInteract.AddListener(PressIPL);
+            SafeBind(iplInteractable, PressIPL);
         }
         if (switchInteractables != null)
         {
@@ -235,25 +280,35 @@ public class MainframeBootQuest : MonoBehaviour
                 int idx = i;
                 if (switchInteractables[i] != null)
                 {
-                    switchInteractables[i].onInteract.RemoveAllListeners();
-                    switchInteractables[i].onInteract.AddListener(() => ToggleAddressSwitch(idx));
+                    bool hasPersistent = false;
+                    for (int p = 0; p < switchInteractables[i].onInteract.GetPersistentEventCount(); p++)
+                    {
+                        string mName = switchInteractables[i].onInteract.GetPersistentMethodName(p);
+                        if (mName.Contains("ToggleAddressSwitch") || mName.Contains($"ToggleAddressSwitch{idx}"))
+                        {
+                            hasPersistent = true;
+                            break;
+                        }
+                    }
+                    if (!hasPersistent)
+                    {
+                        switchInteractables[i].onInteract.RemoveAllListeners();
+                        switchInteractables[i].onInteract.AddListener(() => ToggleAddressSwitch(idx));
+                    }
                 }
             }
         }
         if (tapePickupInteractable != null)
         {
-            tapePickupInteractable.onInteract.RemoveListener(TakeTape);
-            tapePickupInteractable.onInteract.AddListener(TakeTape);
+            SafeBind(tapePickupInteractable, TakeTape);
         }
         if (tapeInsertInteractable != null)
         {
-            tapeInsertInteractable.onInteract.RemoveListener(InsertTape);
-            tapeInsertInteractable.onInteract.AddListener(InsertTape);
+            SafeBind(tapeInsertInteractable, InsertTape);
         }
         if (manualInteractable != null)
         {
-            manualInteractable.onInteract.RemoveListener(OpenManual);
-            manualInteractable.onInteract.AddListener(OpenManual);
+            SafeBind(manualInteractable, OpenManual);
         }
     }
 
@@ -319,6 +374,13 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleBreaker()
     {
+        if (Time.frameCount == lastBreakerToggleFrame || (Time.unscaledTime - lastBreakerToggleTime) < 0.35f)
+        {
+            return;
+        }
+        lastBreakerToggleFrame = Time.frameCount;
+        lastBreakerToggleTime = Time.unscaledTime;
+
         PlayBreakerSound();
 
         if (currentStage == BootStage.PowerOff)
@@ -379,6 +441,13 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleFilament()
     {
+        if (Time.frameCount == lastFilamentToggleFrame || (Time.unscaledTime - lastFilamentToggleTime) < 0.35f)
+        {
+            return;
+        }
+        lastFilamentToggleFrame = Time.frameCount;
+        lastFilamentToggleTime = Time.unscaledTime;
+
         if (currentStage < BootStage.BreakerOn || isPowerCutByBreaker)
         {
             ShowNotification("[ОТКАЗ] Нет питания в электросети! Сначала включите рубильник на щитке.");
@@ -435,6 +504,13 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleHighVoltage()
     {
+        if (Time.frameCount == lastHvToggleFrame || (Time.unscaledTime - lastHvToggleTime) < 0.35f)
+        {
+            return;
+        }
+        lastHvToggleFrame = Time.frameCount;
+        lastHvToggleTime = Time.unscaledTime;
+
         PlayBreakerSound();
 
         if (currentStage == BootStage.SystemOnline)
@@ -525,6 +601,12 @@ public class MainframeBootQuest : MonoBehaviour
     public void ToggleAddressSwitch(int index)
     {
         if (index < 0 || index >= addressSwitches.Length) return;
+        if (Time.frameCount == lastSwitchToggleFrame[index] || (Time.unscaledTime - lastSwitchToggleTime[index]) < 0.25f)
+        {
+            return;
+        }
+        lastSwitchToggleFrame[index] = Time.frameCount;
+        lastSwitchToggleTime[index] = Time.unscaledTime;
 
         addressSwitches[index] = !addressSwitches[index];
         PlaySwitchClickSound(index);
@@ -588,6 +670,13 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void PressIPL()
     {
+        if (Time.frameCount == lastIplFrame || (Time.unscaledTime - lastIplTime) < 0.5f)
+        {
+            return;
+        }
+        lastIplFrame = Time.frameCount;
+        lastIplTime = Time.unscaledTime;
+
         if (currentStage < BootStage.HighVoltageOn)
         {
             ShowNotification("[ОТКАЗ] Мейнфрейм не запитан! Пройдите шаги включения питания и накала.");
@@ -707,15 +796,24 @@ public class MainframeBootQuest : MonoBehaviour
         bool isBreakerUp = (currentStage >= BootStage.BreakerOn && !isPowerCutByBreaker);
         if (breakerHandle != null)
         {
-            breakerHandle.localRotation = Quaternion.Euler(isBreakerUp ? -35f : 35f, 0f, 0f);
+            breakerHandle.localRotation = Quaternion.Euler(0f, 0f, isBreakerUp ? 55f : 125f);
         }
         if (breakerLed != null)
         {
             breakerLed.sharedMaterial = isBreakerUp ? ledGreenMat : ledRedMat;
         }
+        string breakerPrompt = isBreakerUp ? "Нажмите [E / ЛКМ] — Отключить главный рубильник питания" : "Нажмите [E / ЛКМ] — Включить главный рубильник питания";
         if (breakerInteractable != null)
         {
-            breakerInteractable.PromptText = isBreakerUp ? "Нажмите [E] — Отключить главный рубильник питания" : "Нажмите [E] — Включить главный рубильник питания";
+            breakerInteractable.PromptText = breakerPrompt;
+        }
+        if (breakerHandle != null)
+        {
+            var handleWi = breakerHandle.GetComponent<WorldInteractable>();
+            if (handleWi != null)
+            {
+                handleWi.PromptText = breakerPrompt;
+            }
         }
 
         EnsureSwitchBases();
