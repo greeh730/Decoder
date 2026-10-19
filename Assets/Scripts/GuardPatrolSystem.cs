@@ -175,59 +175,101 @@ public class GuardPatrolSystem : MonoBehaviour
         float wallH = 3.4f;
 
         // ---------------------------------------------------------
-        // 1. CORRIDOR SEGMENTS (EXPANDED FACILITY NETWORK: ~114m Loop)
+        // 1. CORRIDOR SEGMENTS (EXPANDED WEST FACILITY & CENTRAL COMPLEX)
         // ---------------------------------------------------------
 
-        // A. Main Central Hallway (Runs along Z from -22.0 to +28.0 at X = 13.5, Length: 50.0m)
-        // Doorway into vestibule is centered at Z = -1.5m with width 2.4m
+        // A. West Main Hallway (Runs along Z at X = -8.0 from Z = -22.0 to +28.0, Length: 50.0m, Width: 3.0m)
+        // Spacious corridor 14+ meters away from the server wall.
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(-8.0f, 0.0f, 3.0f),
+            size: new Vector3(3.0f, wallH, 50.0f),
+            wallMat, floorMat, steelMat,
+            eastOpeningsAtZ: new List<float> { 26.0f, 13.5f, -1.65f, -10.0f, -20.0f },
+            closeStart: true, closeEnd: true);
+
+        // B. West-to-Door Direct Approach Corridor (Runs along X at Z = -1.65 from X = -6.5 to X = 8.90, Length: 15.4m, Width: 2.2m)
+        // Connects West Main Hallway directly to the Lab Vestibule and outside MetalDoor3!
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(1.20f, 0.0f, -1.65f),
+            size: new Vector3(15.4f, wallH, 2.20f),
+            wallMat, floorMat, steelMat);
+
+        // C. Lab Entrance Vestibule (Spans X = 8.90 to 12.00 at Z = -1.65, Length: 3.10m, Width: 2.40m)
+        // Connects West Approach Corridor on West, Central Hallway on East, and MetalDoor3 on North.
+        CreateVestibuleSection(floorsGroup, wallsGroup, lightsGroup, wallMat, floorMat, steelMat, wallH);
+
+        // D. Main Central Hallway (Runs along Z at X = 13.5 from Z = -22.0 to +28.0, Length: 50.0m, Width: 3.0m)
         CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
             center: new Vector3(13.5f, 0.0f, 3.0f),
             size: new Vector3(3.0f, wallH, 50.0f),
             wallMat, floorMat, steelMat,
-            openWestDoorAtZ: -1.5f);
+            westOpeningsAtZ: new List<float> { 26.0f, -1.65f, -20.0f },
+            eastOpeningsAtZ: new List<float> { 26.0f, 13.5f, -6.5f, -20.0f },
+            closeStart: true, closeEnd: true);
 
-        // B. Lab Entrance Vestibule (Connects MetalDoor3 at (9.67, 1.09, -0.52) to Main Hallway at X = 12.0)
-        CreateVestibuleSection(floorsGroup, wallsGroup, lightsGroup, wallMat, floorMat, steelMat, wallH);
-
-        // C. North Wing (Branches East from Main at Z = 26.0 to X = 24.5, Length: 11.0m)
-        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(19.0f, 0.0f, 26.0f),
-            size: new Vector3(11.0f, wallH, 2.8f),
-            wallMat, floorMat, steelMat);
-
-        // D. South Wing (Branches East from Main at Z = -20.0 to X = 24.5, Length: 11.0m)
-        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(19.0f, 0.0f, -20.0f),
-            size: new Vector3(11.0f, wallH, 2.8f),
-            wallMat, floorMat, steelMat);
-
-        // E. Mid North Cross (Research Branch at Z = 13.5 from X = 13.5 to X = 24.5)
-        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(19.0f, 0.0f, 13.5f),
-            size: new Vector3(11.0f, wallH, 2.8f),
-            wallMat, floorMat, steelMat);
-
-        // F. Mid South Cross (Archive Branch at Z = -6.5 from X = 13.5 to X = 24.5)
-        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(19.0f, 0.0f, -6.5f),
-            size: new Vector3(11.0f, wallH, 2.8f),
-            wallMat, floorMat, steelMat);
-
-        // G. East Perimeter Hallway (Connects North and South at X = 24.5 from Z = -21.0 to +27.0, Length: 48.0m)
+        // E. East Perimeter Hallway (Runs along Z at X = 24.5 from Z = -22.0 to +28.0, Length: 50.0m, Width: 2.6m)
         CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
             center: new Vector3(24.5f, 0.0f, 3.0f),
-            size: new Vector3(2.6f, wallH, 48.0f),
+            size: new Vector3(2.6f, wallH, 50.0f),
+            wallMat, floorMat, steelMat,
+            westOpeningsAtZ: new List<float> { 26.0f, 13.5f, -6.5f, -20.0f },
+            closeStart: true, closeEnd: true);
+
+        // F. North Concourse - West Segment (Runs along X at Z = 26.0 from X = -6.5 to X = 12.0, Length: 18.5m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(2.75f, 0.0f, 26.0f),
+            size: new Vector3(18.5f, wallH, 2.8f),
             wallMat, floorMat, steelMat);
 
-        // H. West Back Maintenance Passage (Runs along Z outside comnata at X = 3.08 from Z = -2.0 to +9.0)
+        // G. North Concourse - East Segment / North Wing (Runs along X at Z = 26.0 from X = 15.0 to X = 23.2, Length: 8.2m, Width: 2.8m)
         CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
-            center: new Vector3(3.08f, 0.0f, 3.5f),
-            size: new Vector3(2.0f, wallH * 0.8f, 11.0f),
+            center: new Vector3(19.1f, 0.0f, 26.0f),
+            size: new Vector3(8.2f, wallH, 2.8f),
             wallMat, floorMat, steelMat);
+
+        // H. South Concourse - West Segment (Runs along X at Z = -20.0 from X = -6.5 to X = 12.0, Length: 18.5m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(2.75f, 0.0f, -20.0f),
+            size: new Vector3(18.5f, wallH, 2.8f),
+            wallMat, floorMat, steelMat);
+
+        // I. South Concourse - East Segment / South Wing (Runs along X at Z = -20.0 from X = 15.0 to X = 23.2, Length: 8.2m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(19.1f, 0.0f, -20.0f),
+            size: new Vector3(8.2f, wallH, 2.8f),
+            wallMat, floorMat, steelMat);
+
+        // J. East Mid-North Cross (Research Branch at Z = 13.5 from X = 15.0 to X = 23.2, Length: 8.2m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(19.1f, 0.0f, 13.5f),
+            size: new Vector3(8.2f, wallH, 2.8f),
+            wallMat, floorMat, steelMat);
+
+        // K. East Mid-South Cross (Archive Branch at Z = -6.5 from X = 15.0 to X = 23.2, Length: 8.2m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(19.1f, 0.0f, -6.5f),
+            size: new Vector3(8.2f, wallH, 2.8f),
+            wallMat, floorMat, steelMat);
+
+        // L. West Technical Lab Bay (Branches East from West Main at Z = 13.5 from X = -6.5 to X = 0.5, Length: 7.0m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(-3.0f, 0.0f, 13.5f),
+            size: new Vector3(7.0f, wallH, 2.8f),
+            wallMat, floorMat, steelMat,
+            closeEnd: true);
+
+        // M. West Substation Wing (Branches East from West Main at Z = -10.0 from X = -6.5 to X = -1.5, Length: 5.0m, Width: 2.8m)
+        CreateHallwaySection(floorsGroup, wallsGroup, lightsGroup,
+            center: new Vector3(-4.0f, 0.0f, -10.0f),
+            size: new Vector3(5.0f, wallH, 2.8f),
+            wallMat, floorMat, steelMat,
+            closeEnd: true);
 
         // ---------------------------------------------------------
         // 2. CHECKPOINTS & SECURITY PROPS
         // ---------------------------------------------------------
+        CreateCheckpointGate(doorsGroup, new Vector3(-8.0f, 0f, 10.0f), "КПП ЗАПАД", redMat, steelMat);
+        CreateCheckpointGate(doorsGroup, new Vector3(1.20f, 0f, -1.65f), "ТЕХСЕКТОР 3", redMat, steelMat);
         CreateCheckpointGate(doorsGroup, new Vector3(13.5f, 0f, 15.0f), "СЕКТОР А", redMat, steelMat);
         CreateCheckpointGate(doorsGroup, new Vector3(13.5f, 0f, -7.0f), "СЕКТОР Б", redMat, steelMat);
         CreateCheckpointGate(doorsGroup, new Vector3(24.5f, 0f, 20.0f), "КПП СЕВЕР", redMat, steelMat);
@@ -242,7 +284,6 @@ public class GuardPatrolSystem : MonoBehaviour
         routes.Clear();
 
         // ROUTE 1: Expanded Facility Perimeter Circuit (~114m Loop)
-        // Guard walks past the lab vestibule briefly once every ~80 seconds!
         var r1 = new PatrolRoute
         {
             routeName = "Маршрут 1: Периметр безопасности и сектор ЭВМ",
@@ -250,17 +291,17 @@ public class GuardPatrolSystem : MonoBehaviour
             isLoop = true,
             waitTimeAtWaypoint = 1.8f
         };
-        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP0_DoorLab", new Vector3(13.5f, 0.03f, -1.5f)));
+        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP0_DoorLab", new Vector3(13.5f, 0.03f, -1.65f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP1_SectorB", new Vector3(13.5f, 0.03f, -7.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP2_MainSouth", new Vector3(13.5f, 0.03f, -14.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP3_GeneratorSouth", new Vector3(13.5f, 0.03f, -20.0f)));
-        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP4_SouthCross", new Vector3(19.0f, 0.03f, -20.0f)));
+        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP4_SouthCross", new Vector3(19.1f, 0.03f, -20.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP5_EastSouthJunction", new Vector3(24.5f, 0.03f, -20.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP6_EastMidSouth", new Vector3(24.5f, 0.03f, -6.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP7_EastCenter", new Vector3(24.5f, 0.03f, 3.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP8_EastMidNorth", new Vector3(24.5f, 0.03f, 13.5f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP9_EastNorthJunction", new Vector3(24.5f, 0.03f, 26.0f)));
-        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP10_NorthCross", new Vector3(19.0f, 0.03f, 26.0f)));
+        r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP10_NorthCross", new Vector3(19.1f, 0.03f, 26.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP11_MainNorth", new Vector3(13.5f, 0.03f, 26.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP12_SectorA", new Vector3(13.5f, 0.03f, 15.0f)));
         r1.waypoints.Add(CreateWaypoint(wpRoot, "R1_WP13_MainApproach", new Vector3(13.5f, 0.03f, 6.0f)));
@@ -278,160 +319,190 @@ public class GuardPatrolSystem : MonoBehaviour
         r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP1_EastCenter", new Vector3(24.5f, 0.03f, 3.5f)));
         r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP2_EastMidSouth", new Vector3(24.5f, 0.03f, -6.5f)));
         r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP3_EastSouthGate", new Vector3(24.5f, 0.03f, -14.0f)));
-        r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP4_SouthCrossArchive", new Vector3(19.0f, 0.03f, -6.5f)));
+        r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP4_SouthCrossArchive", new Vector3(19.1f, 0.03f, -6.5f)));
+        r2.waypoints.Add(CreateWaypoint(wpRoot, "R2_WP5_CentralCrossArchive", new Vector3(13.5f, 0.03f, -6.5f)));
         routes.Add(r2);
 
-        // ROUTE 3: Back Maintenance Service Crawlway (Cyan)
+        // ROUTE 3: West Complex Research & Substation Circuit (Cyan) (~130m Loop)
+        // Guard 3 patrols the spacious West Wing and North Concourse far from the server wall!
         var r3 = new PatrolRoute
         {
-            routeName = "Маршрут 3: Служебный тоннель за серверами",
+            routeName = "Маршрут 3: Западный комплекс и энергоподстанция",
             routeColor = new Color(0.2f, 0.85f, 0.95f),
             isLoop = true,
-            waitTimeAtWaypoint = 1.5f
+            waitTimeAtWaypoint = 2.0f
         };
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP0_ServiceSouth", new Vector3(3.08f, 0.03f, -1.5f)));
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP1_ServiceBehindRack", new Vector3(3.08f, 0.03f, 3.5f)));
-        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP2_ServiceNorth", new Vector3(3.08f, 0.03f, 8.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP0_WestSouth", new Vector3(-8.0f, 0.03f, -20.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP1_SubstationJunction", new Vector3(-8.0f, 0.03f, -10.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP2_SubstationBay", new Vector3(-3.5f, 0.03f, -10.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP3_SubstationReturn", new Vector3(-8.0f, 0.03f, -10.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP4_WestApproachJunction", new Vector3(-8.0f, 0.03f, -1.65f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP5_WestMainMid", new Vector3(-8.0f, 0.03f, 6.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP6_LabBayJunction", new Vector3(-8.0f, 0.03f, 13.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP7_LabBayInside", new Vector3(-2.75f, 0.03f, 13.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP8_LabBayReturn", new Vector3(-8.0f, 0.03f, 13.5f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP9_WestNorthJunction", new Vector3(-8.0f, 0.03f, 26.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP10_NorthConcourseMid", new Vector3(2.75f, 0.03f, 26.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP11_NorthConcourseCentral", new Vector3(12.0f, 0.03f, 26.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP12_NorthConcourseReturn", new Vector3(2.75f, 0.03f, 26.0f)));
+        r3.waypoints.Add(CreateWaypoint(wpRoot, "R3_WP13_WestNorthReturn", new Vector3(-8.0f, 0.03f, 26.0f)));
         routes.Add(r3);
     }
 
     private void CreateVestibuleSection(Transform floors, Transform walls, Transform lights,
         Material wallMat, Material floorMat, Material steelMat, float wallH)
     {
+        // Spans X = 8.90f to 12.00f, centered at Z = -1.65f, size Z = 2.40f
+        float xMin = 8.90f;
+        float xMax = 12.00f;
+        float xCenter = (xMin + xMax) * 0.5f; // 10.45f
+        float xLen = xMax - xMin;             // 3.10f
+        float zCenter = -1.65f;
+        float zLen = 2.40f;
+        float zSouth = zCenter - zLen * 0.5f; // -2.85f
+
         // 1. Floor
         var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         floor.name = "VestibuleFloor";
         floor.transform.SetParent(floors, false);
-        floor.transform.position = new Vector3(10.60f, -0.05f, -1.50f);
-        floor.transform.localScale = new Vector3(3.40f, 0.10f, 2.50f);
+        floor.transform.position = new Vector3(xCenter, -0.05f, zCenter);
+        floor.transform.localScale = new Vector3(xLen, 0.10f, zLen);
         if (floorMat != null) floor.GetComponent<MeshRenderer>().sharedMaterial = floorMat;
 
         // 2. Ceiling
         var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
         ceiling.name = "VestibuleCeiling";
         ceiling.transform.SetParent(walls, false);
-        ceiling.transform.position = new Vector3(10.60f, wallH + 0.05f, -1.50f);
-        ceiling.transform.localScale = new Vector3(3.40f, 0.10f, 2.50f);
+        ceiling.transform.position = new Vector3(xCenter, wallH + 0.05f, zCenter);
+        ceiling.transform.localScale = new Vector3(xLen, 0.10f, zLen);
         if (wallMat != null) ceiling.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // 3. South Wall
+        // 3. South Wall (solid along Z = -2.85f)
         var wallS = GameObject.CreatePrimitive(PrimitiveType.Cube);
         wallS.name = "VestibuleWall_South";
         wallS.transform.SetParent(walls, false);
-        wallS.transform.position = new Vector3(10.60f, wallH * 0.5f, -2.75f);
-        wallS.transform.localScale = new Vector3(3.40f, wallH, 0.20f);
+        wallS.transform.position = new Vector3(xCenter, wallH * 0.5f, zSouth);
+        wallS.transform.localScale = new Vector3(xLen, wallH, 0.20f);
         if (wallMat != null) wallS.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // 4. West Wall (from Z = -2.75 to Z = -0.52 at X = 8.90)
-        var wallW = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        wallW.name = "VestibuleWall_West";
-        wallW.transform.SetParent(walls, false);
-        wallW.transform.position = new Vector3(8.90f, wallH * 0.5f, -1.635f);
-        wallW.transform.localScale = new Vector3(0.20f, wallH, 2.27f);
-        if (wallMat != null) wallW.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        // 4. West Archway overhead (X = 8.90f) connecting West Approach Corridor
+        var archW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        archW.name = "VestibuleArch_West";
+        archW.transform.SetParent(walls, false);
+        archW.transform.position = new Vector3(xMin, wallH * 0.85f, zCenter);
+        archW.transform.localScale = new Vector3(0.20f, wallH * 0.3f, zLen);
+        if (wallMat != null) archW.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // 5. Lamp
+        // 5. East Archway overhead (X = 12.00f) connecting Central Hallway
+        var archE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        archE.name = "VestibuleArch_East";
+        archE.transform.SetParent(walls, false);
+        archE.transform.position = new Vector3(xMax, wallH * 0.85f, zCenter);
+        archE.transform.localScale = new Vector3(0.20f, wallH * 0.3f, zLen);
+        if (wallMat != null) archE.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+
+        // 6. North Wall with Doorway for MetalDoor3 (doorway at X = 9.10 to 10.24)
+        // Segment 1 (West of door): 8.90 to 9.10 (width 0.20)
+        var wN1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wN1.name = "VestibuleWall_North_W";
+        wN1.transform.SetParent(walls, false);
+        wN1.transform.position = new Vector3(9.00f, wallH * 0.5f, -0.52f);
+        wN1.transform.localScale = new Vector3(0.20f, wallH, 0.20f);
+        if (wallMat != null) wN1.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+
+        // Segment 2 (East of door): 10.24 to 12.00 (width 1.76)
+        var wN2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wN2.name = "VestibuleWall_North_E";
+        wN2.transform.SetParent(walls, false);
+        wN2.transform.position = new Vector3((10.24f + 12.00f) * 0.5f, wallH * 0.5f, -0.52f);
+        wN2.transform.localScale = new Vector3(12.00f - 10.24f, wallH, 0.20f);
+        if (wallMat != null) wN2.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+
+        // Lintel over MetalDoor3: 9.10 to 10.24
+        var lintelDoor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        lintelDoor.name = "VestibuleDoorLintel";
+        lintelDoor.transform.SetParent(walls, false);
+        lintelDoor.transform.position = new Vector3((9.10f + 10.24f) * 0.5f, wallH * 0.85f, -0.52f);
+        lintelDoor.transform.localScale = new Vector3(1.14f, wallH * 0.3f, 0.20f);
+        if (wallMat != null) lintelDoor.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+
+        // 7. Lamp
         var lampFixture = GameObject.CreatePrimitive(PrimitiveType.Cube);
         lampFixture.name = "VestibuleLamp";
         lampFixture.transform.SetParent(lights, false);
-        lampFixture.transform.position = new Vector3(10.60f, wallH - 0.15f, -1.50f);
+        lampFixture.transform.position = new Vector3(xCenter, wallH - 0.15f, zCenter);
         lampFixture.transform.localScale = new Vector3(0.25f, 0.08f, 1.20f);
         if (steelMat != null) lampFixture.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
     }
 
     private void CreateHallwaySection(Transform floors, Transform walls, Transform lights,
         Vector3 center, Vector3 size, Material wallMat, Material floorMat, Material steelMat,
-        float openWestDoorAtZ = -999f)
+        List<float> westOpeningsAtZ = null, List<float> eastOpeningsAtZ = null,
+        List<float> northOpeningsAtX = null, List<float> southOpeningsAtX = null,
+        bool closeStart = false, bool closeEnd = false,
+        float defaultDoorOpeningW = 2.6f)
     {
         // 1. Floor
         var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        floor.name = $"Floor_{center.x}_{center.z}";
+        floor.name = $"Floor_{center.x:F1}_{center.z:F1}";
         floor.transform.SetParent(floors, false);
         floor.transform.position = new Vector3(center.x, -0.05f, center.z);
-        floor.transform.localScale = new Vector3(size.x, 0.1f, size.z);
+        floor.transform.localScale = new Vector3(size.x, 0.10f, size.z);
         if (floorMat != null) floor.GetComponent<MeshRenderer>().sharedMaterial = floorMat;
 
         // 2. Ceiling
         var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ceiling.name = $"Ceiling_{center.x}_{center.z}";
+        ceiling.name = $"Ceiling_{center.x:F1}_{center.z:F1}";
         ceiling.transform.SetParent(walls, false);
         ceiling.transform.position = new Vector3(center.x, size.y + 0.05f, center.z);
-        ceiling.transform.localScale = new Vector3(size.x, 0.1f, size.z);
+        ceiling.transform.localScale = new Vector3(size.x, 0.10f, size.z);
         if (wallMat != null) ceiling.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
 
-        // 3. Walls (Left & Right or North & South)
+        // 3. Side Walls with Openings
         float halfW = size.x * 0.5f;
         float halfL = size.z * 0.5f;
 
         if (size.z >= size.x) // Running along Z
         {
+            float zMin = center.z - halfL;
+            float zMax = center.z + halfL;
+
+            // West Wall
+            BuildWallSpanAlongZ(walls, wallMat, center.x - halfW, size.y, zMin, zMax, westOpeningsAtZ, 0.2f, defaultDoorOpeningW);
+
             // East Wall
-            var wallE = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wallE.name = "Wall_East";
-            wallE.transform.SetParent(walls, false);
-            wallE.transform.position = new Vector3(center.x + halfW, size.y * 0.5f, center.z);
-            wallE.transform.localScale = new Vector3(0.2f, size.y, size.z);
-            if (wallMat != null) wallE.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            BuildWallSpanAlongZ(walls, wallMat, center.x + halfW, size.y, zMin, zMax, eastOpeningsAtZ, 0.2f, defaultDoorOpeningW);
 
-            // West Wall (with optional doorway opening)
-            if (openWestDoorAtZ > -900f)
+            // Optional end caps
+            if (closeStart)
             {
-                float doorZ = openWestDoorAtZ;
-                float doorOpeningW = 2.4f;
-                float halfOpening = doorOpeningW * 0.5f;
-
-                float seg1L = Mathf.Max(0.5f, (doorZ - halfOpening) - (center.z - halfL));
-                float seg2L = Mathf.Max(0.5f, (center.z + halfL) - (doorZ + halfOpening));
-
-                var wallW1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                wallW1.name = "Wall_West_South";
-                wallW1.transform.SetParent(walls, false);
-                wallW1.transform.position = new Vector3(center.x - halfW, size.y * 0.5f, (center.z - halfL) + seg1L * 0.5f);
-                wallW1.transform.localScale = new Vector3(0.2f, size.y, seg1L);
-                if (wallMat != null) wallW1.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
-
-                var wallW2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                wallW2.name = "Wall_West_North";
-                wallW2.transform.SetParent(walls, false);
-                wallW2.transform.position = new Vector3(center.x - halfW, size.y * 0.5f, (center.z + halfL) - seg2L * 0.5f);
-                wallW2.transform.localScale = new Vector3(0.2f, size.y, seg2L);
-                if (wallMat != null) wallW2.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
-
-                // Lintel over door
-                var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                lintel.name = "Wall_West_Lintel";
-                lintel.transform.SetParent(walls, false);
-                lintel.transform.position = new Vector3(center.x - halfW, size.y * 0.85f, doorZ);
-                lintel.transform.localScale = new Vector3(0.2f, size.y * 0.3f, doorOpeningW);
-                if (wallMat != null) lintel.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+                BuildEndCapWall(walls, wallMat, new Vector3(center.x, size.y * 0.5f, zMin), new Vector3(size.x, size.y, 0.2f));
             }
-            else
+            if (closeEnd)
             {
-                var wallW = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                wallW.name = "Wall_West";
-                wallW.transform.SetParent(walls, false);
-                wallW.transform.position = new Vector3(center.x - halfW, size.y * 0.5f, center.z);
-                wallW.transform.localScale = new Vector3(0.2f, size.y, size.z);
-                if (wallMat != null) wallW.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+                BuildEndCapWall(walls, wallMat, new Vector3(center.x, size.y * 0.5f, zMax), new Vector3(size.x, size.y, 0.2f));
             }
         }
         else // Running along X
         {
+            float xMin = center.x - halfW;
+            float xMax = center.x + halfW;
+
             // North Wall
-            var wallN = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wallN.name = "Wall_North";
-            wallN.transform.SetParent(walls, false);
-            wallN.transform.position = new Vector3(center.x, size.y * 0.5f, center.z + halfL);
-            wallN.transform.localScale = new Vector3(size.x, size.y, 0.2f);
-            if (wallMat != null) wallN.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            BuildWallSpanAlongX(walls, wallMat, center.z + halfL, size.y, xMin, xMax, northOpeningsAtX, 0.2f, defaultDoorOpeningW);
 
             // South Wall
-            var wallS = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wallS.name = "Wall_South";
-            wallS.transform.SetParent(walls, false);
-            wallS.transform.position = new Vector3(center.x, size.y * 0.5f, center.z - halfL);
-            wallS.transform.localScale = new Vector3(size.x, size.y, 0.2f);
-            if (wallMat != null) wallS.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            BuildWallSpanAlongX(walls, wallMat, center.z - halfL, size.y, xMin, xMax, southOpeningsAtX, 0.2f, defaultDoorOpeningW);
+
+            // Optional end caps
+            if (closeStart)
+            {
+                BuildEndCapWall(walls, wallMat, new Vector3(xMin, size.y * 0.5f, center.z), new Vector3(0.2f, size.y, size.z));
+            }
+            if (closeEnd)
+            {
+                BuildEndCapWall(walls, wallMat, new Vector3(xMax, size.y * 0.5f, center.z), new Vector3(0.2f, size.y, size.z));
+            }
         }
 
         // 4. Industrial Fluorescent Lamps along center
@@ -453,6 +524,150 @@ public class GuardPatrolSystem : MonoBehaviour
             lampFixture.transform.localScale = new Vector3(0.25f, 0.08f, 1.2f);
             if (steelMat != null) lampFixture.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
         }
+    }
+
+    private void BuildWallSpanAlongZ(Transform walls, Material wallMat, float wallX, float wallY,
+        float zMin, float zMax, List<float> openings, float wallThickness = 0.2f, float doorOpeningW = 2.6f)
+    {
+        if (openings == null || openings.Count == 0)
+        {
+            float len = zMax - zMin;
+            if (len <= 0.1f) return;
+            var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            w.name = $"Wall_Z_{wallX:F1}_{zMin:F1}_to_{zMax:F1}";
+            w.transform.SetParent(walls, false);
+            w.transform.position = new Vector3(wallX, wallY * 0.5f, (zMin + zMax) * 0.5f);
+            w.transform.localScale = new Vector3(wallThickness, wallY, len);
+            if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            return;
+        }
+
+        var sorted = new List<float>();
+        foreach (var op in openings)
+        {
+            if (op >= zMin - 0.2f && op <= zMax + 0.2f) sorted.Add(op);
+        }
+        sorted.Sort();
+
+        float curZ = zMin;
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            float opZ = sorted[i];
+            float opStart = Mathf.Max(zMin, opZ - doorOpeningW * 0.5f);
+            float opEnd = Mathf.Min(zMax, opZ + doorOpeningW * 0.5f);
+
+            if (opStart > curZ + 0.15f)
+            {
+                float segLen = opStart - curZ;
+                var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w.name = $"Wall_Z_{wallX:F1}_{curZ:F1}_to_{opStart:F1}";
+                w.transform.SetParent(walls, false);
+                w.transform.position = new Vector3(wallX, wallY * 0.5f, (curZ + opStart) * 0.5f);
+                w.transform.localScale = new Vector3(wallThickness, wallY, segLen);
+                if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            }
+
+            float lintelLen = opEnd - opStart;
+            if (lintelLen > 0.2f)
+            {
+                var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                lintel.name = $"Lintel_Z_{wallX:F1}_{opZ:F1}";
+                lintel.transform.SetParent(walls, false);
+                lintel.transform.position = new Vector3(wallX, wallY * 0.85f, (opStart + opEnd) * 0.5f);
+                lintel.transform.localScale = new Vector3(wallThickness, wallY * 0.3f, lintelLen);
+                if (wallMat != null) lintel.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            }
+
+            curZ = opEnd;
+        }
+
+        if (curZ < zMax - 0.15f)
+        {
+            float segLen = zMax - curZ;
+            var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            w.name = $"Wall_Z_{wallX:F1}_{curZ:F1}_to_{zMax:F1}";
+            w.transform.SetParent(walls, false);
+            w.transform.position = new Vector3(wallX, wallY * 0.5f, (curZ + zMax) * 0.5f);
+            w.transform.localScale = new Vector3(wallThickness, wallY, segLen);
+            if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        }
+    }
+
+    private void BuildWallSpanAlongX(Transform walls, Material wallMat, float wallZ, float wallY,
+        float xMin, float xMax, List<float> openings, float wallThickness = 0.2f, float doorOpeningW = 2.6f)
+    {
+        if (openings == null || openings.Count == 0)
+        {
+            float len = xMax - xMin;
+            if (len <= 0.1f) return;
+            var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            w.name = $"Wall_X_{wallZ:F1}_{xMin:F1}_to_{xMax:F1}";
+            w.transform.SetParent(walls, false);
+            w.transform.position = new Vector3((xMin + xMax) * 0.5f, wallY * 0.5f, wallZ);
+            w.transform.localScale = new Vector3(len, wallY, wallThickness);
+            if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            return;
+        }
+
+        var sorted = new List<float>();
+        foreach (var op in openings)
+        {
+            if (op >= xMin - 0.2f && op <= xMax + 0.2f) sorted.Add(op);
+        }
+        sorted.Sort();
+
+        float curX = xMin;
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            float opX = sorted[i];
+            float opStart = Mathf.Max(xMin, opX - doorOpeningW * 0.5f);
+            float opEnd = Mathf.Min(xMax, opX + doorOpeningW * 0.5f);
+
+            if (opStart > curX + 0.15f)
+            {
+                float segLen = opStart - curX;
+                var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w.name = $"Wall_X_{wallZ:F1}_{curX:F1}_to_{opStart:F1}";
+                w.transform.SetParent(walls, false);
+                w.transform.position = new Vector3((curX + opStart) * 0.5f, wallY * 0.5f, wallZ);
+                w.transform.localScale = new Vector3(segLen, wallY, wallThickness);
+                if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            }
+
+            float lintelLen = opEnd - opStart;
+            if (lintelLen > 0.2f)
+            {
+                var lintel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                lintel.name = $"Lintel_X_{wallZ:F1}_{opX:F1}";
+                lintel.transform.SetParent(walls, false);
+                lintel.transform.position = new Vector3((opStart + opEnd) * 0.5f, wallY * 0.85f, wallZ);
+                lintel.transform.localScale = new Vector3(lintelLen, wallY * 0.3f, wallThickness);
+                if (wallMat != null) lintel.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+            }
+
+            curX = opEnd;
+        }
+
+        if (curX < xMax - 0.15f)
+        {
+            float segLen = xMax - curX;
+            var w = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            w.name = $"Wall_X_{wallZ:F1}_{curX:F1}_to_{xMax:F1}";
+            w.transform.SetParent(walls, false);
+            w.transform.position = new Vector3((curX + xMax) * 0.5f, wallY * 0.5f, wallZ);
+            w.transform.localScale = new Vector3(segLen, wallY, wallThickness);
+            if (wallMat != null) w.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
+        }
+    }
+
+    private void BuildEndCapWall(Transform walls, Material wallMat, Vector3 pos, Vector3 size)
+    {
+        var cap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        cap.name = $"EndCap_{pos.x:F1}_{pos.z:F1}";
+        cap.transform.SetParent(walls, false);
+        cap.transform.position = pos;
+        cap.transform.localScale = size;
+        if (wallMat != null) cap.GetComponent<MeshRenderer>().sharedMaterial = wallMat;
     }
 
     private void CreateCheckpointGate(Transform parent, Vector3 pos, string label, Material redMat, Material steelMat)
@@ -581,11 +796,15 @@ public class GuardPawn : MonoBehaviour
     private GuardState currentState = GuardState.Patrolling;
 
     // Door and room breach points
-    private readonly Vector3 vestibuleEntrancePos = new Vector3(12.2f, 0.0f, -1.50f);
-    private readonly Vector3 outsideDoorPos = new Vector3(9.67f, 0.0f, -1.25f);
+    private readonly Vector3 vestibuleEntrancePos = new Vector3(12.0f, 0.0f, -1.65f);
+    private readonly Vector3 outsideDoorPos = new Vector3(9.67f, 0.0f, -1.40f);
     private readonly Vector3 doorwayThresholdPos = new Vector3(9.67f, 0.0f, 0.30f);
     private readonly Vector3 roomSearchPos = new Vector3(8.50f, 0.0f, 1.80f);
     private readonly Vector3 labDoorCoord = new Vector3(9.67f, 0.0f, -0.52f);
+
+    // Deterministic corridor breach & investigation navigation (no wall clipping!)
+    private readonly List<Vector3> breachPath = new List<Vector3>();
+    private int breachPathIndex = 0;
 
     private Transform doorHingePivot;
     private float doorOpenProgress = 0f;
@@ -593,6 +812,12 @@ public class GuardPawn : MonoBehaviour
     private float lastAlertNotifyTime = -10f;
     private float stepTimer = 0f;
     private bool isLeftStep = false;
+
+    // Logging & Aggro state tracking
+    private bool hasLoggedInitialDetect = false;
+    private bool hasLoggedYellowAlert = false;
+    private float lastAggroLogTime = -99f;
+    private bool isAnyAlertSourceActive = false;
 
     // Procedural Audio
     private AudioSource footstepAudioSource;
@@ -606,6 +831,21 @@ public class GuardPawn : MonoBehaviour
     public bool IsInvestigating => suspicion > 0.35f;
     public bool IsHighAlert => suspicion >= 0.85f;
     public GuardState CurrentState => currentState;
+
+    public void AddSuspicion(float amount, string reason)
+    {
+        float oldSusp = suspicion;
+        suspicion = Mathf.Clamp01(suspicion + amount);
+        float distToDoor = Vector3.Distance(transform.position, labDoorCoord);
+        Debug.Log($"<color=#FF5500><b>[AGGRO: ВСПЛЕСК ТРЕВОГИ +{(amount * 100f):F0}%]</b></color> <b>{name}</b> среагировал на: <b>{reason}</b>\n" +
+                  $"• Позиция охраны: {transform.position:F1} | Дистанция до двери: {distToDoor:F1}м\n" +
+                  $"• Уровень тревоги: {(oldSusp * 100f):F0}% -> {(suspicion * 100f):F0}%");
+
+        if (suspicion >= 0.85f && currentState < GuardState.BreachMovingToDoor)
+        {
+            StartBreachSequence();
+        }
+    }
 
     private void Awake()
     {
@@ -646,31 +886,56 @@ public class GuardPawn : MonoBehaviour
     {
         if (footstepAudioSource != null) return;
 
-        // 1. Footstep 3D AudioSource (audible up to 17.5m, well before guard hearing range 9.5m)
+        // 1. Footstep 3D AudioSource (audible up to 11.5m with balanced spatial rolloff curve)
         var footstepObj = new GameObject("GuardFootstepAudio");
         footstepObj.transform.SetParent(transform, false);
-        footstepObj.transform.localPosition = Vector3.zero;
+        footstepObj.transform.localPosition = new Vector3(0f, 0.1f, 0f);
 
         footstepAudioSource = footstepObj.AddComponent<AudioSource>();
-        footstepAudioSource.spatialBlend = 1.0f; // 3D sound
-        footstepAudioSource.rolloffMode = AudioRolloffMode.Linear;
-        footstepAudioSource.minDistance = 2.5f;
-        footstepAudioSource.maxDistance = 17.5f;
-        footstepAudioSource.volume = 0.95f;
+        footstepAudioSource.spatialBlend = 1.0f; // 100% true 3D spatial sound!
+        footstepAudioSource.rolloffMode = AudioRolloffMode.Custom;
+        footstepAudioSource.minDistance = 1.5f;
+        footstepAudioSource.maxDistance = 11.5f;
+        footstepAudioSource.spread = 15.0f; // sharp stereo directionality for pinpoint location
+        footstepAudioSource.dopplerLevel = 0.10f;
+        footstepAudioSource.volume = 1.0f;
         footstepAudioSource.playOnAwake = false;
 
-        // 2. SFX AudioSource (creak, sting)
+        // Custom distance attenuation curve for maxDistance = 11.5m:
+        // Ensures distant guards in other corridors (>11.5m) are completely silent,
+        // and footsteps only become audible when approaching within 11.5m.
+        var footstepCurve = new AnimationCurve(
+            new Keyframe(0.00f, 1.00f, 0f, -0.6f),     // 0m - 1.5m: 100% (right outside door)
+            new Keyframe(0.17f, 1.00f, -0.6f, -1.2f),  // ~2m: 100%
+            new Keyframe(0.35f, 0.65f, -1.2f, -1.0f),  // ~4m: 65% (in vestibule)
+            new Keyframe(0.65f, 0.30f, -0.8f, -0.8f),  // ~7.5m: 30% (hallway approach)
+            new Keyframe(0.87f, 0.10f, -0.5f, -0.5f),  // ~10m: 10% (faint distant footsteps)
+            new Keyframe(1.00f, 0.00f, -0.3f, 0f)      // 11.5m: 0% (silence beyond)
+        );
+        footstepAudioSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, footstepCurve);
+
+        // 2. SFX AudioSource (creak, sting, breach)
         var sfxObj = new GameObject("GuardSFXAudio");
         sfxObj.transform.SetParent(transform, false);
         sfxObj.transform.localPosition = Vector3.up * 1.5f;
 
         sfxAudioSource = sfxObj.AddComponent<AudioSource>();
-        sfxAudioSource.spatialBlend = 0.5f;
-        sfxAudioSource.rolloffMode = AudioRolloffMode.Linear;
-        sfxAudioSource.minDistance = 3.0f;
-        sfxAudioSource.maxDistance = 25.0f;
+        sfxAudioSource.spatialBlend = 1.0f; // 100% 3D spatial
+        sfxAudioSource.rolloffMode = AudioRolloffMode.Custom;
+        sfxAudioSource.minDistance = 1.5f;
+        sfxAudioSource.maxDistance = 14.0f;
+        sfxAudioSource.spread = 25.0f;
         sfxAudioSource.volume = 1.0f;
         sfxAudioSource.playOnAwake = false;
+
+        var sfxCurve = new AnimationCurve(
+            new Keyframe(0.00f, 1.00f),
+            new Keyframe(0.25f, 0.80f),
+            new Keyframe(0.55f, 0.45f),
+            new Keyframe(0.80f, 0.20f),
+            new Keyframe(1.00f, 0.00f)
+        );
+        sfxAudioSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, sfxCurve);
 
         // Generate procedural audio clips
         CreateFootstepClips();
@@ -682,32 +947,50 @@ public class GuardPawn : MonoBehaviour
     {
         int sampleRate = 44100;
 
-        // Clip 1: Left boot heel click & concrete scrape
-        int len1 = (int)(sampleRate * 0.19f);
+        // Clip 1: Left boot heel strike & concrete tap (crisp heel transient + firm sole impact)
+        int len1 = (int)(sampleRate * 0.24f);
         float[] d1 = new float[len1];
         System.Random r1 = new System.Random(1337);
         for (int i = 0; i < len1; i++)
         {
             float t = (float)i / sampleRate;
-            float thud = Mathf.Sin(2f * Mathf.PI * 85f * t) * Mathf.Exp(-t * 32f);
-            float slap = Mathf.Sin(2f * Mathf.PI * 170f * t) * Mathf.Exp(-t * 45f);
-            float crunch = ((float)r1.NextDouble() * 2f - 1f) * Mathf.Exp(-t * 38f);
-            d1[i] = Mathf.Clamp(thud * 0.50f + slap * 0.35f + crunch * 0.25f, -1f, 1f);
+            // 1. Sharp iron heel rim strike on concrete (820Hz + 1450Hz sharp 25ms transient)
+            float heelClick = (Mathf.Sin(2f * Mathf.PI * 820f * t) * 0.70f + 
+                               Mathf.Sin(2f * Mathf.PI * 1450f * t) * 0.45f) * Mathf.Exp(-t * 90f);
+
+            // 2. Resonant heavy boot sole thud (135Hz, 80ms decay)
+            float soleThud = Mathf.Sin(2f * Mathf.PI * 135f * t) * Mathf.Exp(-t * 26f) * 0.65f;
+
+            // 3. Concrete surface grit & leather scuff (filtered friction noise)
+            float grit = ((float)r1.NextDouble() * 2f - 1f) * Mathf.Exp(-t * 38f) * 0.22f;
+
+            d1[i] = Mathf.Clamp(heelClick + soleThud + grit, -1f, 1f);
         }
         footstepLeftClip = AudioClip.Create("GuardBoot_L", len1, 1, sampleRate, false);
         footstepLeftClip.SetData(d1, 0);
 
-        // Clip 2: Right boot sole impact thud
-        int len2 = (int)(sampleRate * 0.21f);
+        // Clip 2: Right boot sole impact & subtle equipment/buckle clink
+        int len2 = (int)(sampleRate * 0.26f);
         float[] d2 = new float[len2];
         System.Random r2 = new System.Random(4242);
         for (int i = 0; i < len2; i++)
         {
             float t = (float)i / sampleRate;
-            float thud = Mathf.Sin(2f * Mathf.PI * 72f * t) * Mathf.Exp(-t * 26f);
-            float slap = Mathf.Sin(2f * Mathf.PI * 140f * t) * Mathf.Exp(-t * 40f);
-            float crunch = ((float)r2.NextDouble() * 2f - 1f) * Mathf.Exp(-t * 42f);
-            d2[i] = Mathf.Clamp(thud * 0.58f + slap * 0.28f + crunch * 0.20f, -1f, 1f);
+            // 1. Firm heel strike (760Hz + 1280Hz transient)
+            float heelClick = (Mathf.Sin(2f * Mathf.PI * 760f * t) * 0.65f + 
+                               Mathf.Sin(2f * Mathf.PI * 1280f * t) * 0.40f) * Mathf.Exp(-t * 85f);
+
+            // 2. Deep boot sole impact (115Hz, 75ms decay)
+            float soleThud = Mathf.Sin(2f * Mathf.PI * 115f * t) * Mathf.Exp(-t * 22f) * 0.70f;
+
+            // 3. Subtle equipment / belt buckle metallic clink (2400Hz + 3100Hz, very subtle characteristic patrol sound)
+            float gearClink = (Mathf.Sin(2f * Mathf.PI * 2400f * t) * 0.12f + 
+                               Mathf.Sin(2f * Mathf.PI * 3100f * t) * 0.08f) * Mathf.Exp(-t * 70f);
+
+            // 4. Concrete contact friction
+            float grit = ((float)r2.NextDouble() * 2f - 1f) * Mathf.Exp(-t * 36f) * 0.20f;
+
+            d2[i] = Mathf.Clamp(heelClick + soleThud + gearClink + grit, -1f, 1f);
         }
         footstepRightClip = AudioClip.Create("GuardBoot_R", len2, 1, sampleRate, false);
         footstepRightClip.SetData(d2, 0);
@@ -789,6 +1072,11 @@ public class GuardPawn : MonoBehaviour
         }
 
         currentState = GuardState.Patrolling;
+        if (breachPath != null && breachPath.Count > 0)
+        {
+            breachPath.Clear();
+            breachPathIndex = 0;
+        }
         PatrolWaypoints();
     }
 
@@ -796,13 +1084,31 @@ public class GuardPawn : MonoBehaviour
     {
         float distToDoor = Vector3.Distance(transform.position, labDoorCoord);
 
-        // 1. Acoustic detection (Mainframe 50Hz hum / cooling fans)
+        // 1. Acoustic detection (Mainframe 50Hz hum / cooling fans / disk alarms)
         bool isNoiseActive = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsNoiseActive;
-        float noiseRad = MainframeBootQuest.Instance != null ? MainframeBootQuest.Instance.NoiseRadius : 9.5f;
-        bool hearsNoise = isNoiseActive && distToDoor <= noiseRad;
+        float noiseRad = MainframeBootQuest.Instance != null ? MainframeBootQuest.Instance.NoiseRadius : 3.2f;
 
-        // 2. Running noise (Player sprinting inside lab room)
-        bool playerRunning = PlayerController.Instance != null && PlayerController.Instance.IsRunning && distToDoor <= 11.5f;
+        // Acoustic occlusion & corridor path calculation:
+        // Guards behind thick room walls cannot hear noise through 40cm solid concrete + server rack
+        bool isBehindThickRoomWalls = (transform.position.x < 8.90f && transform.position.z > -0.60f);
+
+        // In the West complex, noise travels strictly along the open corridor path:
+        float effectiveAcousticDist;
+        if (transform.position.x < 8.90f)
+        {
+            // Corridor path: from door (9.67, -1.65) westward along approach corridor, plus lateral distance along Z
+            effectiveAcousticDist = (9.67f - transform.position.x) + Mathf.Abs(transform.position.z - (-1.65f));
+        }
+        else
+        {
+            effectiveAcousticDist = distToDoor;
+        }
+
+        bool hearsNoise = isNoiseActive && !isBehindThickRoomWalls && (effectiveAcousticDist <= noiseRad);
+
+        // 2. Sprinting noise (Shift) - calibrated to 5.5m radius
+        float sprintRad = 5.5f;
+        bool playerRunning = PlayerController.Instance != null && PlayerController.Instance.IsRunning && !isBehindThickRoomWalls && (effectiveAcousticDist <= sprintRad);
 
         // 3. Optical detection (CRT screen green phosphor glow)
         bool isLightActive = MonitorTerminal.Instance != null && MonitorTerminal.Instance.IsLightEmitting;
@@ -810,36 +1116,101 @@ public class GuardPawn : MonoBehaviour
         bool inMainHallway = Mathf.Abs(transform.position.x - 13.5f) < 2.5f && transform.position.z >= -10f && transform.position.z <= 12f;
         bool seesLight = isLightActive && inMainHallway && distToDoor <= lightDist;
 
-        // 4. Suspicion Rate
+        // Compile active detection triggers for reasoning and console logs
+        List<string> activeCauses = new List<string>();
+        if (hearsNoise)
+        {
+            string nSrc = MainframeBootQuest.Instance != null ? MainframeBootQuest.Instance.CurrentNoiseSource : "Шум ЭВМ";
+            activeCauses.Add($"{nSrc} (дист: {effectiveAcousticDist:F1}м <= {noiseRad:F1}м)");
+        }
+        if (playerRunning)
+        {
+            activeCauses.Add($"Бег игрока на Shift (дист: {effectiveAcousticDist:F1}м <= {sprintRad:F1}м)");
+        }
+        if (seesLight)
+        {
+            activeCauses.Add($"Зеленое свечение CRT монитора (дист: {distToDoor:F1}м <= {lightDist:F1}м)");
+        }
+
+        bool anyAlertSource = activeCauses.Count > 0;
+        isAnyAlertSourceActive = anyAlertSource;
+
+        // 4. Suspicion Accumulation Rate (balanced for fair 6-7s reaction window)
         if (hearsNoise && seesLight)
         {
-            suspicion += 0.75f * Time.deltaTime;
+            suspicion += 0.25f * Time.deltaTime;
         }
         else if (hearsNoise)
         {
-            float prox = 1.0f - Mathf.Clamp01(distToDoor / noiseRad);
-            suspicion += (0.42f + prox * 0.45f) * Time.deltaTime;
+            // If it's a huge crash (12m), 0.22/s; if alarm (5.8m), 0.13/s (~6.5s window); if base hum (3.2m), 0.10/s (~8.5s window)
+            float baseRate = (noiseRad >= 10.0f) ? 0.22f : ((noiseRad > 5.0f) ? 0.13f : 0.10f);
+            float prox = 1.0f - Mathf.Clamp01(effectiveAcousticDist / noiseRad);
+            suspicion += (baseRate + prox * 0.04f) * Time.deltaTime;
         }
         else if (playerRunning)
         {
-            suspicion += 0.50f * Time.deltaTime;
+            suspicion += 0.16f * Time.deltaTime;
         }
         else if (seesLight)
         {
             float brightness = MonitorTerminal.Instance != null ? MonitorTerminal.Instance.BrightnessLevel : 1.0f;
-            suspicion += (brightness > 0.6f ? 0.30f : 0.15f) * Time.deltaTime;
+            suspicion += (brightness > 0.6f ? 0.14f : 0.08f) * Time.deltaTime;
         }
         else
         {
-            // Silent & calm decay
-            suspicion = Mathf.Max(0f, suspicion - 0.20f * Time.deltaTime);
+            // Rapid decay when quiet (rewards flipping switch to Hot Standby)
+            suspicion = Mathf.Max(0f, suspicion - 0.45f * Time.deltaTime);
         }
 
         suspicion = Mathf.Clamp01(suspicion);
 
-        // High Alert Trigger: Breach door sequence
+        // 5. Console Aggro Logging
+        if (anyAlertSource)
+        {
+            if (!hasLoggedInitialDetect && suspicion >= 0.08f)
+            {
+                hasLoggedInitialDetect = true;
+                Debug.Log($"<color=#FF9900><b>[AGGRO: ЗАСЕЧЕН ШУМ]</b></color> <b>{name}</b> обратил внимание на источник звука/света:\n" +
+                          $"• Причина: {string.Join("; ", activeCauses)}\n" +
+                          $"• Позиция охраны: {transform.position:F1} | До двери: {distToDoor:F1}м (акустич.: {effectiveAcousticDist:F1}м)\n" +
+                          $"• Текущая тревога: {(suspicion * 100f):F0}%");
+            }
+
+            if (!hasLoggedYellowAlert && suspicion >= 0.40f)
+            {
+                hasLoggedYellowAlert = true;
+                Debug.Log($"<color=#FFCC00><b>[AGGRO: ЖЕЛТАЯ ТРЕВОГА (40%)]</b></color> <b>{name}</b> остановил патруль и идёт проверять дверь!\n" +
+                          $"• Причина: {string.Join("; ", activeCauses)}\n" +
+                          $"• Позиция охраны: {transform.position:F1} | До двери: {distToDoor:F1}м (акустич.: {effectiveAcousticDist:F1}м)\n" +
+                          $"• Тревога: {(suspicion * 100f):F0}% (при 85% начнётся штурм)");
+            }
+
+            // Periodic aggro log if suspicion remains high (every 3.0s)
+            if (suspicion >= 0.40f && Time.time - lastAggroLogTime >= 3.0f)
+            {
+                lastAggroLogTime = Time.time;
+                Debug.Log($"<color=#FFB300><b>[AGGRO: ОСМОТР ДВЕРИ]</b></color> <b>{name}</b> приближается к двери. Тревога: {(suspicion * 100f):F0}%\n" +
+                          $"• Источники: {string.Join("; ", activeCauses)} | До двери: {distToDoor:F1}м");
+            }
+        }
+        else
+        {
+            // Calming down
+            if (suspicion <= 0.05f && (hasLoggedYellowAlert || hasLoggedInitialDetect))
+            {
+                hasLoggedYellowAlert = false;
+                hasLoggedInitialDetect = false;
+                Debug.Log($"<color=#00FF88><b>[AGGRO: УСПОКОЕНИЕ]</b></color> <b>{name}</b> потерял источник шума (тишина/Standby). Возврат на патруль.\n" +
+                          $"• Позиция: {transform.position:F1} | До двери: {distToDoor:F1}м | Тревога снята.");
+            }
+        }
+
+        // 6. High Alert Trigger: Breach door sequence
         if (suspicion >= 0.85f && currentState < GuardState.BreachMovingToDoor)
         {
+            Debug.Log($"<color=#FF2222><b>[AGGRO: КРАСНАЯ ТРЕВОГА / ВЗЛОМ ДВЕРИ (85%+)]</b></color> <b>{name}</b> начинает выбивать дверь!\n" +
+                      $"• Причина штурма: {(activeCauses.Count > 0 ? string.Join("; ", activeCauses) : "Критический уровень тревоги")}\n" +
+                      $"• Позиция охраны: {transform.position:F1} | До двери: {distToDoor:F1}м | Тревога: {(suspicion * 100f):F0}%");
             StartBreachSequence();
         }
     }
@@ -848,6 +1219,11 @@ public class GuardPawn : MonoBehaviour
     {
         currentState = GuardState.BreachMovingToDoor;
         FindDoorHingePivot();
+
+        // Build corridor breach path
+        breachPath.Clear();
+        breachPath.AddRange(BuildCorridorBreachPath(transform.position));
+        breachPathIndex = 0;
 
         if (Time.time - lastAlertNotifyTime > 8.0f)
         {
@@ -861,37 +1237,83 @@ public class GuardPawn : MonoBehaviour
         switch (currentState)
         {
             case GuardState.BreachMovingToDoor:
-                // If in main hallway, first move to vestibule entrance
-                if (transform.position.x > 12.0f)
+                // If noise stopped completely and suspicion decayed below 0.35f before door opened:
+                if (!isAnyAlertSourceActive && suspicion <= 0.35f)
                 {
-                    Vector3 toVestibule = vestibuleEntrancePos - transform.position;
-                    toVestibule.y = 0f;
-                    if (toVestibule.magnitude > 0.35f)
-                    {
-                        MoveTowards(vestibuleEntrancePos, walkSpeed * 1.15f);
-                        return;
-                    }
+                    currentState = GuardState.Patrolling;
+                    breachPath.Clear();
+                    breachPathIndex = 0;
+                    Debug.Log($"<color=#00FF88><b>[AGGRO: ШТУРМ ОТМЕНЕН]</b></color> <b>{name}</b> на подходе к двери: звук прекратился (тишина/Standby). Возврат на патруль.");
+                    MainframeBootQuest.Instance?.ShowNotification("<color=#00FF88>[ОТБОЙ ТРЕВОГИ]</color> Охрана услышала тишину и вернулась на маршрут.");
+                    return;
                 }
 
-                // Move directly to outside door position
-                Vector3 toDoor = outsideDoorPos - transform.position;
-                toDoor.y = 0f;
-                if (toDoor.magnitude > 0.35f)
+                if (breachPath == null || breachPath.Count == 0)
                 {
-                    MoveTowards(outsideDoorPos, walkSpeed * 1.15f);
+                    breachPath.Clear();
+                    breachPath.AddRange(BuildCorridorBreachPath(transform.position));
+                    breachPathIndex = 0;
+                }
+
+                if (breachPathIndex < breachPath.Count)
+                {
+                    Vector3 targetWp = breachPath[breachPathIndex];
+                    targetWp.y = transform.position.y;
+                    Vector3 toWp = targetWp - transform.position;
+                    toWp.y = 0f;
+
+                    if (toWp.magnitude <= 0.45f)
+                    {
+                        breachPathIndex++;
+                        if (breachPathIndex >= breachPath.Count)
+                        {
+                            // If sound stopped while guard was on his way, guard listens at door in silence!
+                            if (!isAnyAlertSourceActive && suspicion <= 0.55f)
+                            {
+                                currentState = GuardState.Patrolling;
+                                breachPath.Clear();
+                                breachPathIndex = 0;
+                                suspicion = 0f;
+                                hasLoggedYellowAlert = false;
+                                hasLoggedInitialDetect = false;
+                                Debug.Log($"<color=#00FF88><b>[AGGRO: ШТУРМ ОТМЕНЕН У ДВЕРИ]</b></color> <b>{name}</b> подошёл к двери машинного зала, но внутри полная тишина. Подозрение снято.");
+                                MainframeBootQuest.Instance?.ShowNotification("<color=#00FF88>[ОТБОЙ ТРЕВОГИ]</color> Охранник подошёл к двери, прислушался к тишине: «Показалось...» и ушёл.");
+                                return;
+                            }
+
+                            // Reached outside door! Begin opening!
+                            currentState = GuardState.BreachOpeningDoor;
+                            doorOpenProgress = 0f;
+
+                            if (sfxAudioSource != null && doorCreakClip != null)
+                            {
+                                sfxAudioSource.PlayOneShot(doorCreakClip, 1.0f);
+                            }
+
+                            MainframeBootQuest.Instance?.ShowNotification("<color=#FF2222>[⚠ ДВЕРЬ ВЗЛОМАНА!]</color> «Служба безопасности! Всем оставаться на местах!»");
+                            return;
+                        }
+                    }
+
+                    MoveTowards(breachPath[breachPathIndex], walkSpeed * 1.25f);
                 }
                 else
                 {
-                    // Reached outside door! Begin opening!
-                    currentState = GuardState.BreachOpeningDoor;
-                    doorOpenProgress = 0f;
-
-                    if (sfxAudioSource != null && doorCreakClip != null)
+                    if (!isAnyAlertSourceActive && suspicion <= 0.55f)
                     {
-                        sfxAudioSource.PlayOneShot(doorCreakClip, 1.0f);
+                        currentState = GuardState.Patrolling;
+                        breachPath.Clear();
+                        breachPathIndex = 0;
+                        suspicion = 0f;
+                        hasLoggedYellowAlert = false;
+                        hasLoggedInitialDetect = false;
+                        Debug.Log($"<color=#00FF88><b>[AGGRO: ШТУРМ ОТМЕНЕН У ДВЕРИ]</b></color> <b>{name}</b> подошёл к двери, внутри тишина. Тревога снята.");
+                        MainframeBootQuest.Instance?.ShowNotification("<color=#00FF88>[ОТБОЙ ТРЕВОГИ]</color> Охрана у двери прислушалась к тишине: «Всё чисто» и ушла.");
+                        return;
                     }
 
-                    MainframeBootQuest.Instance?.ShowNotification("<color=#FF2222>[⚠ ДВЕРЬ ВЗЛОМАНА!]</color> «Служба безопасности! Всем оставаться на местах!»");
+                    currentState = GuardState.BreachOpeningDoor;
+                    doorOpenProgress = 0f;
                 }
                 break;
 
@@ -958,17 +1380,143 @@ public class GuardPawn : MonoBehaviour
 
     private void InvestigateDoorSuspicious()
     {
-        Vector3 toDoor = labDoorCoord - transform.position;
-        toDoor.y = 0f;
-
-        if (toDoor.sqrMagnitude > 0.01f)
+        // Don't walk through walls! Follow corridor breach path slowly
+        if (breachPath == null || breachPath.Count == 0 || breachPathIndex >= breachPath.Count)
         {
-            Quaternion lookRot = Quaternion.LookRotation(toDoor.normalized);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRot, (turnSpeed * 0.7f) * Time.deltaTime);
+            breachPath.Clear();
+            breachPath.AddRange(BuildCorridorBreachPath(transform.position));
+            breachPathIndex = 0;
         }
 
-        transform.position += transform.forward * (walkSpeed * 0.40f) * Time.deltaTime;
-        UpdateFootstepSounds(walkSpeed * 0.40f);
+        if (breachPathIndex < breachPath.Count)
+        {
+            Vector3 targetWp = breachPath[breachPathIndex];
+            targetWp.y = transform.position.y;
+            Vector3 toWp = targetWp - transform.position;
+            toWp.y = 0f;
+
+            if (toWp.magnitude <= 0.45f)
+            {
+                breachPathIndex++;
+            }
+            else
+            {
+                MoveTowards(targetWp, walkSpeed * 0.45f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Computes a deterministic, corridor-safe waypoint route from any position in the facility
+    /// directly to the outside of the lab door, ensuring guards never walk through walls or room geometry.
+    /// </summary>
+    public static List<Vector3> BuildCorridorBreachPath(Vector3 startPos)
+    {
+        var path = new List<Vector3>();
+        Vector3 outsideDoor = new Vector3(9.67f, 0.03f, -1.40f);
+
+        // CASE 1: Inside Vestibule (X: 8.80 to 12.10, Z: -2.80 to -0.60)
+        if (startPos.x >= 8.80f && startPos.x <= 12.10f && startPos.z >= -2.80f && startPos.z <= -0.60f)
+        {
+            path.Add(outsideDoor);
+            return path;
+        }
+
+        // CASE 2: West Complex (X < 8.80f)
+        if (startPos.x < 8.80f)
+        {
+            // Subcase 2A: Already in West Approach Corridor (Z around -1.65f)
+            if (Mathf.Abs(startPos.z - (-1.65f)) <= 1.0f && startPos.x >= -6.5f)
+            {
+                path.Add(new Vector3(8.90f, 0.03f, -1.65f)); // Enter Vestibule
+                path.Add(outsideDoor);
+                return path;
+            }
+
+            // Subcase 2B: In a West branch wing (Lab Bay at Z=13.5 or Substation at Z=-10)
+            if (startPos.x > -6.5f && startPos.z < 24.0f && startPos.z > -18.0f)
+            {
+                // Walk west back to West Main trunk
+                path.Add(new Vector3(-8.0f, 0.03f, startPos.z));
+            }
+
+            // Subcase 2C: In North Concourse west of room (Z=26.0) or South Concourse (Z=-20.0)
+            if (startPos.z >= 24.5f && startPos.x > -6.5f)
+            {
+                if (startPos.x <= 2.75f)
+                {
+                    path.Add(new Vector3(-8.0f, 0.03f, 26.0f));
+                }
+                else
+                {
+                    path.Add(new Vector3(13.5f, 0.03f, 26.0f));
+                    path.Add(new Vector3(13.5f, 0.03f, -1.65f));
+                    path.Add(new Vector3(12.0f, 0.03f, -1.65f));
+                    path.Add(outsideDoor);
+                    return path;
+                }
+            }
+            else if (startPos.z <= -18.5f && startPos.x > -6.5f)
+            {
+                if (startPos.x <= 2.75f)
+                {
+                    path.Add(new Vector3(-8.0f, 0.03f, -20.0f));
+                }
+                else
+                {
+                    path.Add(new Vector3(13.5f, 0.03f, -20.0f));
+                    path.Add(new Vector3(13.5f, 0.03f, -1.65f));
+                    path.Add(new Vector3(12.0f, 0.03f, -1.65f));
+                    path.Add(outsideDoor);
+                    return path;
+                }
+            }
+
+            // In West Main trunk: walk along X = -8.0 to West Approach junction at Z = -1.65
+            path.Add(new Vector3(-8.0f, 0.03f, -1.65f));
+            // Walk east along West Approach corridor to Vestibule
+            path.Add(new Vector3(8.90f, 0.03f, -1.65f));
+            // Step to outside door
+            path.Add(outsideDoor);
+            return path;
+        }
+
+        // CASE 3: Central Hallway (X: 12.00 to 15.50)
+        if (startPos.x >= 12.00f && startPos.x <= 15.50f)
+        {
+            // Walk along Central Hallway to Vestibule junction at Z = -1.65
+            path.Add(new Vector3(13.5f, 0.03f, -1.65f));
+            // Turn west into Vestibule
+            path.Add(new Vector3(12.0f, 0.03f, -1.65f));
+            // Step to outside door
+            path.Add(outsideDoor);
+            return path;
+        }
+
+        // CASE 4: East Perimeter / East Cross Wings (X > 15.50f)
+        float nearestCrossZ;
+        if (startPos.z >= 19.5f) nearestCrossZ = 26.0f;
+        else if (startPos.z >= 3.5f) nearestCrossZ = 13.5f;
+        else if (startPos.z >= -13.0f) nearestCrossZ = -6.5f;
+        else nearestCrossZ = -20.0f;
+
+        // If in East Perimeter Hallway, walk along it to nearest cross junction
+        if (startPos.x >= 23.0f)
+        {
+            if (Mathf.Abs(startPos.z - nearestCrossZ) > 0.8f)
+            {
+                path.Add(new Vector3(24.5f, 0.03f, nearestCrossZ));
+            }
+        }
+        // Walk west through cross wing to Central Hallway
+        path.Add(new Vector3(13.5f, 0.03f, nearestCrossZ));
+        // Walk down Central Hallway to Vestibule junction
+        path.Add(new Vector3(13.5f, 0.03f, -1.65f));
+        // Turn west into Vestibule
+        path.Add(new Vector3(12.0f, 0.03f, -1.65f));
+        // Step to outside door
+        path.Add(outsideDoor);
+        return path;
     }
 
     private void PatrolWaypoints()

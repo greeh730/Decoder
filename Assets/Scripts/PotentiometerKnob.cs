@@ -69,7 +69,8 @@ public class PotentiometerKnob : MonoBehaviour
             if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        audioSource.spatialBlend = 0.85f;
+        audioSource.spatialBlend = 1.0f;
+        audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
         audioSource.minDistance = 0.5f;
         audioSource.maxDistance = 6f;
 

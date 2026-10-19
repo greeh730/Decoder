@@ -11,7 +11,16 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class DiskDriveBay : MonoBehaviour
 {
-    public static DiskDriveBay Instance { get; private set; }
+    private static DiskDriveBay _instance;
+    public static DiskDriveBay Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = UnityEngine.Object.FindAnyObjectByType<DiskDriveBay>();
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     public enum DriveBayState
     {
@@ -72,8 +81,20 @@ public class DiskDriveBay : MonoBehaviour
     public float Temperature => temperature;
     public bool IsOverheating => temperature >= yellowWarningTemp;
     public bool IsCriticalOverheat => temperature >= redAlarmTemp;
+    public bool IsDrivePowered => MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline;
+    public bool IsAlarmBeeping => IsDrivePowered && (temperature >= redAlarmTemp && state == DriveBayState.Running);
+    public bool IsCrashNoiseActive { get; private set; }
     public int CurrentCartridgeId => currentCartridgeId;
     public int ExtractedCartridgeId => extractedCartridgeId;
+
+    public void OnServerStandbyOrCut()
+    {
+        if (alarmAudio != null && alarmAudio.isPlaying)
+        {
+            alarmAudio.Stop();
+        }
+        StopSpindleHum();
+    }
 
     private void Awake()
     {
@@ -85,7 +106,19 @@ public class DiskDriveBay : MonoBehaviour
         if (driveAudio != null)
         {
             driveAudio.playOnAwake = false;
+            driveAudio.spatialBlend = 1.0f; // 100% 3D spatial
+            driveAudio.rolloffMode = AudioRolloffMode.Logarithmic;
+            driveAudio.minDistance = 0.8f;
+            driveAudio.maxDistance = 8.0f;
             driveAudio.Stop();
+        }
+        if (alarmAudio != null && alarmAudio != driveAudio)
+        {
+            alarmAudio.playOnAwake = false;
+            alarmAudio.spatialBlend = 1.0f;
+            alarmAudio.rolloffMode = AudioRolloffMode.Logarithmic;
+            alarmAudio.minDistance = 0.8f;
+            alarmAudio.maxDistance = 10.0f;
         }
     }
 
@@ -172,10 +205,18 @@ public class DiskDriveBay : MonoBehaviour
                 TriggerHeadCrash();
             }
         }
-        else if (state != DriveBayState.Running)
+        else
         {
-            // Gradually cools when drive is stopped or empty
-            temperature = Mathf.Max(normalTemp, temperature - 0.8f * Time.deltaTime);
+            // Rapid cooling when server is offline, in standby, or spindle is stopped/empty
+            temperature = Mathf.Max(normalTemp, temperature - 2.5f * Time.deltaTime);
+
+            if (alarmAudio != null && alarmAudio.isPlaying)
+            {
+                alarmAudio.Stop();
+            }
+
+            if (temperature < redAlarmTemp) warnedRed = false;
+            if (temperature < yellowWarningTemp) warnedYellow = false;
         }
 
         UpdateThermometerNeedle();
@@ -267,6 +308,9 @@ public class DiskDriveBay : MonoBehaviour
             player.ApplyStun(3.5f);
         }
 
+        // 12.0m acoustic crash noise spike for 5 seconds
+        StartCoroutine(CrashNoiseRoutine(5.0f));
+
         // Alert guards in corridor with loud electrical arc crack!
         var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
         if (guards != null)
@@ -275,16 +319,17 @@ public class DiskDriveBay : MonoBehaviour
             {
                 if (g != null)
                 {
-                    // Large suspicion spike
-                    var f = typeof(GuardPawn).GetField("suspicion", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    if (f != null)
-                    {
-                        float cur = (float)f.GetValue(g);
-                        f.SetValue(g, Mathf.Clamp01(cur + 0.45f));
-                    }
+                    g.AddSuspicion(0.45f, "Электрическая дуга / срыв замка накопителя под напряжением 380В");
                 }
             }
         }
+    }
+
+    private IEnumerator CrashNoiseRoutine(float duration)
+    {
+        IsCrashNoiseActive = true;
+        yield return new WaitForSeconds(duration);
+        IsCrashNoiseActive = false;
     }
 
     private IEnumerator ElectricShockStunRoutine(PlayerController player)
@@ -418,6 +463,7 @@ public class DiskDriveBay : MonoBehaviour
         temperature = 31f; // Fresh cold platters!
         warnedYellow = false;
         warnedRed = false;
+        IsCrashNoiseActive = false;
 
         // Reset the in-slot cartridge so it becomes the hotCartridge ready for future extractions
         if (hotCartridge != null && coldCartridgeInSlot != null)
@@ -453,6 +499,7 @@ public class DiskDriveBay : MonoBehaviour
     private void TriggerHeadCrash()
     {
         state = DriveBayState.OverheatedCrash;
+        IsCrashNoiseActive = true;
         StopSpindleHum();
         PlayHeadCrashSound();
         UpdateLamps();

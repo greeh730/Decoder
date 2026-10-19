@@ -99,6 +99,10 @@ public class MonitorTerminal : MonoBehaviour
         {
             terminalAudio = GetComponent<AudioSource>();
             if (terminalAudio == null) terminalAudio = gameObject.AddComponent<AudioSource>();
+            terminalAudio.spatialBlend = 1.0f; // 100% 3D spatial
+            terminalAudio.rolloffMode = AudioRolloffMode.Logarithmic;
+            terminalAudio.minDistance = 0.5f;
+            terminalAudio.maxDistance = 6.0f;
         }
 
         if (screenCanvasGroup == null)

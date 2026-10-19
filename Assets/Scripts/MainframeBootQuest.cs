@@ -23,10 +23,18 @@ public enum BootStage
 /// Master quest manager for booting the retro mainframe.
 /// Coordinates breaker switch, tube warmup, front panel address switches,
 /// tape drive, and the final monitor terminal bootup.
-/// </summary>
 public class MainframeBootQuest : MonoBehaviour
 {
-    public static MainframeBootQuest Instance { get; private set; }
+    private static MainframeBootQuest _instance;
+    public static MainframeBootQuest Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = UnityEngine.Object.FindAnyObjectByType<MainframeBootQuest>();
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     [Header("Quest State")]
     [SerializeField] private BootStage currentStage = BootStage.PowerOff;
@@ -118,8 +126,43 @@ public class MainframeBootQuest : MonoBehaviour
     public bool IsReadingManual => isReadingManual;
     public bool HasTape => hasTapeInInventory;
 
-    public bool IsNoiseActive => (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline);
-    public float NoiseRadius => IsNoiseActive ? 9.5f : 0f;
+    public bool IsNoiseActive
+    {
+        get
+        {
+            if (DiskDriveBay.Instance != null && (DiskDriveBay.Instance.IsCrashNoiseActive || DiskDriveBay.Instance.IsAlarmBeeping))
+                return true;
+            return (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline);
+        }
+    }
+
+    public float NoiseRadius
+    {
+        get
+        {
+            if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsCrashNoiseActive)
+                return 12.0f;
+            if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsAlarmBeeping)
+                return 5.8f;
+            if (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline)
+                return 3.2f;
+            return 0f;
+        }
+    }
+
+    public string CurrentNoiseSource
+    {
+        get
+        {
+            if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsCrashNoiseActive)
+                return "Аварийный запил / электродуга накопителя (12.0м)";
+            if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.IsAlarmBeeping)
+                return "Зуммер перегрева диска 90°C (5.8м)";
+            if (currentStage == BootStage.HighVoltageOn || currentStage == BootStage.ReadyForIPL || currentStage == BootStage.SystemBooting || currentStage == BootStage.SystemOnline)
+                return "Штатный гул трансформатора ЭВМ (3.2м)";
+            return "Штатный режим (Тишина, 0м)";
+        }
+    }
 
     private AudioSource humAudioSource;
     private AudioClip humLoopClip;
@@ -334,6 +377,7 @@ public class MainframeBootQuest : MonoBehaviour
             currentStage = BootStage.HotStandby;
             StopTransformerHum();
             PlayRelaySound();
+            if (DiskDriveBay.Instance != null) DiskDriveBay.Instance.OnServerStandbyOrCut();
             if (monitorTerminal != null) monitorTerminal.SetStandbyState(true);
             ShowNotification("<color=#FFCC00>[ГОТОВНОСТЬ]</color> Высокое напряжение снято (Standby). ЭВМ обесшумлена, накал активен.");
             UpdateAllVisuals();
@@ -775,21 +819,79 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void SetupAudio()
     {
-        if (questAudioSource == null) questAudioSource = GetComponent<AudioSource>();
-        if (questAudioSource == null) questAudioSource = gameObject.AddComponent<AudioSource>();
+        // Attach audio emitters to physical server cabinet (Cube.006)
+        Transform serverTransform = transform;
+        var serverObj = GameObject.Find("Cube.006");
+        if (serverObj != null)
+        {
+            serverTransform = serverObj.transform;
+        }
+
+        // 1. Transient / Relay contactor AudioSource
+        Transform questAudioObj = serverTransform.Find("ServerQuestAudio");
+        if (questAudioObj == null)
+        {
+            var go = new GameObject("ServerQuestAudio");
+            go.transform.SetParent(serverTransform, false);
+            go.transform.position = new Vector3(5.92f, 1.50f, 1.65f); // physical center of server front panel
+            questAudioObj = go.transform;
+        }
+        questAudioSource = questAudioObj.GetComponent<AudioSource>();
+        if (questAudioSource == null) questAudioSource = questAudioObj.gameObject.AddComponent<AudioSource>();
 
         questAudioSource.playOnAwake = false;
-        questAudioSource.spatialBlend = 0.85f;
+        questAudioSource.spatialBlend = 1.0f; // 100% 3D spatial sound
+        questAudioSource.rolloffMode = AudioRolloffMode.Custom;
         questAudioSource.minDistance = 1.0f;
-        questAudioSource.maxDistance = 15f;
+        questAudioSource.maxDistance = 12.0f;
+        questAudioSource.spread = 35f;
+        questAudioSource.dopplerLevel = 0f;
 
-        if (humAudioSource == null) humAudioSource = gameObject.AddComponent<AudioSource>();
+        var relayCurve = new AnimationCurve(
+            new Keyframe(0.00f, 1.00f),
+            new Keyframe(0.20f, 0.70f),
+            new Keyframe(0.50f, 0.35f),
+            new Keyframe(0.80f, 0.10f),
+            new Keyframe(1.00f, 0.00f)
+        );
+        questAudioSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, relayCurve);
+
+        // 2. Continuous Transformer Hum AudioSource (50Hz hum)
+        Transform humAudioObj = serverTransform.Find("ServerHumAudio");
+        if (humAudioObj == null)
+        {
+            var go = new GameObject("ServerHumAudio");
+            go.transform.SetParent(serverTransform, false);
+            go.transform.position = new Vector3(5.92f, 1.50f, 1.65f);
+            humAudioObj = go.transform;
+        }
+        humAudioSource = humAudioObj.GetComponent<AudioSource>();
+        if (humAudioSource == null) humAudioSource = humAudioObj.gameObject.AddComponent<AudioSource>();
+
         humAudioSource.playOnAwake = false;
-        humAudioSource.spatialBlend = 0.85f;
-        humAudioSource.minDistance = 1.5f;
-        humAudioSource.maxDistance = 14f;
+        humAudioSource.spatialBlend = 1.0f; // 100% 3D spatial audio! No flat 2D bleed into headphones!
+        humAudioSource.rolloffMode = AudioRolloffMode.Custom;
+        humAudioSource.minDistance = 0.8f;  // Full volume only within arms-reach (0.8m)
+        humAudioSource.maxDistance = 8.5f;  // Completely fades out before outer corridors
+        humAudioSource.spread = 45f;        // Sounds like a wide physical cabinet, not a single point
+        humAudioSource.dopplerLevel = 0f;
         humAudioSource.loop = true;
-        humAudioSource.volume = 0.20f;
+        humAudioSource.volume = 0.09f;      // Gentle, non-fatiguing, authentic ambient background level
+
+        // Smooth distance attenuation curve:
+        // Close to server: distinct tactile hum.
+        // At the desk (2.5m away): soft, relaxing background presence (drops to ~35%).
+        // At the door (4.5m away): very faint (drops to ~12%).
+        // In the vestibule / corridors (>7m): drops to 0% so outside guards can be clearly heard!
+        var humCurve = new AnimationCurve(
+            new Keyframe(0.00f, 1.00f, 0f, -1.8f),     // 0m - 0.8m: 100%
+            new Keyframe(0.18f, 0.65f, -2.0f, -2.0f),  // ~1.5m: 65%
+            new Keyframe(0.32f, 0.35f, -1.5f, -1.5f),  // ~2.7m (at desk): 35%
+            new Keyframe(0.55f, 0.12f, -0.8f, -0.8f),  // ~4.6m (at door): 12%
+            new Keyframe(0.80f, 0.03f, -0.3f, -0.3f),  // ~6.8m (vestibule entrance): 3%
+            new Keyframe(1.00f, 0.00f, -0.1f, 0f)      // 8.5m: 0% (silence in hallway)
+        );
+        humAudioSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, humCurve);
 
         humLoopClip = CreateTransformerHumClip();
         relayClackClip = CreateRelayClackClip();
@@ -829,12 +931,12 @@ public class MainframeBootQuest : MonoBehaviour
         for (int i = 0; i < samples; i++)
         {
             float t = (float)i / sampleRate;
-            // 50Hz fundamental power line hum (deep smooth tone, no white noise)
-            float h50 = Mathf.Sin(2f * Mathf.PI * 50f * t) * 0.40f;
-            // 100Hz rectification harmonic
-            float h100 = Mathf.Sin(2f * Mathf.PI * 100f * t) * 0.18f;
-            // 150Hz odd harmonic
-            float h150 = Mathf.Sin(2f * Mathf.PI * 150f * t) * 0.08f;
+            // 50Hz fundamental power line hum (deep smooth tone, no harsh harmonics)
+            float h50 = Mathf.Sin(2f * Mathf.PI * 50f * t) * 0.45f;
+            // 100Hz rectification harmonic (warm analog transformer rumble)
+            float h100 = Mathf.Sin(2f * Mathf.PI * 100f * t) * 0.15f;
+            // Subtle 150Hz third harmonic
+            float h150 = Mathf.Sin(2f * Mathf.PI * 150f * t) * 0.04f;
 
             data[i] = (h50 + h100 + h150);
         }
