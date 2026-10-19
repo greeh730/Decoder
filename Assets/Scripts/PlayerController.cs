@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -161,12 +161,17 @@ public class PlayerController : MonoBehaviour
         SetCursorLock(true);
         UpdateCameraMode();
 
-        // Ensure chair collider does not wedge player
-        var chairObj = GameObject.Find("Cube.020");
+        // Ensure operator chair has blocking collision so player cannot walk through it
+        var chairObj = GameObject.Find("Cube.020") ?? GameObject.Find("comnata/Cube.020");
         if (chairObj != null)
         {
             var chairCol = chairObj.GetComponent<Collider>();
-            if (chairCol != null) chairCol.enabled = false;
+            if (chairCol == null)
+            {
+                chairCol = chairObj.AddComponent<BoxCollider>();
+            }
+            chairCol.enabled = true;
+            chairCol.isTrigger = false;
         }
     }
 
@@ -244,14 +249,12 @@ public class PlayerController : MonoBehaviour
         switch (currentState)
         {
             case PlayerState.Normal:
-                HandleViewToggle();
                 HandleMouseLook();
                 HandleMovement();
                 CheckInteractionPromptsNormal();
                 break;
 
             case PlayerState.Sitting:
-                HandleViewToggle();
                 HandleMouseLookSitting();
                 CheckInteractionPromptsSitting();
                 break;
@@ -294,15 +297,17 @@ public class PlayerController : MonoBehaviour
                 if (WasKeyPressed(KeyCode.E))
                 {
                     string hint = cartridge.Mode == CartridgeDraggable.SlideMode.PullOut
-                        ? "<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и тяните мышь на себя, чтобы вытащить диск!"
-                        : "<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и ведите мышь вперед, чтобы задвинуть диск в слот!";
+                        ? LocalizationManager.T("<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и тяните мышь на себя, чтобы вытащить диск!",
+                                                 "<color=#FFFF66>[TACTILE GRAB]</color> Hold [LMB] and pull mouse towards you to pull disk pack out!")
+                        : LocalizationManager.T("<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и ведите мышь вперед, чтобы задвинуть диск в слот!",
+                                                 "<color=#FFFF66>[TACTILE GRAB]</color> Hold [LMB] and push mouse forward to slide disk pack in!");
                     MainframeBootQuest.Instance?.ShowNotification(hint);
                 }
 
                 if (IsMouseButtonPressed())
                 {
-                    // Premature pull check while high voltage is on
-                    if (cartridge.IsHot && DiskDriveBay.Instance != null &&
+                    // Premature pull shock check ONLY when pulling hot disk while drive is spinning
+                    if (cartridge.Mode == CartridgeDraggable.SlideMode.PullOut && cartridge.IsHot && DiskDriveBay.Instance != null &&
                         (DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Running || DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Braking))
                     {
                         DiskDriveBay.Instance.AttemptPullPrematurely();
@@ -424,12 +429,12 @@ public class PlayerController : MonoBehaviour
 
     private void CheckExitMonitorPrompt()
     {
-        if (WasKeyPressed(KeyCode.Escape) || WasKeyPressed(KeyCode.F))
+        if (WasKeyPressed(KeyCode.F) || WasKeyPressed(KeyCode.E))
         {
             if ((VectorCommander.Instance != null && VectorCommander.Instance.IsAnyModalOpen) ||
                 (SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive))
             {
-                // Let the modal or mini-game consume Escape/F without exiting the monitor
+                // Let the modal or mini-game consume without exiting the monitor
                 return;
             }
 
@@ -524,7 +529,10 @@ public class PlayerController : MonoBehaviour
         transform.rotation = initialSpawnRotation;
         if (characterController != null) characterController.enabled = true;
         currentState = PlayerState.Normal;
-        MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[СБРОС]</color> Оператор возвращён в стартовую точку [F9].");
+        MainframeBootQuest.Instance?.ShowNotification(LocalizationManager.T(
+            "<color=#00FFAA>[СБРОС]</color> Оператор возвращён в стартовую точку [F9].",
+            "<color=#00FFAA>[RESET]</color> Operator returned to spawn position [F9]."
+        ));
     }
 
     private void HandleCartridgeDragging()
@@ -599,14 +607,28 @@ public class PlayerController : MonoBehaviour
     {
         if (currentState == PlayerState.InspectingMonitor) return;
 
-        bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
-                              (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
+        bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline && !powerCut);
 
         if (!isServerOnline)
         {
             if (MainframeBootQuest.Instance != null)
             {
-                MainframeBootQuest.Instance.ShowNotification("<color=#FF6666>[ОТКАЗ]</color> Компьютер обесточен! Сначала запустите сервер (холодный пуск ЭВМ).");
+                MainframeBootQuest.Instance.ShowNotification(
+                    LocalizationManager.T("<color=#FF6666>[ОТКАЗ]</color> Компьютер обесточен! Сначала запустите сервер (холодный пуск ЭВМ).",
+                                           "<color=#FF6666>[HALT]</color> Computer unpowered! Start server first (cold boot sequence)."));
+            }
+            return;
+        }
+
+        // Require disk pack to be mounted
+        if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.CartridgeExtracted)
+        {
+            if (MainframeBootQuest.Instance != null)
+            {
+                MainframeBootQuest.Instance.ShowNotification(
+                    LocalizationManager.T("<color=#FF6666>[ОШИБКА I/O]</color> Системный пакет дисков извлечен! Установите накопитель в слот сервера.",
+                                           "<color=#FF6666>[I/O FAULT]</color> System disk pack extracted! Insert cartridge into server slot."));
             }
             return;
         }
@@ -669,9 +691,8 @@ public class PlayerController : MonoBehaviour
             Vector3 startPos = playerCamera.transform.position;
             Quaternion startRot = playerCamera.transform.rotation;
 
-            // Target camera local position depending on view mode
-            Vector3 targetLocalPos = isFirstPerson ? firstPersonCamPos : thirdPersonCamPos;
-            Quaternion targetLocalRot = isFirstPerson ? Quaternion.identity : Quaternion.Euler(10f, 0f, 0f);
+            Vector3 targetLocalPos = firstPersonCamPos;
+            Quaternion targetLocalRot = Quaternion.identity;
 
             Vector3 endPos = cameraHolder.TransformPoint(targetLocalPos);
             Quaternion endRot = cameraHolder.rotation * targetLocalRot;
@@ -831,8 +852,7 @@ public class PlayerController : MonoBehaviour
             case KeyCode.F: return kb.fKey.wasPressedThisFrame;
             case KeyCode.Space: return kb.spaceKey.wasPressedThisFrame;
             case KeyCode.Escape: return kb.escapeKey.wasPressedThisFrame;
-            case KeyCode.V: return kb.vKey.wasPressedThisFrame;
-            case KeyCode.C: return kb.cKey.wasPressedThisFrame;
+            case KeyCode.Tab: return kb.tabKey.wasPressedThisFrame;
             case KeyCode.B: return kb.bKey.wasPressedThisFrame;
             default: return false;
         }
@@ -850,7 +870,7 @@ public class PlayerController : MonoBehaviour
         if (currentState == PlayerState.InspectingMonitor) return;
         if (isDraggingKnob) return;
 
-        bool escPressed = WasKeyPressed(KeyCode.Escape);
+        bool tabPressed = WasKeyPressed(KeyCode.Tab);
         bool clickPressed = false;
 
 #if ENABLE_INPUT_SYSTEM
@@ -860,9 +880,9 @@ public class PlayerController : MonoBehaviour
         if (Input.GetMouseButtonDown(0)) clickPressed = true;
 #endif
 
-        if (escPressed)
+        if (tabPressed)
         {
-            SetCursorLock(false);
+            SetCursorLock(!cursorLocked);
         }
         else if (clickPressed && !cursorLocked)
         {
@@ -912,20 +932,14 @@ public class PlayerController : MonoBehaviour
 #endif
     }
 
+    public bool IsCursorLocked => cursorLocked;
+    public bool IsCursorUnlocked => !cursorLocked;
+
     public void SetCursorLock(bool locked)
     {
         cursorLocked = locked;
         Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
         Cursor.visible = !locked;
-    }
-
-    private void HandleViewToggle()
-    {
-        if (WasKeyPressed(KeyCode.V) || WasKeyPressed(KeyCode.C))
-        {
-            isFirstPerson = !isFirstPerson;
-            UpdateCameraMode();
-        }
     }
 
     private void UpdateCameraMode()
@@ -937,20 +951,13 @@ public class PlayerController : MonoBehaviour
             playerCamera.transform.SetParent(cameraHolder, false);
         }
 
-        if (isFirstPerson)
-        {
-            playerCamera.transform.localPosition = firstPersonCamPos;
-            playerCamera.transform.localRotation = Quaternion.identity;
-        }
-        else
-        {
-            playerCamera.transform.localPosition = thirdPersonCamPos;
-            playerCamera.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
-        }
+        isFirstPerson = true;
+        playerCamera.transform.localPosition = firstPersonCamPos;
+        playerCamera.transform.localRotation = Quaternion.identity;
 
         if (visualBody != null)
         {
-            visualBody.SetActive(!isFirstPerson);
+            visualBody.SetActive(false);
         }
     }
 
@@ -978,9 +985,9 @@ public class PlayerController : MonoBehaviour
             };
             shockStyle.normal.textColor = Color.red;
             GUI.Box(new Rect(Screen.width / 2 - 250, Screen.height / 2 - 45, 500, 90),
-                "⚡ <b><color=#FF2222>[ УДАР ТОКОМ 380 ВОЛЬТ ]</color></b> ⚡\n" +
-                "<size=12><color=#FFFFFF>Срыв замка под напряжением! Шок и контузия...</color></size>\n" +
-                $"<size=11><color=#FFFF66>Приход в сознание через: {stunTimer:F1} сек.</color></size>", shockStyle);
+                $"⚡ <b><color=#FF2222>[ {LocalizationManager.T("УДАР ТОКОМ 380 ВОЛЬТ", "380 VOLT ELECTRIC SHOCK")} ]</color></b> ⚡\n" +
+                $"<size=12><color=#FFFFFF>{LocalizationManager.T("Срыв замка под напряжением! Шок и контузия...", "Lock breached under high voltage! Shock and concussion...")}</color></size>\n" +
+                $"<size=11><color=#FFFF66>{LocalizationManager.T($"Приход в сознание через: {stunTimer:F1} сек.", $"Regaining consciousness in: {stunTimer:F1} sec.")}</color></size>", shockStyle);
             return;
         }
 
@@ -1001,51 +1008,50 @@ public class PlayerController : MonoBehaviour
             };
             boxStyle.normal.textColor = Color.white;
 
+            string stateTitle = LocalizationManager.T("Состояние:", "State:");
             string stateName = currentState switch
             {
-                PlayerState.Normal => "Идёт (Стоит)",
-                PlayerState.Sitting => "Сидит в кресле",
-                _ => "Обычный"
+                PlayerState.Normal => LocalizationManager.T("Идёт (Стоит)", "Walking / Standing"),
+                PlayerState.Sitting => LocalizationManager.T("Сидит в кресле", "Sitting in chair"),
+                _ => LocalizationManager.T("Обычный", "Normal")
             };
 
-            string viewModeText = isFirstPerson ? "1-е лицо" : "3-е лицо";
-
             // Acoustic stealth status
-            string noiseText = "0 dB [ОБЕСТОЧЕНО]";
+            string noiseText = LocalizationManager.T("0 dB [ОБЕСТОЧЕНО]", "0 dB [UNPOWERED]");
             string noiseColor = "#888888";
             if (MainframeBootQuest.Instance != null)
             {
                 if (MainframeBootQuest.Instance.IsNoiseActive)
                 {
-                    noiseText = "72 dB [ГУЛ 50Hz // СЛЫШНО 5.5м]";
+                    noiseText = LocalizationManager.T("72 dB [ГУЛ 50Hz // СЛЫШНО 5.5м]", "72 dB [50Hz HUM // AUDIBLE 5.5m]");
                     noiseColor = "#FF5555";
                 }
                 else if (MainframeBootQuest.Instance.CurrentStage == BootStage.HotStandby)
                 {
-                    noiseText = "0 dB [ГОТОВНОСТЬ // БЕСШУМНО]";
+                    noiseText = LocalizationManager.T("0 dB [ГОТОВНОСТЬ // БЕСШУМНО]", "0 dB [STANDBY // SILENT]");
                     noiseColor = "#00FFAA";
                 }
             }
 
             // Optical stealth status
-            string lightText = "0% [ТЕМНОТА]";
+            string lightText = LocalizationManager.T("0% [ТЕМНОТА]", "0% [DARK]");
             string lightColor = "#00FFAA";
             var term = monitorTerminal != null ? monitorTerminal : MonitorTerminal.Instance;
             if (term != null && term.IsMainframeOnline && !term.IsStandby)
             {
                 if (term.BrightnessLevel > 0.6f)
                 {
-                    lightText = "100% [ДАЛЬНИЙ ЛУЧ // 22 МЕТРА]";
+                    lightText = LocalizationManager.T("100% [ДАЛЬНИЙ ЛУЧ // 22 МЕТРА]", "100% [BEAM // 22 METERS]");
                     lightColor = "#FFCC00";
                 }
                 else if (term.BrightnessLevel > 0.05f)
                 {
-                    lightText = "35% [ПРИГЛУШЕН]";
+                    lightText = LocalizationManager.T("35% [ПРИГЛУШЕН]", "35% [DIMMED]");
                     lightColor = "#FFFF66";
                 }
                 else
                 {
-                    lightText = "0% [МАСКИРОВКА // ТЕМНО]";
+                    lightText = LocalizationManager.T("0% [МАСКИРОВКА // ТЕМНО]", "0% [STEALTH // DARK]");
                     lightColor = "#00FFAA";
                 }
             }
@@ -1053,18 +1059,29 @@ public class PlayerController : MonoBehaviour
             string carriedText = "";
             if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.HasCarriedCartridge)
             {
-                carriedText = $"• <b>В РУКАХ:</b> <color=#00FFAA>Пакет дисков №{DiskDriveBay.Instance.CarriedCartridgeId} [ХОЛОДНЫЙ]</color>\n";
+                carriedText = LocalizationManager.T(
+                    $"• <b>В РУКАХ:</b> <color=#00FFAA>Пакет дисков №{DiskDriveBay.Instance.CarriedCartridgeId} [ХОЛОДНЫЙ]</color>\n",
+                    $"• <b>HELD:</b> <color=#00FFAA>Disk Pack #{DiskDriveBay.Instance.CarriedCartridgeId} [COOLED]</color>\n"
+                );
             }
 
-            string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
+            string noiseLabel = LocalizationManager.T("ШУМ ЭВМ:", "MAINFRAME NOISE:");
+            string lightLabel = LocalizationManager.T("СВЕТ ЭЛТ:", "CRT LIGHT:");
+            string moveHelp = LocalizationManager.T("• <b>W, A, S, D</b> — Передвижение / Встать", "• <b>W, A, S, D</b> — Move / Stand up");
+            string watchHelp = LocalizationManager.T("• <b>T</b> — Карманные часы (таймер / радар)", "• <b>T</b> — Pocket watch (timer / radar)");
+            string brightHelp = LocalizationManager.T("• <b>B</b> — Яркость экрана (100% / 35% / 0%)", "• <b>B</b> — Screen brightness (100% / 35% / 0%)");
+            string tabHelp = LocalizationManager.T("• <b>Tab</b> — Освободить / Захватить мышь", "• <b>Tab</b> — Toggle mouse cursor");
+            string pauseHelp = LocalizationManager.T("• <b>Esc</b> — Меню паузы", "• <b>Esc</b> — Pause menu");
+
+            string statusText = $"<b>{stateTitle}</b> <color=#00FFCC>{stateName}</color>\n" +
                                 carriedText +
-                                $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
-                                $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
-                                $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
-                                $"• <b>T</b> — Наручные часы (таймер / радар)\n" +
-                                $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
-                                $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
-                                $"• <b>Esc</b> — Освободить мышь (клик — захват)";
+                                $"• <b>{noiseLabel}</b> <color={noiseColor}>{noiseText}</color>\n" +
+                                $"• <b>{lightLabel}</b> <color={lightColor}>{lightText}</color>\n" +
+                                moveHelp + "\n" +
+                                watchHelp + "\n" +
+                                brightHelp + "\n" +
+                                tabHelp + "\n" +
+                                pauseHelp;
 
             GUILayout.Box(statusText, boxStyle);
             GUILayout.EndArea();
@@ -1096,14 +1113,16 @@ public class PlayerController : MonoBehaviour
             string bar = new string('█', filled) + new string('░', 16 - filled);
 
             string actionTitle = activeCartridge.Mode == CartridgeDraggable.SlideMode.PullOut 
-                ? "ИЗВЛЕЧЕНИЕ ПАКЕТА ДИСКОВ (ТЯНИТЕ НА СЕБЯ)" 
-                : "УСТАНОВКА ПАКЕТА ДИСКОВ (ТОЛКАЙТЕ ВПЕРЕД)";
+                ? LocalizationManager.T("ИЗВЛЕЧЕНИЕ ПАКЕТА ДИСКОВ (ТЯНИТЕ НА СЕБЯ)", "EXTRACTING DISK PACK (PULL TOWARDS YOU)") 
+                : LocalizationManager.T("УСТАНОВКА ПАКЕТА ДИСКОВ (ТОЛКАЙТЕ ВПЕРЕД)", "INSERTING DISK PACK (PUSH FORWARD)");
             string hint = activeCartridge.Mode == CartridgeDraggable.SlideMode.PullOut
-                ? "Двигайте мышь НАЗАД / ВНИЗ • Зажмите ЛКМ"
-                : "Двигайте мышь ВПЕРЕД / ВВЕРХ • Зажмите ЛКМ";
+                ? LocalizationManager.T("Двигайте мышь НАЗАД / ВНИЗ • Зажмите ЛКМ", "Move mouse BACK / DOWN • Hold LMB")
+                : LocalizationManager.T("Двигайте мышь ВПЕРЕД / ВВЕРХ • Зажмите ЛКМ", "Move mouse FORWARD / UP • Hold LMB");
 
+            string slotLabel = LocalizationManager.T("В СЛОТЕ", "IN BAY");
+            string extLabel = LocalizationManager.T("ИЗВЛЕЧЁН", "EXTRACTED");
             string gaugeText = $"<b><color=#00FFAA>[ {actionTitle} ]</color></b>\n" +
-                               $"В СЛОТЕ [<color=#00FF88>{bar}</color>] ИЗВЛЕЧЁН  <b><color=#FFFF33>{pct}%</color></b>\n" +
+                               $"{slotLabel} [<color=#00FF88>{bar}</color>] {extLabel}  <b><color=#FFFF33>{pct}%</color></b>\n" +
                                $"<size=11><color=#88DDCC>{hint}</color></size>";
 
             GUI.Box(new Rect(screenW / 2 - 250, screenH - 120, 500, 72), gaugeText, gaugeBoxStyle);
@@ -1125,9 +1144,14 @@ public class PlayerController : MonoBehaviour
             int filled = Mathf.RoundToInt(activeKnob.CurrentValue * 16f);
             string bar = new string('█', filled) + new string('░', 16 - filled);
 
-            string gaugeText = $"<b><color=#00FFAA>[ РЕГУЛЯТОР ЯРКОСТИ ЭЛТ-МОНИТОРА ]</color></b>\n" +
-                               $"◄ 0% (ТЕМНОТА)  [<color=#00FF88>{bar}</color>]  100% (ЯРКО) ►  <b><color=#FFFF33>{pct}%</color></b>\n" +
-                               $"<size=11><color=#88DDCC>Двигайте мышь влево / вправо или колёсико • Отпустите ЛКМ для фиксации</color></size>";
+            string knobTitle = LocalizationManager.T("РЕГУЛЯТОР ЯРКОСТИ ЭЛТ-МОНИТОРА", "CRT MONITOR BRIGHTNESS REGULATOR");
+            string darkLabel = LocalizationManager.T("ТЕМНОТА", "DARK");
+            string brightLabel = LocalizationManager.T("ЯРКО", "BRIGHT");
+            string knobHint = LocalizationManager.T("Двигайте мышь влево / вправо или колёсико • Отпустите ЛКМ для фиксации", "Move mouse left / right or scroll wheel • Release LMB to set");
+
+            string gaugeText = $"<b><color=#00FFAA>[ {knobTitle} ]</color></b>\n" +
+                               $"◄ 0% ({darkLabel})  [<color=#00FF88>{bar}</color>]  100% ({brightLabel}) ►  <b><color=#FFFF33>{pct}%</color></b>\n" +
+                               $"<size=11><color=#88DDCC>{knobHint}</color></size>";
 
             GUI.Box(new Rect(screenW / 2 - 250, screenH - 120, 500, 72), gaugeText, gaugeBoxStyle);
             return;
@@ -1154,9 +1178,9 @@ public class PlayerController : MonoBehaviour
         {
             promptStyle.normal.textColor = Color.yellow;
             string action = currentCartridge.Mode == CartridgeDraggable.SlideMode.PullOut
-                ? "Зажмите [ЛКМ] и тяните мышь на себя — Вытянуть пакет дисков"
-                : "Зажмите [ЛКМ] и толкайте вперед — Задвинуть пакет дисков в слот";
-            GUI.Box(new Rect(screenW / 2 - 250, screenH - 100, 500, 36), action, promptStyle);
+                ? LocalizationManager.T("Зажмите [ЛКМ] и тяните мышь на себя — Вытянуть пакет дисков", "Hold [LMB] & pull mouse back — Extract disk pack")
+                : LocalizationManager.T("Зажмите [ЛКМ] и толкайте вперед — Задвинуть пакет дисков в слот", "Hold [LMB] & push forward — Insert disk pack into bay");
+            GUI.Box(new Rect(screenW / 2 - 275, screenH - 100, 550, 36), action, promptStyle);
             return;
         }
 
@@ -1164,9 +1188,13 @@ public class PlayerController : MonoBehaviour
         if (currentKnob != null)
         {
             promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 230, screenH - 100, 460, 36), "Зажмите [ЛКМ] и двигайте мышь (или Колёсико) — Яркость", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 250, screenH - 100, 500, 36), LocalizationManager.T("Зажмите [ЛКМ] и двигайте мышь (или Колёсико) — Яркость", "Hold [LMB] & move mouse (or Wheel) — Brightness"), promptStyle);
             return;
         }
+
+        bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline && !powerCut);
+        bool isDiskExtracted = (DiskDriveBay.Instance != null && DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.CartridgeExtracted);
 
         if (currentState == PlayerState.Normal)
         {
@@ -1191,22 +1219,24 @@ public class PlayerController : MonoBehaviour
 
             if (distToChair < 1.35f && isFacingChair)
             {
-                GUI.Box(new Rect(screenW / 2 - 130, screenH - 100, 260, 36), "Нажмите [E] — Сесть в кресло", promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 160, screenH - 100, 320, 36), LocalizationManager.T("Нажмите [E] — Сесть в кресло", "Press [E] — Sit in chair"), promptStyle);
             }
             else if (distToMonitor < 1.4f && isFacingMonitor)
             {
-                bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
-                                      (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
-
-                if (isServerOnline)
+                if (isDiskExtracted)
+                {
+                    promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
+                    GUI.Box(new Rect(screenW / 2 - 250, screenH - 100, 500, 36), LocalizationManager.T("[ Диск извлечен — установите накопитель в сервер ]", "[ Disk extracted — insert disk pack into bay ]"), promptStyle);
+                }
+                else if (isServerOnline)
                 {
                     promptStyle.normal.textColor = Color.cyan;
-                    GUI.Box(new Rect(screenW / 2 - 150, screenH - 100, 300, 36), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                    GUI.Box(new Rect(screenW / 2 - 160, screenH - 100, 320, 36), LocalizationManager.T("Нажмите [F] — Терминал", "Press [F] — Terminal"), promptStyle);
                 }
                 else
                 {
                     promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
-                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 100, 360, 36), "[ Компьютер обесточен — запустите сервер ]", promptStyle);
+                    GUI.Box(new Rect(screenW / 2 - 220, screenH - 100, 440, 36), LocalizationManager.T("[ Компьютер обесточен — запустите сервер ]", "[ Computer unpowered — start server ]"), promptStyle);
                 }
             }
         }
@@ -1215,37 +1245,39 @@ public class PlayerController : MonoBehaviour
             if (currentInteractable != null)
             {
                 promptStyle.normal.textColor = Color.yellow;
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), currentInteractable.PromptText, promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 200, screenH - 135, 400, 32), currentInteractable.PromptText, promptStyle);
             }
             else
             {
-                bool isServerOnline = (monitorTerminal != null && monitorTerminal.IsMainframeOnline) ||
-                                      (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline);
-
-                if (isServerOnline)
+                if (isDiskExtracted)
+                {
+                    promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
+                    GUI.Box(new Rect(screenW / 2 - 250, screenH - 135, 500, 32), LocalizationManager.T("[ Диск извлечен — установите накопитель в сервер ]", "[ Disk extracted — insert disk pack into bay ]"), promptStyle);
+                }
+                else if (isServerOnline)
                 {
                     promptStyle.normal.textColor = Color.cyan;
-                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "Нажмите [F] — Терминал (WIP)", promptStyle);
+                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), LocalizationManager.T("Нажмите [F] — Терминал", "Press [F] — Terminal"), promptStyle);
                 }
                 else
                 {
                     promptStyle.normal.textColor = new Color(0.9f, 0.45f, 0.45f, 0.95f);
-                    GUI.Box(new Rect(screenW / 2 - 180, screenH - 135, 360, 32), "[ Монитор обесточен — запустите сервер ]", promptStyle);
+                    GUI.Box(new Rect(screenW / 2 - 200, screenH - 135, 400, 32), LocalizationManager.T("[ Монитор обесточен — запустите сервер ]", "[ Monitor unpowered — start server ]"), promptStyle);
                 }
             }
 
             promptStyle.normal.textColor = new Color(0.4f, 1.0f, 0.8f);
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 95, 360, 32), "Нажмите [B] — Быстрая смена яркости (маскировка)", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 220, screenH - 95, 440, 32), LocalizationManager.T("Нажмите [B] — Быстрая смена яркости (маскировка)", "Press [B] — Quick brightness toggle (stealth)"), promptStyle);
 
             promptStyle.normal.textColor = Color.yellow;
-            GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), "Нажмите [E] / [W,A,S,D] — Встать", promptStyle);
+            GUI.Box(new Rect(screenW / 2 - 180, screenH - 55, 360, 32), LocalizationManager.T("Нажмите [E] / [W,A,S,D] — Встать", "Press [E] / [W,A,S,D] — Stand up"), promptStyle);
         }
         else if (currentState == PlayerState.InspectingMonitor)
         {
             if (currentKnob != null)
             {
                 promptStyle.normal.textColor = Color.yellow;
-                GUI.Box(new Rect(screenW / 2 - 240, screenH - 105, 480, 34), "Зажмите [ЛКМ] и двигайте мышь — Крутить ручку яркости", promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 260, screenH - 105, 520, 34), LocalizationManager.T("Зажмите [ЛКМ] и двигайте мышь — Крутить ручку яркости", "Hold [LMB] and move mouse — Turn brightness knob"), promptStyle);
             }
 
             bool isCommanderActive = VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeInHierarchy;
@@ -1253,7 +1285,7 @@ public class PlayerController : MonoBehaviour
             if (!isCommanderActive && !isMiniGameActive)
             {
                 promptStyle.normal.textColor = Color.yellow;
-                GUI.Box(new Rect(screenW / 2 - 180, screenH - 60, 360, 36), "Нажмите [ESC] / [F] — Отойти | [B] — Яркость", promptStyle);
+                GUI.Box(new Rect(screenW / 2 - 200, screenH - 60, 400, 36), LocalizationManager.T("Нажмите [F] / [E] — Отойти | [B] — Яркость", "Press [F] / [E] — Step back | [B] — Brightness"), promptStyle);
             }
         }
     }

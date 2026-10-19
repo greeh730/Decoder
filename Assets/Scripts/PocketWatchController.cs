@@ -325,8 +325,28 @@ public class PocketWatchController : MonoBehaviour
             countdownText.color = Color.red;
         }
 
-        // Trigger violent door kick assault and Game Over through GuardPatrolSystem!
-        GuardPatrolSystem.TriggerTimeExpiredAssault();
+        MainframeBootQuest.Instance?.ShowNotification(
+            LocalizationManager.T("<color=#FFCC00>[ВРЕМЯ ИСТЕКЛО!]</color> По графику комендатуры в машинный зал направлен дежурный патруль! Прячьтесь!",
+                                   "<color=#FFCC00>[TIME EXPIRED!]</color> Scheduled patrol dispatch incoming to machine hall! Hide!"));
+
+        // Trigger scheduled guard inspection through GuardPatrolSystem!
+        GuardPatrolSystem.TriggerScheduledInspection();
+    }
+
+    public void RestartCountdown()
+    {
+        timeRemaining = countdownDuration;
+        isTicking = true;
+        hasTriggeredTimeout = false;
+        lastReportedSecond = Mathf.FloorToInt(timeRemaining);
+        UpdateWatchHands(timeRemaining);
+        if (countdownText != null)
+        {
+            countdownText.color = Color.white;
+        }
+        MainframeBootQuest.Instance?.ShowNotification(
+            LocalizationManager.T("<color=#00FFAA>[ТАЙМЕР ПЕРЕЗАПУЩЕН]</color> Плановая проверка завершена. Следующий обход через 15 минут.",
+                                   "<color=#00FFAA>[TIMER RESTARTED]</color> Scheduled inspection passed. Next patrol in 15 minutes."));
     }
 
     public void ToggleWatch(bool raise)
@@ -1036,17 +1056,17 @@ public class PocketWatchController : MonoBehaviour
             if (maxSuspicion >= 0.80f)
             {
                 radarStatusText.color = new Color(1.0f, 0.25f, 0.25f);
-                radarStatusText.text = "⚠ ТРЕВОГА У ДВЕРИ! ⚠";
+                radarStatusText.text = LocalizationManager.T("⚠ ТРЕВОГА У ДВЕРИ! ⚠", "⚠ ALERT AT DOORWAY! ⚠");
             }
             else if (maxSuspicion > 0.35f)
             {
                 radarStatusText.color = new Color(1.0f, 0.85f, 0.2f);
-                radarStatusText.text = $"• ПОДОЗРЕНИЕ: {Mathf.RoundToInt(maxSuspicion * 100f)}% •";
+                radarStatusText.text = LocalizationManager.T($"• ПОДОЗРЕНИЕ: {Mathf.RoundToInt(maxSuspicion * 100f)}% •", $"• SUSPICION: {Mathf.RoundToInt(maxSuspicion * 100f)}% •");
             }
             else
             {
                 radarStatusText.color = new Color(0.35f, 0.95f, 0.55f);
-                radarStatusText.text = $"• ОХРАНА: {guardCount} •";
+                radarStatusText.text = LocalizationManager.T($"• ОХРАНА: {guardCount} •", $"• GUARDS: {guardCount} •");
             }
         }
     }
@@ -1305,7 +1325,7 @@ public class PocketWatchController : MonoBehaviour
         radarStatusText.fontStyle = FontStyle.Bold;
         radarStatusText.alignment = TextAnchor.MiddleCenter;
         radarStatusText.color = new Color(0.35f, 0.95f, 0.55f);
-        radarStatusText.text = "• РАДАР СБ •";
+        radarStatusText.text = LocalizationManager.T("• РАДАР СБ •", "• SECURITY RADAR •");
         var rHeaderRt = rHeaderObj.GetComponent<RectTransform>();
         rHeaderRt.anchoredPosition = new Vector2(0f, 24f);
         rHeaderRt.sizeDelta = new Vector2(70f, 12f);
@@ -1377,14 +1397,20 @@ public class PocketWatchController : MonoBehaviour
             badgeStyle.normal.textColor = new Color(0.35f, 0.95f, 0.55f);
             GUI.backgroundColor = new Color(0.04f, 0.12f, 0.08f, 0.92f);
             GUI.Box(new Rect(sw - 380, sh - 90, 360, 42),
-                "🗺 ТАКТИЧЕСКИЙ РАДАР (СХЕМА НИИ)\n[ЛКМ / ПКМ] — Режим циферблата", badgeStyle);
+                LocalizationManager.T(
+                    "🗺 ТАКТИЧЕСКИЙ РАДАР (СХЕМА НИИ)\n[ЛКМ / ПКМ] — Режим циферблата",
+                    "🗺 TACTICAL RADAR (INSTITUTE MAP)\n[LMB / RMB] — Clock Face Mode"
+                ), badgeStyle);
         }
         else
         {
             badgeStyle.normal.textColor = (timeRemaining <= 60f) ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.95f, 0.75f);
             GUI.backgroundColor = new Color(0.12f, 0.09f, 0.06f, 0.92f);
             GUI.Box(new Rect(sw - 380, sh - 90, 360, 42),
-                $"⏱ НАРУЧНЫЕ ЧАСЫ [{mins:D2}:{secs:D2}]\n[ЛКМ / ПКМ] — Режим карты (Радар)", badgeStyle);
+                LocalizationManager.T(
+                    $"⏱ НАРУЧНЫЕ ЧАСЫ [{mins:D2}:{secs:D2}]\n[ЛКМ / ПКМ] — Режим карты (Радар)",
+                    $"⏱ POCKET WATCH [{mins:D2}:{secs:D2}]\n[LMB / RMB] — Map Mode (Radar)"
+                ), badgeStyle);
         }
 
         GUI.backgroundColor = Color.white;

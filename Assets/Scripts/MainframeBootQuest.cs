@@ -63,10 +63,12 @@ public class MainframeBootQuest : MonoBehaviour
     [SerializeField] private Light filamentPointLight;
     [SerializeField] private Renderer[] tubeRenderers;
     [SerializeField] private Transform filamentSwitch;
+    [SerializeField] private Transform filamentSwitch2;
     [SerializeField] private Transform hvSwitch;
     [SerializeField] private Renderer filamentStatusLed;
     [SerializeField] private Renderer hvStatusLed;
     [SerializeField] private WorldInteractable filamentInteractable;
+    [SerializeField] private WorldInteractable filamentInteractable2;
     [SerializeField] private WorldInteractable hvInteractable;
 
     [Header("Servers - Front Panel")]
@@ -99,10 +101,14 @@ public class MainframeBootQuest : MonoBehaviour
     private float notificationTimer = 0f;
 
     private Vector3 filamentBaseRot = new Vector3(0f, 134.13f, 0f);
+    private Vector3 filament2BaseRot = new Vector3(0f, 132.44f, 0f);
     private Vector3 hvBaseRot = new Vector3(0f, 143.29f, 0f);
     private Vector3 filamentBasePos = Vector3.zero;
+    private Vector3 filament2BasePos = Vector3.zero;
     private Vector3 hvBasePos = Vector3.zero;
     private bool basesCached = false;
+    private bool filament1Active = false;
+    private bool filament2Active = false;
 
     private void EnsureSwitchBases()
     {
@@ -113,6 +119,14 @@ public class MainframeBootQuest : MonoBehaviour
             if (filamentSwitch.localEulerAngles.y > 10f)
             {
                 filamentBaseRot = new Vector3(0f, filamentSwitch.localEulerAngles.y, 0f);
+            }
+        }
+        if (filamentSwitch2 != null)
+        {
+            filament2BasePos = filamentSwitch2.localPosition;
+            if (filamentSwitch2.localEulerAngles.y > 10f)
+            {
+                filament2BaseRot = new Vector3(0f, filamentSwitch2.localEulerAngles.y, 0f);
             }
         }
         if (hvSwitch != null)
@@ -186,8 +200,6 @@ public class MainframeBootQuest : MonoBehaviour
     private float manualCooldownTimer = 0f;
     private int lastBreakerToggleFrame = -1;
     private float lastBreakerToggleTime = -1f;
-    private int lastFilamentToggleFrame = -1;
-    private float lastFilamentToggleTime = -1f;
     private int lastHvToggleFrame = -1;
     private float lastHvToggleTime = -1f;
     private int[] lastSwitchToggleFrame = new int[4] { -1, -1, -1, -1 };
@@ -222,13 +234,27 @@ public class MainframeBootQuest : MonoBehaviour
             var w2 = GameObject.Find("comnata/Walec.002") ?? GameObject.Find("Walec.002");
             if (w2 != null) breakerHandle = w2.transform;
         }
+        if (filamentSwitch2 == null)
+        {
+            var c100 = GameObject.Find("comnata/Cube.100") ?? GameObject.Find("Cube.100");
+            if (c100 != null)
+            {
+                filamentSwitch2 = c100.transform;
+                filamentInteractable2 = c100.GetComponent<WorldInteractable>();
+            }
+        }
+
+        // Deactivate legacy broad box collider that obstructs switch clicking
+        var filCol = GameObject.Find("FilamentCollider");
+        if (filCol != null) filCol.SetActive(false);
     }
 
     private void Start()
     {
         BindInteractables();
         UpdateAllVisuals();
-        ShowNotification("ЭВМ обесточена. Найдите документацию в шкафчике или осмотрите щиток.");
+        ShowNotification(LocalizationManager.T("ЭВМ обесточена. Найдите документацию в шкафчике или осмотрите щиток.",
+                                               "Mainframe unpowered. Find operating manual in locker or check breaker."));
     }
 
     private void SafeBind(WorldInteractable wi, UnityEngine.Events.UnityAction action)
@@ -263,7 +289,13 @@ public class MainframeBootQuest : MonoBehaviour
         }
         if (filamentInteractable != null)
         {
-            SafeBind(filamentInteractable, ToggleFilament);
+            filamentInteractable.onInteract.RemoveAllListeners();
+            filamentInteractable.onInteract.AddListener(ToggleFilament1);
+        }
+        if (filamentInteractable2 != null)
+        {
+            filamentInteractable2.onInteract.RemoveAllListeners();
+            filamentInteractable2.onInteract.AddListener(ToggleFilament2);
         }
         if (hvInteractable != null)
         {
@@ -439,24 +471,48 @@ public class MainframeBootQuest : MonoBehaviour
         UpdateAllVisuals();
     }
 
+    private int lastFilament1Frame = -1;
+    private int lastFilament2Frame = -1;
+
+    public void ToggleFilament1()
+    {
+        if (Time.frameCount == lastFilament1Frame) return;
+        lastFilament1Frame = Time.frameCount;
+
+        filament1Active = !filament1Active;
+        PlaySwitchClickSound(0);
+        HandleFilamentToggled();
+    }
+
+    public void ToggleFilament2()
+    {
+        if (Time.frameCount == lastFilament2Frame) return;
+        lastFilament2Frame = Time.frameCount;
+
+        filament2Active = !filament2Active;
+        PlaySwitchClickSound(1);
+        HandleFilamentToggled();
+    }
+
     public void ToggleFilament()
     {
-        if (Time.frameCount == lastFilamentToggleFrame || (Time.unscaledTime - lastFilamentToggleTime) < 0.35f)
-        {
-            return;
-        }
-        lastFilamentToggleFrame = Time.frameCount;
-        lastFilamentToggleTime = Time.unscaledTime;
+        if (!filament1Active) ToggleFilament1();
+        else if (!filament2Active) ToggleFilament2();
+        else ToggleFilament1();
+    }
 
+    private void HandleFilamentToggled()
+    {
         if (currentStage < BootStage.BreakerOn || isPowerCutByBreaker)
         {
-            ShowNotification("[ОТКАЗ] Нет питания в электросети! Сначала включите рубильник на щитке.");
+            ShowNotification(LocalizationManager.T("[ОТКАЗ] Нет питания в электросети! Сначала включите рубильник на щитке.",
+                                                   "[HALT] Power grid offline! Turn on breaker panel switch first."));
+            UpdateAllVisuals();
             return;
         }
 
-        PlaySwitchClickSound(0);
-
-        if (currentStage == BootStage.BreakerOn)
+        bool anyActive = filament1Active || filament2Active;
+        if (anyActive && currentStage == BootStage.BreakerOn)
         {
             PlayLampPowerSound();
             currentStage = BootStage.FilamentWarming;
@@ -465,7 +521,8 @@ public class MainframeBootQuest : MonoBehaviour
         }
         else if (currentStage >= BootStage.FilamentReady)
         {
-            ShowNotification("Накал ламп уже прогрет и стабилен.");
+            ShowNotification(LocalizationManager.T("Накал ламп прогрет и стабилен.",
+                                                   "Vacuum tube filaments are warmed and stable."));
         }
 
         UpdateAllVisuals();
@@ -473,7 +530,8 @@ public class MainframeBootQuest : MonoBehaviour
 
     private IEnumerator WarmupFilamentRoutine()
     {
-        ShowNotification("Подан ток накала. Прогрев вакуумных ламп...");
+        ShowNotification(LocalizationManager.T("Подан ток накала. Прогрев вакуумных ламп...",
+                                               "Filament current applied. Heating vacuum tubes..."));
         float duration = 3.2f;
         float elapsed = 0f;
 
@@ -498,7 +556,8 @@ public class MainframeBootQuest : MonoBehaviour
         }
 
         currentStage = BootStage.FilamentReady;
-        ShowNotification("★ Лампы прогреты! Можно подавать высокое анодное напряжение (HV).");
+        ShowNotification(LocalizationManager.T("★ Лампы прогреты! Можно подавать высокое анодное напряжение (HV).",
+                                               "★ Tubes pre-heated! Ready to apply high voltage (HV)."));
         UpdateAllVisuals();
     }
 
@@ -511,7 +570,12 @@ public class MainframeBootQuest : MonoBehaviour
         lastHvToggleFrame = Time.frameCount;
         lastHvToggleTime = Time.unscaledTime;
 
-        PlayBreakerSound();
+        if (isPowerCutByBreaker || currentStage < BootStage.BreakerOn)
+        {
+            ShowNotification(LocalizationManager.T("[ОТКАЗ] Электросеть обесточена! Сначала включите рубильник на щитке.",
+                                                   "[HALT] Power grid offline! Turn on breaker panel switch first."));
+            return;
+        }
 
         if (currentStage == BootStage.SystemOnline)
         {
@@ -521,7 +585,8 @@ public class MainframeBootQuest : MonoBehaviour
             PlayRelaySound();
             if (DiskDriveBay.Instance != null) DiskDriveBay.Instance.OnServerStandbyOrCut();
             if (monitorTerminal != null) monitorTerminal.SetStandbyState(true);
-            ShowNotification("<color=#FFCC00>[ГОТОВНОСТЬ]</color> Высокое напряжение снято (Standby). ЭВМ обесшумлена, накал активен.");
+            ShowNotification(LocalizationManager.T("<color=#FFCC00>[ГОТОВНОСТЬ]</color> Высокое напряжение снято (Standby). ЭВМ обесшумлена, накал активен.",
+                                                   "<color=#FFCC00>[STANDBY]</color> High voltage cut. Mainframe quieted, filaments hot."));
             UpdateAllVisuals();
             return;
         }
@@ -535,14 +600,16 @@ public class MainframeBootQuest : MonoBehaviour
             if (monitorTerminal != null) monitorTerminal.SetStandbyState(false);
             if (registerBlinkCoroutine != null) StopCoroutine(registerBlinkCoroutine);
             registerBlinkCoroutine = StartCoroutine(RegisterBlinkRoutine());
-            ShowNotification("<color=#00FF88>[ОНЛАЙН]</color> Анодное напряжение подано. ЭВМ мгновенно в строю.");
+            ShowNotification(LocalizationManager.T("<color=#00FF88>[ОНЛАЙН]</color> Анодное напряжение подано. ЭВМ мгновенно в строю.",
+                                                   "<color=#00FF88>[ONLINE]</color> Anode HV restored. Mainframe immediately ready."));
             UpdateAllVisuals();
             return;
         }
 
         if (currentStage < BootStage.FilamentReady)
         {
-            ShowNotification("[ОПАСНОСТЬ] Нельзя подавать анодное напряжение на холодные лампы!");
+            ShowNotification(LocalizationManager.T("[ОПАСНОСТЬ] Нельзя подавать анодное напряжение на холодные лампы!",
+                                                   "[HAZARD] Cannot apply high voltage to cold vacuum tubes!"));
             return;
         }
 
@@ -550,12 +617,14 @@ public class MainframeBootQuest : MonoBehaviour
         {
             currentStage = BootStage.HighVoltageOn;
             PlayRelaySound();
-            ShowNotification("Высокое напряжение подано. Вычислительный блок активирован.");
+            ShowNotification(LocalizationManager.T("Высокое напряжение подано. Вычислительный блок активирован.",
+                                                   "High voltage applied. Computing core energized."));
             UpdateAllVisuals();
         }
         else
         {
-            ShowNotification("Высокое напряжение уже подано.");
+            ShowNotification(LocalizationManager.T("Высокое напряжение уже подано.",
+                                                   "High voltage is already engaged."));
         }
     }
 
@@ -563,26 +632,30 @@ public class MainframeBootQuest : MonoBehaviour
     {
         if (hasTapeInInventory || isTapeInserted)
         {
-            ShowNotification("Бобина магнитной ленты уже у вас.");
+            ShowNotification(LocalizationManager.T("Бобина магнитной ленты уже у вас.",
+                                                   "Magnetic tape reel is already in your inventory."));
             return;
         }
 
         hasTapeInInventory = true;
         if (lockerTapeProp != null) lockerTapeProp.SetActive(false);
-        ShowNotification("Получена бобина с ядром ОС [DECODER-KERNEL-TAPE]. Вставьте её в дисковод серверов.");
+        ShowNotification(LocalizationManager.T("Получена бобина с ядром ОС [DECODER-KERNEL-TAPE]. Вставьте её в дисковод серверов.",
+                                               "Acquired OS kernel reel [DECODER-KERNEL-TAPE]. Mount it into server drive."));
     }
 
     public void InsertTape()
     {
         if (isTapeInserted)
         {
-            ShowNotification("Бобина с ядром ОС уже установлена в накопитель.");
+            ShowNotification(LocalizationManager.T("Бобина с ядром ОС уже установлена в накопитель.",
+                                                   "OS kernel tape reel is already mounted in drive."));
             return;
         }
 
         if (!hasTapeInInventory)
         {
-            ShowNotification("[НЕТ НОСИТЕЛЯ] Сначала найдите бобину магнитной ленты на шкафчике.");
+            ShowNotification(LocalizationManager.T("[НЕТ НОСИТЕЛЯ] Сначала найдите бобину магнитной ленты на шкафчике.",
+                                                   "[NO MEDIA] Find the OS kernel tape reel in locker first."));
             return;
         }
 
@@ -592,10 +665,12 @@ public class MainframeBootQuest : MonoBehaviour
         if (serverTapeProp != null) serverTapeProp.SetActive(true);
         if (tapeInsertInteractable != null)
         {
-            tapeInsertInteractable.PromptText = "Бобина с ядром ОС установлена [DECODER-KERNEL]";
+            tapeInsertInteractable.PromptText = LocalizationManager.T("Бобина с ядром ОС установлена [DECODER-KERNEL]",
+                                                                      "OS kernel tape reel installed [DECODER-KERNEL]");
             tapeInsertInteractable.IsInteractable = false;
         }
-        ShowNotification("Бобина магнитной ленты установлена в накопитель ЭВМ.");
+        ShowNotification(LocalizationManager.T("Бобина магнитной ленты установлена в накопитель ЭВМ.",
+                                               "Magnetic tape reel mounted into mainframe transport."));
     }
 
     public void ToggleAddressSwitch(int index)
@@ -611,8 +686,11 @@ public class MainframeBootQuest : MonoBehaviour
         addressSwitches[index] = !addressSwitches[index];
         PlaySwitchClickSound(index);
 
-        string stateStr = addressSwitches[index] ? "ВКЛ [1]" : "ВЫКЛ [0]";
-        ShowNotification($"Тумблер шины #{index + 1}: {stateStr}");
+        string stateStr = addressSwitches[index] 
+            ? LocalizationManager.T("ВКЛ [1]", "ON [1]") 
+            : LocalizationManager.T("ВЫКЛ [0]", "OFF [0]");
+        ShowNotification(LocalizationManager.T($"Тумблер шины #{index + 1}: {stateStr}",
+                                               $"Bus switch #{index + 1}: {stateStr}"));
 
         UpdateFrontPanelSwitches();
 
@@ -645,8 +723,10 @@ public class MainframeBootQuest : MonoBehaviour
         {
             monitorTerminal.SetMainframeOnline(false);
             monitorTerminal.AddLog("<color=#FF0000><b>[BUS PARITY ERROR 0x07: KERNEL PANIC]</b></color>");
-            monitorTerminal.AddLog("<color=#FF6666>[HARDWARE FAULT] Нарушена адресация шины во время исполнения!</color>");
-            monitorTerminal.AddLog("<color=#FFCC00>Восстановите тумблеры шины адреса (1-0-1-1) и повторно нажмите [START IPL].</color>");
+            monitorTerminal.AddLog(LocalizationManager.T("<color=#FF6666>[HARDWARE FAULT] Нарушена адресация шины во время исполнения!</color>",
+                                                         "<color=#FF6666>[HARDWARE FAULT] Bus address altered during runtime execution!</color>"));
+            monitorTerminal.AddLog(LocalizationManager.T("<color=#FFCC00>Восстановите тумблеры шины адреса (1-0-1-1) и повторно нажмите [START IPL].</color>",
+                                                         "<color=#FFCC00>Restore bus address switches (1-0-1-1) and press [START IPL] again.</color>"));
         }
 
         if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
@@ -654,7 +734,8 @@ public class MainframeBootQuest : MonoBehaviour
             PlayerController.Instance.ExitMonitor();
         }
 
-        ShowNotification("<color=#FF3333><b>[АВАРИЯ: СБОЙ ШИНЫ АДРЕСА]</b></color> Сбита адресация ЭВМ на ходу! Терминал отключен. Верните 1-0-1-1 и нажмите [START IPL].");
+        ShowNotification(LocalizationManager.T("<color=#FF3333><b>[АВАРИЯ: СБОЙ ШИНЫ АДРЕСА]</b></color> Сбита адресация ЭВМ на ходу! Терминал отключен. Верните 1-0-1-1 и нажмите [START IPL].",
+                                               "<color=#FF3333><b>[FAULT: BUS PARITY ERROR]</b></color> Bus address modified while running! Return to 1-0-1-1 and press [START IPL]."));
         UpdateAllVisuals();
     }
 
@@ -679,13 +760,15 @@ public class MainframeBootQuest : MonoBehaviour
 
         if (currentStage < BootStage.HighVoltageOn)
         {
-            ShowNotification("[ОТКАЗ] Мейнфрейм не запитан! Пройдите шаги включения питания и накала.");
+            ShowNotification(LocalizationManager.T("[ОТКАЗ] Мейнфрейм не запитан! Пройдите шаги включения питания и накала.",
+                                                   "[HALT] Mainframe not powered! Turn on breaker and pre-heat tubes first."));
             return;
         }
 
         if (!isTapeInserted)
         {
-            ShowNotification("[ОШИБКА IPL] Накопитель пуст! Вставьте бобину магнитной ленты из шкафчика.");
+            ShowNotification(LocalizationManager.T("[ОШИБКА IPL] Накопитель пуст! Вставьте бобину магнитной ленты из шкафчика.",
+                                                   "[IPL FAULT] Tape drive empty! Mount OS kernel tape reel from locker."));
             return;
         }
 
@@ -698,7 +781,8 @@ public class MainframeBootQuest : MonoBehaviour
 
         if (!codeCorrect)
         {
-            ShowNotification("[ОШИБКА АДРЕСА] Неверный код шины! Сверьтесь с инструкцией инженера в шкафчике.");
+            ShowNotification(LocalizationManager.T("[ОШИБКА АДРЕСА] Неверный код шины! Сверьтесь с инструкцией инженера в шкафчике.",
+                                                   "[ADDRESS FAULT] Incorrect bus address code! Check engineer manual in locker."));
             return;
         }
 
@@ -711,7 +795,8 @@ public class MainframeBootQuest : MonoBehaviour
     private IEnumerator BootSystemRoutine()
     {
         currentStage = BootStage.SystemBooting;
-        ShowNotification("★ НАЧАЛЬНАЯ ЗАГРУЗКА (IPL)... Чтение ядра с магнитной ленты!");
+        ShowNotification(LocalizationManager.T("★ НАЧАЛЬНАЯ ЗАГРУЗКА (IPL)... Чтение ядра с магнитной ленты!",
+                                               "★ INITIAL PROGRAM LOAD (IPL)... Loading kernel from magnetic tape!"));
 
         // Start dancing register LEDs
         if (registerBlinkCoroutine != null) StopCoroutine(registerBlinkCoroutine);
@@ -722,7 +807,8 @@ public class MainframeBootQuest : MonoBehaviour
         currentStage = BootStage.SystemOnline;
         PlayRelaySound();
         StartTransformerHum();
-        ShowNotification("★★ СИСТЕМА УСПЕШНО ЗАПУЩЕНА! Подойдите к монитору на столе.");
+        ShowNotification(LocalizationManager.T("★★ СИСТЕМА УСПЕШНО ЗАПУЩЕНА! Подойдите к монитору на столе.",
+                                               "★★ SYSTEM SUCCESSFULLY BOOTED! Approach terminal on desk."));
 
         if (monitorTerminal != null)
         {
@@ -782,7 +868,7 @@ public class MainframeBootQuest : MonoBehaviour
     public void ShowNotification(string msg)
     {
         if (!showTopBannerNotifications) return;
-        onScreenNotification = msg;
+        onScreenNotification = LocalizationManager.TranslatePrompt(msg);
         notificationTimer = 4.0f;
     }
 
@@ -802,7 +888,9 @@ public class MainframeBootQuest : MonoBehaviour
         {
             breakerLed.sharedMaterial = isBreakerUp ? ledGreenMat : ledRedMat;
         }
-        string breakerPrompt = isBreakerUp ? "Нажмите [E / ЛКМ] — Отключить главный рубильник питания" : "Нажмите [E / ЛКМ] — Включить главный рубильник питания";
+        string breakerPrompt = isBreakerUp 
+            ? LocalizationManager.T("Нажмите [E / ЛКМ] — Отключить главный рубильник питания", "Press [E / LMB] — Turn off main power breaker") 
+            : LocalizationManager.T("Нажмите [E / ЛКМ] — Включить главный рубильник питания", "Press [E / LMB] — Turn on main power breaker");
         if (breakerInteractable != null)
         {
             breakerInteractable.PromptText = breakerPrompt;
@@ -818,19 +906,33 @@ public class MainframeBootQuest : MonoBehaviour
 
         EnsureSwitchBases();
 
-        // 2. Filament switch (Cube.099)
-        bool filamentOn = currentStage >= BootStage.FilamentWarming && !isPowerCutByBreaker;
+        // 2. Filament switches (Cube.099 & Cube.100)
+        bool f1On = (filament1Active || currentStage >= BootStage.FilamentWarming) && !isPowerCutByBreaker;
         if (filamentSwitch != null)
         {
-            float pitch = filamentOn ? -22f : 0f;
+            float pitch = f1On ? -22f : 0f;
             filamentSwitch.localRotation = Quaternion.Euler(pitch, filamentBaseRot.y, filamentBaseRot.z);
             if (filamentBasePos != Vector3.zero)
             {
                 var pos = filamentBasePos;
-                if (filamentOn) pos.y += 0.005f;
+                if (f1On) pos.y += 0.005f;
                 filamentSwitch.localPosition = pos;
             }
         }
+
+        bool f2On = (filament2Active || currentStage >= BootStage.FilamentWarming) && !isPowerCutByBreaker;
+        if (filamentSwitch2 != null)
+        {
+            float pitch = f2On ? -22f : 0f;
+            filamentSwitch2.localRotation = Quaternion.Euler(pitch, filament2BaseRot.y, filament2BaseRot.z);
+            if (filament2BasePos != Vector3.zero)
+            {
+                var pos = filament2BasePos;
+                if (f2On) pos.y += 0.005f;
+                filamentSwitch2.localPosition = pos;
+            }
+        }
+
         if (filamentStatusLed != null)
         {
             filamentStatusLed.sharedMaterial = (currentStage >= BootStage.FilamentReady && !isPowerCutByBreaker) ? ledGreenMat :
@@ -853,13 +955,13 @@ public class MainframeBootQuest : MonoBehaviour
         if (hvInteractable != null)
         {
             if (currentStage == BootStage.SystemOnline)
-                hvInteractable.PromptText = "Нажмите [E] — Снять анодное напряжение (Горячий резерв / Standby)";
+                hvInteractable.PromptText = LocalizationManager.T("Нажмите [E] — Снять анодное напряжение (Горячий резерв / Standby)", "Press [E] — Cut anode voltage (Hot Standby)");
             else if (currentStage == BootStage.HotStandby)
-                hvInteractable.PromptText = "Нажмите [E] — Подать анодное напряжение (Быстрый запуск ЭВМ)";
+                hvInteractable.PromptText = LocalizationManager.T("Нажмите [E] — Подать анодное напряжение (Быстрый запуск ЭВМ)", "Press [E] — Apply anode voltage (Quick Boot)");
             else if (currentStage == BootStage.FilamentReady)
-                hvInteractable.PromptText = "Нажмите [E] — Подать высокое напряжение (HV)";
+                hvInteractable.PromptText = LocalizationManager.T("Нажмите [E] — Подать высокое напряжение (HV)", "Press [E] — Apply high voltage (HV)");
             else
-                hvInteractable.PromptText = "Тумблер высокого напряжения (HV)";
+                hvInteractable.PromptText = LocalizationManager.T("Тумблер высокого напряжения (HV)", "High voltage toggle switch (HV)");
         }
 
         // 4. Tube glow
@@ -897,7 +999,7 @@ public class MainframeBootQuest : MonoBehaviour
         if (serverTapeProp != null) serverTapeProp.SetActive(isTapeInserted);
         if (tapeInsertInteractable != null && isTapeInserted)
         {
-            tapeInsertInteractable.PromptText = "Бобина с ядром ОС установлена [DECODER-KERNEL]";
+            tapeInsertInteractable.PromptText = LocalizationManager.T("Бобина с ядром ОС установлена [DECODER-KERNEL]", "OS kernel tape reel installed [DECODER-KERNEL]");
             tapeInsertInteractable.IsInteractable = false;
         }
 
@@ -984,7 +1086,8 @@ public class MainframeBootQuest : MonoBehaviour
             alignment = TextAnchor.MiddleCenter
         };
         headerStyle.normal.textColor = new Color(0.15f, 0.1f, 0.05f);
-        GUILayout.Label("МИНИСТЕРСТВО РАДИОПРОМЫШЛЕННОСТИ\nВЫЧИСЛИТЕЛЬНЫЙ КОМПЛЕКС «ДЕКОДЕР-70»", headerStyle);
+        GUILayout.Label(LocalizationManager.T("МИНИСТЕРСТВО РАДИОПРОМЫШЛЕННОСТИ\nВЫЧИСЛИТЕЛЬНЫЙ КОМПЛЕКС «ДЕКОДЕР-70»",
+                                               "MINISTRY OF RADIO INDUSTRY\nCOMPUTING COMPLEX \"DECODER-70\""), headerStyle);
 
         var subStyle = new GUIStyle(GUI.skin.label)
         {
@@ -993,7 +1096,8 @@ public class MainframeBootQuest : MonoBehaviour
             alignment = TextAnchor.MiddleCenter
         };
         subStyle.normal.textColor = new Color(0.5f, 0.1f, 0.05f);
-        GUILayout.Label("СЛУЖЕБНАЯ ИНСТРУКЦИЯ ПО ХОЛОДНОМУ ПУСКУ (1974 г.)", subStyle);
+        GUILayout.Label(LocalizationManager.T("СЛУЖЕБНАЯ ИНСТРУКЦИЯ ПО ХОЛОДНОМУ ПУСКУ (1974 г.)",
+                                               "OFFICIAL COLD BOOT OPERATING MANUAL (1974)"), subStyle);
         GUILayout.Space(10);
 
         var bodyStyle = new GUIStyle(GUI.skin.label)
@@ -1003,7 +1107,7 @@ public class MainframeBootQuest : MonoBehaviour
         };
         bodyStyle.normal.textColor = new Color(0.15f, 0.15f, 0.15f);
 
-        string manualText =
+        string manualTextRu =
             "<b>1. ЭЛЕКТРОПИТАНИЕ:</b>\n" +
             "   Подать напряжение на силовом щитке на стене (Cube.009), переведя главный рубильник вверх.\n\n" +
             "<b>2. ПРОГРЕВ ВАКУУМНЫХ ЛАМП ГЕНЕРАТОРА (СЕРВЕРА):</b>\n" +
@@ -1023,10 +1127,30 @@ public class MainframeBootQuest : MonoBehaviour
             "   Изучайте служебные записки на столе [N] и встроенную справку [H].\n" +
             "   Следите за температурой накопителя ЕС-5061 и шагами патруля охраны за дверью.";
 
-        GUILayout.Label(manualText, bodyStyle);
+        string manualTextEn =
+            "<b>1. POWER SUPPLY:</b>\n" +
+            "   Energize wall breaker panel on the wall by flipping the knife switch UP.\n\n" +
+            "<b>2. VACUUM TUBE PRE-HEATING (SERVER GENERATOR):</b>\n" +
+            "   Flip FILAMENT toggle switch. Wait 3 seconds until the green READY lamp lights up.\n" +
+            "   <i>WARNING! Applying anode current to cold unheated tubes will destroy them!</i>\n" +
+            "   Once tubes are glowing amber, engage the HIGH VOLTAGE switch.\n\n" +
+            "<b>3. INITIAL BOOT ADDRESS (FRONT PANEL):</b>\n" +
+            "   Set the 4 bus address switches to match the magnetic tape drive address code:\n" +
+            "   <color=#990000><b>[ 1 ] - ON   |  [ 2 ] - OFF  |  [ 3 ] - ON   |  [ 4 ] - ON    (1 - 0 - 1 - 1)</b></color>\n\n" +
+            "<b>4. MOUNT MEDIA & START IPL:</b>\n" +
+            "   Take the OS kernel tape reel from locker, mount it into server tape transport,\n" +
+            "   then press the prominent round red button [START IPL].\n\n" +
+            "<b>5. OPERATOR TERMINAL:</b>\n" +
+            "   Once kernel load finishes, take the operator seat at the workstation terminal.\n\n" +
+            "<b>6. CRYPTANALYSIS & STEALTH:</b>\n" +
+            "   In terminal, inspect C:\\SECRET\\INSTRUCTION_74.TXT.\n" +
+            "   Read tactical desk notes [N] and built-in commander help [H].\n" +
+            "   Keep disk drive EC-5061 temperature safe and monitor patrol footsteps outside.";
+
+        GUILayout.Label(LocalizationManager.IsEnglish ? manualTextEn : manualTextRu, bodyStyle);
         GUILayout.Space(15);
 
-        if (GUILayout.Button("ЗАКРЫТЬ ИНСТРУКЦИЮ [E / Esc]", GUILayout.Height(35)))
+        if (GUILayout.Button(LocalizationManager.T("ЗАКРЫТЬ ИНСТРУКЦИЮ [E / Esc]", "CLOSE MANUAL [E / Esc]"), GUILayout.Height(35)))
         {
             ToggleManual(false);
         }
@@ -1037,64 +1161,47 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void SetupAudio()
     {
-        // Attach audio emitters to physical server cabinet (Cube.006)
-        Transform serverTransform = transform;
-        var serverObj = GameObject.Find("Cube.006");
-        if (serverObj != null)
-        {
-            serverTransform = serverObj.transform;
-        }
+        Vector3 serverFrontPos = new Vector3(5.90f, 2.10f, 1.65f);
 
         // 1. Transient / Relay contactor AudioSource
-        Transform questAudioObj = serverTransform.Find("ServerQuestAudio");
+        var questAudioObj = GameObject.Find("ServerQuestAudio");
         if (questAudioObj == null)
         {
-            var go = new GameObject("ServerQuestAudio");
-            go.transform.SetParent(serverTransform, false);
-            go.transform.position = new Vector3(5.92f, 1.50f, 1.65f); // physical center of server front panel
-            questAudioObj = go.transform;
+            questAudioObj = new GameObject("ServerQuestAudio");
         }
+        questAudioObj.transform.SetParent(null);
+        questAudioObj.transform.position = serverFrontPos;
+
         questAudioSource = questAudioObj.GetComponent<AudioSource>();
-        if (questAudioSource == null) questAudioSource = questAudioObj.gameObject.AddComponent<AudioSource>();
+        if (questAudioSource == null) questAudioSource = questAudioObj.AddComponent<AudioSource>();
 
         questAudioSource.playOnAwake = false;
-        questAudioSource.spatialBlend = 1.0f; // 100% 3D spatial sound
-        questAudioSource.rolloffMode = AudioRolloffMode.Custom;
-        questAudioSource.minDistance = 1.0f;
-        questAudioSource.maxDistance = 12.0f;
+        questAudioSource.spatialBlend = 0.15f; // Crisp near-stereo presence across room
+        questAudioSource.minDistance = 2.0f;
+        questAudioSource.maxDistance = 25.0f;
         questAudioSource.spread = 35f;
         questAudioSource.dopplerLevel = 0f;
 
-        var relayCurve = new AnimationCurve(
-            new Keyframe(0.00f, 1.00f),
-            new Keyframe(0.20f, 0.70f),
-            new Keyframe(0.50f, 0.35f),
-            new Keyframe(0.80f, 0.10f),
-            new Keyframe(1.00f, 0.00f)
-        );
-        questAudioSource.SetCustomCurve(AudioSourceCurveType.CustomRolloff, relayCurve);
-
         // 2. Continuous Transformer Hum AudioSource (50Hz hum)
-        Transform humAudioObj = serverTransform.Find("ServerHumAudio");
+        var humAudioObj = GameObject.Find("ServerHumAudio");
         if (humAudioObj == null)
         {
-            var go = new GameObject("ServerHumAudio");
-            go.transform.SetParent(serverTransform, false);
-            go.transform.position = new Vector3(5.92f, 1.50f, 1.65f);
-            humAudioObj = go.transform;
+            humAudioObj = new GameObject("ServerHumAudio");
         }
+        humAudioObj.transform.SetParent(null);
+        humAudioObj.transform.position = serverFrontPos;
+
         humAudioSource = humAudioObj.GetComponent<AudioSource>();
-        if (humAudioSource == null) humAudioSource = humAudioObj.gameObject.AddComponent<AudioSource>();
+        if (humAudioSource == null) humAudioSource = humAudioObj.AddComponent<AudioSource>();
 
         humAudioSource.playOnAwake = false;
-        humAudioSource.spatialBlend = 1.0f; // 100% 3D spatial audio! No flat 2D bleed into headphones!
-        humAudioSource.rolloffMode = AudioRolloffMode.Custom;
-        humAudioSource.minDistance = 0.8f;  // Full volume only within arms-reach (0.8m)
-        humAudioSource.maxDistance = 8.5f;  // Completely fades out before outer corridors
-        humAudioSource.spread = 45f;        // Sounds like a wide physical cabinet, not a single point
+        humAudioSource.spatialBlend = 0.85f;
+        humAudioSource.minDistance = 1.0f;
+        humAudioSource.maxDistance = 12.0f;
+        humAudioSource.spread = 45f;
         humAudioSource.dopplerLevel = 0f;
         humAudioSource.loop = true;
-        humAudioSource.volume = 0.09f;      // Gentle, non-fatiguing, authentic ambient background level
+        humAudioSource.volume = 0.09f;
 
         // Smooth distance attenuation curve:
         // Close to server: distinct tactile hum.
@@ -1152,8 +1259,35 @@ public class MainframeBootQuest : MonoBehaviour
         }
     }
 
+    private AudioSource directAudioSource;
+
+    private void Play2DSound(AudioClip clip, float volume = 1f, float pitch = 1f)
+    {
+        if (clip == null) return;
+        if (directAudioSource == null)
+        {
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                directAudioSource = cam.GetComponent<AudioSource>();
+                if (directAudioSource == null) directAudioSource = cam.gameObject.AddComponent<AudioSource>();
+            }
+            else
+            {
+                var go = new GameObject("Mainframe2DAudio");
+                directAudioSource = go.AddComponent<AudioSource>();
+                DontDestroyOnLoad(go);
+            }
+            directAudioSource.spatialBlend = 0f;
+            directAudioSource.playOnAwake = false;
+        }
+        directAudioSource.pitch = pitch;
+        directAudioSource.PlayOneShot(clip, volume);
+    }
+
     private void PlayRelaySound()
     {
+        Play2DSound(relayClackClip, 0.85f, 1.0f);
         if (questAudioSource != null && relayClackClip != null)
         {
             questAudioSource.PlayOneShot(relayClackClip, 0.75f);
@@ -1162,20 +1296,19 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void PlayBreakerSound()
     {
+        float p = UnityEngine.Random.Range(0.97f, 1.03f);
+        Play2DSound(breakerSwitchClip, 1.0f, p);
         if (breakerAudioSource != null && breakerSwitchClip != null)
         {
-            breakerAudioSource.pitch = UnityEngine.Random.Range(0.97f, 1.03f);
+            breakerAudioSource.pitch = p;
             breakerAudioSource.PlayOneShot(breakerSwitchClip, 0.95f);
-        }
-        else if (questAudioSource != null && breakerSwitchClip != null)
-        {
-            questAudioSource.pitch = UnityEngine.Random.Range(0.97f, 1.03f);
-            questAudioSource.PlayOneShot(breakerSwitchClip, 0.95f);
         }
     }
 
     private void PlayLampPowerSound()
     {
+        if (lampPowerClip == null) lampPowerClip = Resources.Load<AudioClip>("Sound/LampPower");
+        Play2DSound(lampPowerClip, 1.0f, 1.0f);
         if (questAudioSource != null && lampPowerClip != null)
         {
             questAudioSource.pitch = 1.0f;
@@ -1185,25 +1318,50 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void PlayTapeInsertSound()
     {
+        float p = UnityEngine.Random.Range(0.95f, 1.05f);
+        Play2DSound(tapeInsertClip, 0.9f, p);
         if (questAudioSource != null && tapeInsertClip != null)
         {
-            questAudioSource.pitch = UnityEngine.Random.Range(0.95f, 1.05f);
+            questAudioSource.pitch = p;
             questAudioSource.PlayOneShot(tapeInsertClip, 0.85f);
         }
     }
 
     private void PlaySwitchClickSound(int index)
     {
+        if (switchClick1Clip == null) switchClick1Clip = Resources.Load<AudioClip>("Sound/SwitchClick1") ?? CreateSwitchClickClip(1800f);
+        if (switchClick2Clip == null) switchClick2Clip = Resources.Load<AudioClip>("Sound/SwitchClick2") ?? CreateSwitchClickClip(1400f);
+
+        var clip = (index % 2 == 0) ? switchClick1Clip : switchClick2Clip;
+        if (clip == null) clip = switchClick1Clip ?? switchClick2Clip;
+        if (clip == null) return;
+
+        float p = UnityEngine.Random.Range(0.95f, 1.05f);
+        Play2DSound(clip, 1.0f, p);
+
         if (questAudioSource != null)
         {
-            var clip = (index % 2 == 0) ? switchClick1Clip : switchClick2Clip;
-            if (clip == null) clip = switchClick1Clip ?? switchClick2Clip;
-            if (clip != null)
-            {
-                questAudioSource.pitch = UnityEngine.Random.Range(0.94f, 1.06f);
-                questAudioSource.PlayOneShot(clip, 0.90f);
-            }
+            questAudioSource.pitch = p;
+            questAudioSource.PlayOneShot(clip, 0.9f);
         }
+    }
+
+    private AudioClip CreateSwitchClickClip(float freq)
+    {
+        int sampleRate = 44100;
+        int samples = (int)(sampleRate * 0.045f);
+        float[] data = new float[samples];
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / samples;
+            float click = Mathf.Sin(2f * Mathf.PI * freq * (float)i / sampleRate) * 0.7f;
+            float noise = (UnityEngine.Random.value * 2f - 1f) * 0.4f;
+            float env = (1f - t) * (1f - t);
+            data[i] = (click + noise) * env;
+        }
+        var clip = AudioClip.Create("GeneratedSwitchClick_" + (int)freq, samples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
     }
 
     private void PlayErrorAlarmSound()

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -24,7 +24,7 @@ public class WorldInteractable : MonoBehaviour
 
     public string PromptText
     {
-        get => promptText;
+        get => LocalizationManager.TranslatePrompt(promptText);
         set => promptText = value;
     }
 

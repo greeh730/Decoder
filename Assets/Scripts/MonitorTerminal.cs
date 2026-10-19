@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -127,6 +127,35 @@ public class MonitorTerminal : MonoBehaviour
         ApplyBrightnessVisuals();
     }
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += OnLanguageChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        SetupWipButtons();
+        UpdateIdleScreenText();
+        UpdateHeaderTitle();
+    }
+
+    private void UpdateHeaderTitle()
+    {
+        if (headerPanel != null)
+        {
+            var title = headerPanel.transform.Find("TitleText")?.GetComponent<Text>();
+            if (title != null)
+            {
+                title.text = LocalizationManager.T("ЭВМ «ВЕКТОР-1» // СИСТЕМА ДЕКОДЕР", "MAINFRAME \"VECTOR-1\" // DECODER SYSTEM");
+            }
+        }
+    }
+
     private void Start()
     {
         // Initial state: computer powers on ONLY when server is online!
@@ -139,6 +168,18 @@ public class MonitorTerminal : MonoBehaviour
 
     private void Update()
     {
+        bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        bool serverOnline = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline && !powerCut);
+        bool diskExtracted = (DiskDriveBay.Instance != null && DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.CartridgeExtracted);
+
+        if (!serverOnline || diskExtracted)
+        {
+            if (isMainframeOnline)
+            {
+                SetMainframeOnline(false);
+            }
+        }
+
         if (clockText != null)
         {
             clockText.text = isMainframeOnline ? System.DateTime.Now.ToString("HH:mm:ss") : "--:--:--";
@@ -173,16 +214,32 @@ public class MonitorTerminal : MonoBehaviour
         if (idleText == null) return;
 
         string cursor = cursorVisible ? "_" : " ";
-        idleText.text =
-            "<size=36><b><color=#00FFAA>ЭВМ «ВЕКТОР-1»</color></b></size>\n" +
-            "<size=17><color=#66CCAA>ИНСТИТУТ ПРИКЛАДНОЙ ДЕШИФРАЦИИ // СЕКТОР 7</color></size>\n\n" +
-            "<size=28><b><color=#FFCC00>/// WORK IN PROGRESS ///</color></b></size>\n" +
-            "<size=22><color=#FFFFFF>ИНТЕРФЕЙС ТЕРМИНАЛА В РАЗРАБОТКЕ</color></size>\n" +
-            "<color=#00FFCC>────────────────────────────────────────────</color>\n" +
-            "<size=16><color=#99FFCC>• ПИТАНИЕ СЕРВЕРА: <color=#00FF88>[ СЕТЬ СТАБИЛЬНА // ОНЛАЙН ]</color></color></size>\n" +
-            "<size=16><color=#99FFCC>• НОСИТЕЛЬ ЯДРА: <color=#00FF88>[ МАГНИТНАЯ ЛЕНТА ЗАГРУЖЕНА ]</color></color></size>\n" +
-            "<size=16><color=#FFCC66>• БЛОК ДЕШИФРАТОРА: <color=#FFAA33>[ В РАЗРАБОТКЕ (PRE-ALPHA) ]</color></color></size>\n\n" +
-            $"<size=23><b><color=#FFFF66>[ Нажмите [F] — Терминал (WIP) {cursor} ]</color></b></size>";
+        if (LocalizationManager.IsEnglish)
+        {
+            idleText.text =
+                "<size=36><b><color=#00FFAA>MAINFRAME \"VECTOR-1\"</color></b></size>\n" +
+                "<size=17><color=#66CCAA>INSTITUTE OF APPLIED CRYPTOGRAPHY // SECTOR 7</color></size>\n\n" +
+                "<size=28><b><color=#FFCC00>/// WORK IN PROGRESS ///</color></b></size>\n" +
+                "<size=22><color=#FFFFFF>TERMINAL INTERFACE UNDER DEVELOPMENT</color></size>\n" +
+                "<color=#00FFCC>────────────────────────────────────────────</color>\n" +
+                "<size=16><color=#99FFCC>• SERVER POWER: <color=#00FF88>[ GRID STABLE // ONLINE ]</color></color></size>\n" +
+                "<size=16><color=#99FFCC>• KERNEL MEDIA: <color=#00FF88>[ MAGNETIC TAPE LOADED ]</color></color></size>\n" +
+                "<size=16><color=#FFCC66>• DECRYPTOR UNIT: <color=#FFAA33>[ IN DEVELOPMENT (PRE-ALPHA) ]</color></color></size>\n\n" +
+                $"<size=23><b><color=#FFFF66>[ Press [F] — Terminal (WIP) {cursor} ]</color></b></size>";
+        }
+        else
+        {
+            idleText.text =
+                "<size=36><b><color=#00FFAA>ЭВМ «ВЕКТОР-1»</color></b></size>\n" +
+                "<size=17><color=#66CCAA>ИНСТИТУТ ПРИКЛАДНОЙ ДЕШИФРАЦИИ // СЕКТОР 7</color></size>\n\n" +
+                "<size=28><b><color=#FFCC00>/// WORK IN PROGRESS ///</color></b></size>\n" +
+                "<size=22><color=#FFFFFF>ИНТЕРФЕЙС ТЕРМИНАЛА В РАЗРАБОТКЕ</color></size>\n" +
+                "<color=#00FFCC>────────────────────────────────────────────</color>\n" +
+                "<size=16><color=#99FFCC>• ПИТАНИЕ СЕРВЕРА: <color=#00FF88>[ СЕТЬ СТАБИЛЬНА // ОНЛАЙН ]</color></color></size>\n" +
+                "<size=16><color=#99FFCC>• НОСИТЕЛЬ ЯДРА: <color=#00FF88>[ МАГНИТНАЯ ЛЕНТА ЗАГРУЖЕНА ]</color></color></size>\n" +
+                "<size=16><color=#FFCC66>• БЛОК ДЕШИФРАТОРА: <color=#FFAA33>[ В РАЗРАБОТКЕ (PRE-ALPHA) ]</color></color></size>\n\n" +
+                $"<size=23><b><color=#FFFF66>[ Нажмите [F] — Терминал (WIP) {cursor} ]</color></b></size>";
+        }
     }
 
     private void SetupWipButtons()
@@ -197,7 +254,7 @@ public class MonitorTerminal : MonoBehaviour
         if (b1 != null)
         {
             var t = b1.GetComponentInChildren<Text>();
-            if (t != null) t.text = "📋 Дорожная карта [1]";
+            if (t != null) t.text = LocalizationManager.T("📋 Дорожная карта [1]", "📋 Project Roadmap [1]");
             var btn = b1.GetComponent<Button>();
             if (btn != null)
             {
@@ -211,7 +268,7 @@ public class MonitorTerminal : MonoBehaviour
         if (b2 != null)
         {
             var t = b2.GetComponentInChildren<Text>();
-            if (t != null) t.text = "📊 Статус модулей [2]";
+            if (t != null) t.text = LocalizationManager.T("📊 Статус модулей [2]", "📊 Subsystems Status [2]");
             var btn = b2.GetComponent<Button>();
             if (btn != null)
             {
@@ -225,7 +282,7 @@ public class MonitorTerminal : MonoBehaviour
         if (b3 != null)
         {
             var t = b3.GetComponentInChildren<Text>();
-            if (t != null) t.text = "📺 Тест ЭЛТ-экрана [3]";
+            if (t != null) t.text = LocalizationManager.T("📺 Тест ЭЛТ-экрана [3]", "📺 CRT Matrix Test [3]");
             var btn = b3.GetComponent<Button>();
             if (btn != null)
             {
@@ -239,7 +296,7 @@ public class MonitorTerminal : MonoBehaviour
         if (b4 != null)
         {
             var t = b4.GetComponentInChildren<Text>();
-            if (t != null) t.text = "💡 Свет в кабинете [4]";
+            if (t != null) t.text = LocalizationManager.T("💡 Свет в кабинете [4]", "💡 Office Light [4]");
             var btn = b4.GetComponent<Button>();
             if (btn != null)
             {
@@ -270,12 +327,7 @@ public class MonitorTerminal : MonoBehaviour
             else
             {
                 if (headerPanel != null) headerPanel.SetActive(true);
-                var title = headerPanel != null ? headerPanel.transform.Find("TitleText")?.GetComponent<Text>() : null;
-                if (title != null)
-                {
-                    title.text = "ЭВМ «ВЕКТОР-1» // СИСТЕМА ДЕКОДЕР";
-                    title.color = new Color(0.0f, 1.0f, 0.85f);
-                }
+                UpdateHeaderTitle();
 
                 if (isZoomedIn)
                 {
@@ -294,11 +346,15 @@ public class MonitorTerminal : MonoBehaviour
             // Populate initial WIP log
             logLines.Clear();
             AddLog("<color=#00FFAA>===========================================================</color>");
-            AddLog("<color=#FFCC00><b>/// РАБОЧИЙ ТЕРМИНАЛ «ДЕКОДЕР» ///</b></color>");
-            AddLog("<color=#88DDCC>Интерфейс оператора запущен.</color>");
+            AddLog(LocalizationManager.T("<color=#FFCC00><b>/// РАБОЧИЙ ТЕРМИНАЛ «ДЕКОДЕР» ///</b></color>",
+                                         "<color=#FFCC00><b>/// OPERATOR TERMINAL \"DECODER\" ///</b></color>"));
+            AddLog(LocalizationManager.T("<color=#88DDCC>Интерфейс оператора запущен.</color>",
+                                         "<color=#88DDCC>Operator console interface started.</color>"));
             AddLog("<color=#00FFAA>===========================================================</color>");
-            AddLog("<color=#72D572>[04:12] Силовое питание от мейнфрейма «Вектор-1» получено.</color>");
-            AddLog("<color=#72D572>[04:12] Ядро DECODER-OS загружено с магнитной ленты.</color>");
+            AddLog(LocalizationManager.T("<color=#72D572>[04:12] Силовое питание от мейнфрейма «Вектор-1» получено.</color>",
+                                         "<color=#72D572>[04:12] Power feed from Vector-1 mainframe energized.</color>"));
+            AddLog(LocalizationManager.T("<color=#72D572>[04:12] Ядро DECODER-OS загружено с магнитной ленты.</color>",
+                                         "<color=#72D572>[04:12] DECODER-OS kernel loaded from magnetic tape.</color>"));
 
             if (terminalAudio != null && crtStartupClip != null)
             {
@@ -311,6 +367,11 @@ public class MonitorTerminal : MonoBehaviour
             if (wasOnline && terminalAudio != null && pcShutdownClip != null)
             {
                 terminalAudio.PlayOneShot(pcShutdownClip, 0.75f);
+            }
+
+            if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+            {
+                PlayerController.Instance.ExitMonitor();
             }
 
             if (offScreenPanel != null) offScreenPanel.SetActive(true);
@@ -398,13 +459,20 @@ public class MonitorTerminal : MonoBehaviour
         string desc = brightnessLevel <= 0.05f ? "0% [МАСКИРОВКА / ТЕМНОТА]" :
                       (brightnessLevel < 0.6f ? $"{pct} [ПРИГЛУШЕННО]" : $"{pct} [СТАНДАРТ / ЯРКО]");
 
-        if (isZoomedIn)
+        bool isEffectivelyPowered = isMainframeOnline && !(MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+
+        if (isEffectivelyPowered)
         {
-            AddLog($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор потенциометра: {desc}");
-        }
-        else if (MainframeBootQuest.Instance != null)
-        {
-            MainframeBootQuest.Instance.ShowNotification($"Яркость экрана ЭЛТ: {desc}");
+            if (isZoomedIn)
+            {
+                AddLog(LocalizationManager.T($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор потенциометра: {desc}",
+                                             $"<color=#FFFF66>[SCREEN BRIGHTNESS]</color> Potentiometer knob: {desc}"));
+            }
+            else if (MainframeBootQuest.Instance != null)
+            {
+                MainframeBootQuest.Instance.ShowNotification(LocalizationManager.T($"Яркость экрана ЭЛТ: {desc}",
+                                                                                    $"CRT Screen Brightness: {desc}"));
+            }
         }
     }
 
@@ -416,41 +484,54 @@ public class MonitorTerminal : MonoBehaviour
 
     public void OnKnobDragFinished()
     {
+        bool isEffectivelyPowered = isMainframeOnline && !(MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        if (!isEffectivelyPowered) return;
+
         string pct = Mathf.RoundToInt(brightnessLevel * 100f) + "%";
-        string desc = brightnessLevel <= 0.05f ? "0% [МАСКИРОВКА / ТЕМНОТА]" :
-                      (brightnessLevel < 0.6f ? $"{pct} [ПРИГЛУШЕННО]" : $"{pct} [СТАНДАРТ / ЯРКО]");
+        string desc = brightnessLevel <= 0.05f ? LocalizationManager.T("0% [МАСКИРОВКА / ТЕМНОТА]", "0% [STEALTH / DARK]") :
+                      (brightnessLevel < 0.6f ? LocalizationManager.T($"{pct} [ПРИГЛУШЕННО]", $"{pct} [DIMMED]") :
+                                                LocalizationManager.T($"{pct} [СТАНДАРТ / ЯРКО]", $"{pct} [DEFAULT / BRIGHT]"));
 
         if (isZoomedIn)
         {
-            AddLog($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор установлен: {desc}");
+            AddLog(LocalizationManager.T($"<color=#FFFF66>[ЯРКОСТЬ ЭКРАНА]</color> Регулятор установлен: {desc}",
+                                         $"<color=#FFFF66>[SCREEN BRIGHTNESS]</color> Knob set: {desc}"));
         }
         else if (MainframeBootQuest.Instance != null)
         {
-            MainframeBootQuest.Instance.ShowNotification($"Яркость экрана: {desc}");
+            MainframeBootQuest.Instance.ShowNotification(LocalizationManager.T($"Яркость экрана: {desc}",
+                                                                                $"Screen Brightness: {desc}"));
         }
     }
 
     public void ApplyBrightnessVisuals()
     {
         bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
-        bool effectivelyOnline = isMainframeOnline && !powerCut;
+        bool diskExtracted = (DiskDriveBay.Instance != null && DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.CartridgeExtracted);
+        bool effectivelyOnline = isMainframeOnline && !powerCut && !diskExtracted;
 
         if (screenCanvasGroup != null)
         {
             if (!effectivelyOnline)
             {
-                // Unpowered CRT: Dark glass remains visible with OffScreenPanel!
-                screenCanvasGroup.alpha = 1.0f;
+                // Unpowered or halted CRT: Completely dark/off!
+                screenCanvasGroup.alpha = 0.0f;
+                screenCanvasGroup.interactable = false;
+                screenCanvasGroup.blocksRaycasts = false;
             }
             else if (isStandby)
             {
                 // Standby: dimmed dark screen
                 screenCanvasGroup.alpha = 0.05f;
+                screenCanvasGroup.interactable = false;
+                screenCanvasGroup.blocksRaycasts = false;
             }
             else
             {
                 // Online: scaled by user brightness knob (100%, 35%, 0%)
                 screenCanvasGroup.alpha = brightnessLevel <= 0.05f ? 0.03f : brightnessLevel;
+                screenCanvasGroup.interactable = (brightnessLevel > 0.05f);
+                screenCanvasGroup.blocksRaycasts = (brightnessLevel > 0.05f);
             }
         }
 
@@ -467,9 +548,17 @@ public class MonitorTerminal : MonoBehaviour
             brightnessKnob.localRotation = Quaternion.Euler(0f, angle, 0f);
         }
 
-        if (!effectivelyOnline && offScreenPanel != null)
+        if (!effectivelyOnline)
         {
-            offScreenPanel.SetActive(true);
+            if (offScreenPanel != null) offScreenPanel.SetActive(true);
+            if (startScreenPanel != null) startScreenPanel.SetActive(false);
+            if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
+            if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+            if (headerPanel != null) headerPanel.SetActive(false);
+        }
+        else if (offScreenPanel != null)
+        {
+            offScreenPanel.SetActive(false);
         }
     }
 
@@ -529,27 +618,42 @@ public class MonitorTerminal : MonoBehaviour
     public void ShowRoadmap()
     {
         PlayKeyClick();
-        AddLog("<color=#FFCC00>================ ДОРОЖНАЯ КАРТА ПРОЕКТА (ROADMAP) ================</color>");
-        AddLog("<color=#00FF88>[✔] Локация НИИ:</color> Архитектура кабинета, мебель, ретро-стиль, коллизии");
-        AddLog("<color=#00FF88>[✔] Карманные часы:</color> Таймер обратного отсчета + круговой радар");
-        AddLog("<color=#00FF88>[✔] Сканирование:</color> Засечка охранников лучом, затухание люминофора CRT");
-        AddLog("<color=#00FF88>[✔] Мейнфрейм «Вектор-1»:</color> Рубильник, прогрев ламп, магнитная лента");
-        AddLog("<color=#FFCC00>[▶] ТЕРМИНАЛ ДЕШИФРАТОРА:</color> <b>В РАЗРАБОТКЕ (WORK IN PROGRESS)</b>");
-        AddLog("    • Мини-игра подбора шифров AES и радиочастот (в разработке)");
-        AddLog("    • Чтение дампов секретных директив из памяти ЭВМ");
+        AddLog(LocalizationManager.T("<color=#FFCC00>================ ДОРОЖНАЯ КАРТА ПРОЕКТА (ROADMAP) ================</color>",
+                                     "<color=#FFCC00>================ PROJECT ROADMAP (ROADMAP) ================</color>"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[✔] Локация НИИ:</color> Архитектура кабинета, мебель, ретро-стиль, коллизии",
+                                     "<color=#00FF88>[✔] Facility Lab:</color> Cabinet layout, retro styling, physics collisions"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[✔] Карманные часы:</color> Таймер обратного отсчета + круговой радар",
+                                     "<color=#00FF88>[✔] Pocket Watch:</color> Countdown timer + circular acoustic radar"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[✔] Сканирование:</color> Засечка охранников лучом, затухание люминофора CRT",
+                                     "<color=#00FF88>[✔] Scanning Ray:</color> Guard detection beam, phosphor decay"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[✔] Мейнфрейм «Вектор-1»:</color> Рубильник, прогрев ламп, магнитная лента",
+                                     "<color=#00FF88>[✔] Vector-1 Mainframe:</color> Power knife switch, tube warm-up, magnetic tape"));
+        AddLog(LocalizationManager.T("<color=#FFCC00>[▶] ТЕРМИНАЛ ДЕШИФРАТОРА:</color> <b>В РАЗРАБОТКЕ (WORK IN PROGRESS)</b>",
+                                     "<color=#FFCC00>[▶] CRYPTANALYSIS TERMINAL:</color> <b>WORK IN PROGRESS (ACTIVE)</b>"));
+        AddLog(LocalizationManager.T("    • Мини-игры шифров, телекома и досье",
+                                     "    • Cipher, telecom, and personnel dossier mini-games"));
+        AddLog(LocalizationManager.T("    • Считывание дампов секретных директив из памяти ЭВМ",
+                                     "    • Dumping classified directives from mainframe memory"));
         AddLog("<color=#FFCC00>==================================================================</color>");
     }
 
     public void ShowWipModules()
     {
         PlayKeyClick();
-        AddLog("<color=#00FFFF>=================== СТАТУС ПОДСИСТЕМ ТЕРМИНАЛА ===================</color>");
-        AddLog("<color=#00FF88>[ПИТАНИЕ]</color> Трансформатор 1500В, лампы накала: СТАБИЛЬНО ОНЛАЙН");
-        AddLog("<color=#00FF88>[НОСИТЕЛЬ]</color> Ядро DECODER-KERNEL-70: СЧИТАНО С ЛЕНТЫ В ПАМЯТЬ");
-        AddLog("<color=#00FF88>[ЛОКАТОР]</color> Синхронизация с часами: 3 ПАТРУЛЬНЫХ СЕКТОРА АКТИВНЫ");
-        AddLog("<color=#FFCC00>[КРИПТО]</color> Модуль дешифровки кодов: <color=#FFAA33>[ В РАЗРАБОТКЕ / WIP ]</color>");
-        AddLog("<color=#FFCC00>[ОКОННЫЙ СТЕК]</color> Графический интерфейс: <color=#FFAA33>[ PRE-ALPHA v0.4 ]</color>");
-        AddLog("<color=#FFCC00>Прогресс готовности системы: [██████████████░░░░░░] 68%</color>");
+        AddLog(LocalizationManager.T("<color=#00FFFF>=================== СТАТУС ПОДСИСТЕМ ТЕРМИНАЛА ===================</color>",
+                                     "<color=#00FFFF>================ SUBSYSTEM DIAGNOSTICS ================</color>"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[ПИТАНИЕ]</color> Трансформатор 1500В, лампы накала: СТАБИЛЬНО ОНЛАЙН",
+                                     "<color=#00FF88>[POWER]</color> 1500V Transformer, vacuum tubes: STABLE ONLINE"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[НОСИТЕЛЬ]</color> Ядро DECODER-KERNEL-70: СЧИТАНО С ЛЕНТЫ В ПАМЯТЬ",
+                                     "<color=#00FF88>[MEDIA]</color> DECODER-KERNEL-70: LOADED FROM TAPE TO MEMORY"));
+        AddLog(LocalizationManager.T("<color=#00FF88>[ЛОКАТОР]</color> Синхронизация с часами: 3 ПАТРУЛЬНЫХ СЕКТОРА АКТИВНЫ",
+                                     "<color=#00FF88>[RADAR]</color> Watch sync: 3 PATROL SECTORS MONITORED"));
+        AddLog(LocalizationManager.T("<color=#FFCC00>[КРИПТО]</color> Модуль дешифровки кодов: <color=#FFAA33>[ В РАЗРАБОТКЕ / WIP ]</color>",
+                                     "<color=#FFCC00>[CRYPTO]</color> Decryption core: <color=#FFAA33>[ IN DEVELOPMENT / WIP ]</color>"));
+        AddLog(LocalizationManager.T("<color=#FFCC00>[ОКОННЫЙ СТЕК]</color> Графический интерфейс: <color=#FFAA33>[ PRE-ALPHA v0.4 ]</color>",
+                                     "<color=#FFCC00>[GUI STACK]</color> Graphical terminal UI: <color=#FFAA33>[ PRE-ALPHA v0.4 ]</color>"));
+        AddLog(LocalizationManager.T("<color=#FFCC00>Прогресс готовности системы: [██████████████░░░░░░] 68%</color>",
+                                     "<color=#FFCC00>System readiness progress: [██████████████░░░░░░] 68%</color>"));
     }
 
     public void RunCrtTest()
@@ -561,13 +665,16 @@ public class MonitorTerminal : MonoBehaviour
 
     private IEnumerator CrtTestRoutine()
     {
-        AddLog("<color=#00FF88>[CRT-DIAG] Инициализация калибровки трубки ЭЛТ-70...</color>");
+        AddLog(LocalizationManager.T("<color=#00FF88>[CRT-DIAG] Инициализация калибровки трубки ЭЛТ-70...</color>",
+                                     "<color=#00FF88>[CRT-DIAG] Initializing CRT-70 tube calibration...</color>"));
         yield return new WaitForSeconds(0.35f);
-        AddLog("[CRT-DIAG] Кадровая развертка: 50 Гц | Люминофор: P31 Зеленый | Фокус: 100%");
+        AddLog(LocalizationManager.T("[CRT-DIAG] Кадровая развертка: 50 Гц | Люминофор: P31 Зеленый | Фокус: 100%",
+                                     "[CRT-DIAG] Vertical refresh: 50 Hz | Phosphor: P31 Green | Focus: 100%"));
         yield return new WaitForSeconds(0.35f);
         AddLog("[CRT-DIAG] ░░▒▒▓▓████████████████████████████████████▓▓▒▒░░");
         yield return new WaitForSeconds(0.35f);
-        AddLog("<color=#00FFFF>[CRT-DIAG] Калибровка монитора завершена. Матрица символов исправна.</color>");
+        AddLog(LocalizationManager.T("<color=#00FFFF>[CRT-DIAG] Калибровка монитора завершена. Матрица символов исправна.</color>",
+                                     "<color=#00FFFF>[CRT-DIAG] CRT calibration completed. Character matrix OK.</color>"));
     }
 
     public void ToggleRoomLight()
@@ -577,12 +684,16 @@ public class MonitorTerminal : MonoBehaviour
         {
             isRoomLightOn = !isRoomLightOn;
             roomLight.enabled = isRoomLightOn;
-            string stateStr = isRoomLightOn ? "<color=#00FF88>ВКЛЮЧЕНО</color>" : "<color=#FF4444>ВЫКЛЮЧЕНО</color>";
-            AddLog($"[СВЕТ] Освещение кабинета: {stateStr}");
+            string stateStr = isRoomLightOn 
+                ? LocalizationManager.T("<color=#00FF88>ВКЛЮЧЕНО</color>", "<color=#00FF88>ENABLED</color>") 
+                : LocalizationManager.T("<color=#FF4444>ВЫКЛЮЧЕНО</color>", "<color=#FF4444>DISABLED</color>");
+            AddLog(LocalizationManager.T($"[СВЕТ] Освещение кабинета: {stateStr}",
+                                         $"[LIGHT] Office illumination: {stateStr}"));
         }
         else
         {
-            AddLog("[СВЕТ] Ошибка: Источник освещения не найден.");
+            AddLog(LocalizationManager.T("[СВЕТ] Ошибка: Источник освещения не найден.",
+                                         "[LIGHT] Error: Room light source not found."));
         }
     }
 

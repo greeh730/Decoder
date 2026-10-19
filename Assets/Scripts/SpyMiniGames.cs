@@ -1,4 +1,4 @@
-﻿﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -178,11 +178,73 @@ public class SpyMiniGames : MonoBehaviour
     private int omegaCh2Shift = 3;
     private int omegaCh3Index = 0;
     private int omegaCh4Index = 0;
+    private readonly string[] fileSearchListEn = new string[]
+    {
+        "01. DINING_HALL_OCTOBER_MENU.DOC         [4 KB]   Logistics",
+        "02. ETHANOL_ISSUE_FOR_MAINFRAME_CLEAN.DOC [8 KB]  Warehouse",
+        "03. PRAVDA_IZVESTIYA_NEWSPAPER_LOG.LST   [2 KB]   Logistics",
+        "04. COMPUTER_ROOM_CLEANING_SCHEDULE.TXT   [6 KB]   Logistics",
+        "05. SCRAPPED_OFFICE_FURNITURE_ACT.LOG    [3 KB]   Warehouse",
+        "06. SECTOR_3_TEMPERATURE_LOGBOOK.LOG     [14 KB]  Technical",
+        "07. HQ_DIRECTIVE_SPECIAL_07.DAT          [64 KB]  Top Secret", // <-- TARGET (Index 6)
+        "08. PUNCHCARD_REQUISITION_GOST10860.LST  [5 KB]   Warehouse",
+        "09. STATIONERY_AND_PRINTER_RIBBONS.TXT   [7 KB]   Logistics",
+        "10. ELECTRICAL_PANEL_SYSTEM_SHEET.SYS    [16 KB]  Technical",
+        "11. FILAMENT_LAMP_REPLACEMENT_LOG.LOG    [9 KB]   Technical",
+        "12. INSTITUTE_LIBRARY_INVENTORY.DOC      [11 KB]  Logistics",
+        "13. SPINDLE_MAINTENANCE_REGULATION.SYS   [18 KB]  Technical",
+        "14. COMPUTER_HALL_WALL_PAINT_ESTIMATE.TXT [4 KB]  Logistics"
+    };
+
+    private readonly string[] caesarFilesEn = new string[]
+    {
+        "DWWDFN_80.ZIP    [128 KB]  (Caesar Cipher: DWWDFN)",
+        "UHWUHDW_80.ZIP   [96 KB]   (Caesar Cipher: UHWUHDW)",
+        "VXSSOB_80.ZIP    [64 KB]   (Caesar Cipher: VXSSOB)",
+        "UDGLR_77.ZIP     [48 KB]   (Caesar Cipher: UDGLR)"
+    };
+
+    private readonly string[] dossierRowsEn = new string[]
+    {
+        "1. Captain Sokolov    │ Moscow    │ 19:40 │ Office 1-02",
+        "2. Lieutenant Baker   │ Dallas    │ 22:30 │ Server Room 3-08",
+        "3. Engineer Morozov   │ Leningrad │ 08:15 │ Laboratory 2-15",
+        "4. Major Voronin      │ Minsk     │ 14:00 │ Archive 1-09"
+    };
 
     private void Awake()
     {
         Instance = this;
         GenerateAudioClips();
+    }
+
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += OnLanguageChanged;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (isGameActive)
+        {
+            InitializeSpecificGame(currentGame);
+            if (isHelpOpen && helpOverlayText != null)
+            {
+                helpOverlayText.text = GetHelpTextForCurrentGame();
+            }
+            if (isNoteOpen && helpOverlayText != null)
+            {
+                helpOverlayText.text = LocalizationManager.T(
+                    "<color=#FFFF88><b>СЛУЖЕБНАЯ ЗАПИСКА СО СТОЛА ОПЕРАТОРА:</b></color>\n\n",
+                    "<color=#FFFF88><b>OPERATOR'S DESK BRIEFING NOTE:</b></color>\n\n"
+                ) + DeskPaperNote.GetNoteText(currentGame);
+            }
+        }
     }
 
     private void Start()
@@ -326,112 +388,112 @@ public class SpyMiniGames : MonoBehaviour
         switch (type)
         {
             case GameType.TuringTape:
-                gameTitleText.text = "╔════ МАШИНА ТЬЮРИНГА: ДВОИЧНЫЙ ИНКРЕМЕНТ ЯДРА ════╗";
-                gameDescriptionText.text = "Прибавьте 1 к двоичному числу (1011 + 1 = 1100). Настройте микрокод переноса в состоянии q1.";
-                btnActionText.text = "[ ПУСК [ENTER] ]";
+                gameTitleText.text = LocalizationManager.T("╔════ МАШИНА ТЬЮРИНГА: ДВОИЧНЫЙ ИНКРЕМЕНТ ЯДРА ════╗", "╔════ TURING MACHINE: CORE BINARY INCREMENT ════╗");
+                gameDescriptionText.text = LocalizationManager.T("Прибавьте 1 к двоичному числу (1011 + 1 = 1100). Настройте микрокод переноса в состоянии q1.", "Add 1 to binary number (1011 + 1 = 1100). Configure carry microcode in state q1.");
+                btnActionText.text = LocalizationManager.T("[ ПУСК [ENTER] ]", "[ RUN [ENTER] ]");
                 turingTape = (char[])turingInitialTape.Clone();
                 turingHeadIndex = 1;
                 turingCurrentState = 0;
                 turingStepCount = 0;
                 turingIsRunning = false;
                 turingActiveRuleIndex = -1;
-                turingLastActionNote = "Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для шага.";
+                turingLastActionNote = LocalizationManager.T("Каретка на ячейке #1 (q0). Нажмите [ПРОБЕЛ] для шага.", "Carriage at cell #1 (q0). Press [SPACE] for single step.");
                 turingSelectedSlot = 0;
                 turingSlotValues = new int[6] { 1, 1, 0, 0, 1, 1 };
                 UpdateTuringDisplay();
                 break;
 
             case GameType.FrequencyAnalysis:
-                gameTitleText.text = "╔════ ЧАСТОТНЫЙ СПЕКТР ШИФРА ПОДСТАНОВКИ ════╗";
-                gameDescriptionText.text = "[Стрелки Влево/Вправо]: подберите сдвиг алфавита, чтобы пики гласных совпали с эталоном (О, Е, А).";
+                gameTitleText.text = LocalizationManager.T("╔════ ЧАСТОТНЫЙ СПЕКТР ШИФРА ПОДСТАНОВКИ ════╗", "╔════ FREQUENCY SPECTRUM OF SUBSTITUTION CIPHER ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[Стрелки Влево/Вправо]: подберите сдвиг алфавита, чтобы пики гласных совпали с эталоном (О, Е, А).", "[Arrow Left/Right]: adjust alphabet shift so vowel peaks match reference standards.");
                 freqShift = 2;
-                btnActionText.text = "[ПРИМЕНИТЬ КЛЮЧ]";
+                btnActionText.text = LocalizationManager.T("[ПРИМЕНИТЬ КЛЮЧ]", "[APPLY KEY]");
                 UpdateFrequencyDisplay();
                 break;
 
             case GameType.DatabaseFilter:
-                gameTitleText.text = "╔════ РЕЛЯЦИОННЫЙ ФИЛЬТР: КАРТОТЕКА БАЗЫ ════╗";
-                gameDescriptionText.text = "[1] Отдел, [2] Допуск, [3] Смена. Сузьте картотеку до 1 карточки с паролем администратора.";
+                gameTitleText.text = LocalizationManager.T("╔════ РЕЛЯЦИОННЫЙ ФИЛЬТР: КАРТОТЕКА БАЗЫ ════╗", "╔════ RELATIONAL FILTER: PUNCHCARD DATABASE ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1] Отдел, [2] Допуск, [3] Смена. Сузьте картотеку до 1 карточки с паролем администратора.", "[1] Dept, [2] Clearance, [3] Shift. Filter database down to 1 card containing admin password.");
                 dbDeptIndex = 0;
                 dbClearance = 0;
                 dbShiftIndex = 0;
-                btnActionText.text = "[ВЫБОРКА ДАННЫХ]";
+                btnActionText.text = LocalizationManager.T("[ВЫБОРКА ДАННЫХ]", "[QUERY DATA]");
                 UpdateDatabaseDisplay();
                 break;
 
             case GameType.FileSearch:
-                gameTitleText.text = "╔════ ПОИСК НУЖНОГО ФАЙЛА В КАТАЛОГЕ СИСТЕМЫ ════╗";
-                gameDescriptionText.text = "[Вверх/Вниз] Прокрутка каталога, [ENTER] Открыть. Найдите среди хозяйственных бумаг директиву Центра.";
+                gameTitleText.text = LocalizationManager.T("╔════ ПОИСК НУЖНОГО ФАЙЛА В КАТАЛОГЕ СИСТЕМЫ ════╗", "╔════ FILE DIRECTORY SEARCH IN SYSTEM CATALOG ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[Вверх/Вниз] Прокрутка каталога, [ENTER] Открыть. Найдите среди хозяйственных бумаг директиву Центра.", "[Up/Down] Scroll catalog, [ENTER] Open. Find HQ directive among routine paperwork.");
                 fileSearchSelectedIndex = 0;
-                btnActionText.text = "[ОТКРЫТЬ ФАЙЛ]";
+                btnActionText.text = LocalizationManager.T("[ОТКРЫТЬ ФАЙЛ]", "[OPEN FILE]");
                 UpdateFileSearchDisplay();
                 break;
 
             case GameType.PasswordSimple:
-                gameTitleText.text = "╔════ ВВОД ПАРОЛЯ: ЗАЩИЩЕННЫЙ АРХИВ СВЯЗИ ════╗";
-                gameDescriptionText.text = "Введите 4-значный пин-код из записки связиста [4821]. [N] Прочесть записку, [ENTER] Проверить.";
+                gameTitleText.text = LocalizationManager.T("╔════ ВВОД ПАРОЛЯ: ЗАЩИЩЕННЫЙ АРХИВ СВЯЗИ ════╗", "╔════ PASSWORD ENTRY: SECURE COMMS VAULT ════╗");
+                gameDescriptionText.text = LocalizationManager.T("Введите 4-значный пин-код из записки связиста [4821]. [N] Прочесть записку, [ENTER] Проверить.", "Enter 4-digit PIN code from operator's note [4821]. [N] Read note, [ENTER] Submit.");
                 simplePinInput = "";
-                btnActionText.text = "[ВВЕСТИ ПАРОЛЬ]";
+                btnActionText.text = LocalizationManager.T("[ВВЕСТИ ПАРОЛЬ]", "[SUBMIT PIN]");
                 UpdatePasswordSimpleDisplay();
                 break;
 
             case GameType.NetworkRestoration:
-                gameTitleText.text = "╔════ КОММУТАТОР СВЯЗИ: ВОССТАНОВЛЕНИЕ ЛИНИИ A -> B ════╗";
-                gameDescriptionText.text = "[1..6 / Вверх / Вниз] Выбор канала, [ПРОБЕЛ] ВКЛ/ВЫКЛ, [ENTER] Проверить. Включите исправные каналы!";
+                gameTitleText.text = LocalizationManager.T("╔════ КОММУТАТОР СВЯЗИ: ВОССТАНОВЛЕНИЕ ЛИНИИ A -> B ════╗", "╔════ NETWORK SWITCHBOARD: RESTORE TRUNK LINE A -> B ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1..6 / Вверх / Вниз] Выбор канала, [ПРОБЕЛ] ВКЛ/ВЫКЛ, [ENTER] Проверить. Включите исправные каналы!", "[1..6 / Up / Down] Select channel, [SPACE] Toggle, [ENTER] Verify. Enable healthy channels!");
                 netSelectedLine = 0;
                 netLinesConnected = new bool[6] { false, false, false, false, false, false };
-                btnActionText.text = "[ПРОВЕРИТЬ ЛИНИЮ]";
+                btnActionText.text = LocalizationManager.T("[ПРОВЕРИТЬ ЛИНИЮ]", "[TEST TRUNK]");
                 UpdateNetworkRestorationDisplay();
                 break;
 
             case GameType.CaesarArchive:
-                gameTitleText.text = "╔════ АРХИВ: ПЛАН АТАКИ (ШИФР ЦЕЗАРЯ СО СДВИГОМ 3) ════╗";
-                gameDescriptionText.text = "[1..4 / Вверх / Вниз] Выбор архива, [ENTER] Открыть. Найдите архив со словом ATTACK (сдвиг назад на 3: D->A).";
+                gameTitleText.text = LocalizationManager.T("╔════ АРХИВ: ПЛАН АТАКИ (ШИФР ЦЕЗАРЯ СО СДВИГОМ 3) ════╗", "╔════ ARCHIVE: ATTACK PLAN (CAESAR CIPHER SHIFT 3) ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1..4 / Вверх / Вниз] Выбор архива, [ENTER] Открыть. Найдите архив со словом ATTACK (сдвиг назад на 3: D->A).", "[1..4 / Up / Down] Select archive, [ENTER] Open. Find archive with word ATTACK (shift back by 3: D->A).");
                 caesarSelectedIndex = 0;
-                btnActionText.text = "[ИЗВЛЕЧЬ АРХИВ]";
+                btnActionText.text = LocalizationManager.T("[ИЗВЛЕЧЬ АРХИВ]", "[EXTRACT ARCHIVE]");
                 UpdateCaesarArchiveDisplay();
                 break;
 
             case GameType.PasswordFormula:
-                gameTitleText.text = "╔════ КРИПТОГРАФИЧЕСКИЙ ПАРОЛЬ: КАРТЫ ГЕНШТАБА ════╗";
-                gameDescriptionText.text = "Формула: (A × B) - C = (17 × 23) - 42. Введите 4 цифры [0..9], [Backspace], [ENTER] Открыть.";
+                gameTitleText.text = LocalizationManager.T("╔════ КРИПТОГРАФИЧЕСКИЙ ПАРОЛЬ: КАРТЫ ГЕНШТАБА ════╗", "╔════ CRYPTOGRAPHIC PASSWORD: HQ GENERAL MAPS ════╗");
+                gameDescriptionText.text = LocalizationManager.T("Формула: (A × B) - C = (17 × 23) - 42. Введите 4 цифры [0..9], [Backspace], [ENTER] Открыть.", "Formula: (A × B) - C = (17 × 23) - 42. Enter 4 digits [0..9], [Backspace], [ENTER] Open.");
                 formulaPinInput = "";
-                btnActionText.text = "[ВВЕСТИ КОД]";
+                btnActionText.text = LocalizationManager.T("[ВВЕСТИ КОД]", "[ENTER CODE]");
                 UpdatePasswordFormulaDisplay();
                 break;
 
             case GameType.DossierDeduction:
-                gameTitleText.text = "╔════ ОСОБЫЙ ОТДЕЛ: ДЕДУКЦИЯ КАРТОТЕКИ ДИВЕРСАНТА ════╗";
-                gameDescriptionText.text = "[1..4 / Вверх / Вниз] Выбор подозреваемого, [ENTER] Указать цель. Ориентировка: город вне СССР, серверная ночью.";
+                gameTitleText.text = LocalizationManager.T("╔════ ОСОБЫЙ ОТДЕЛ: ДЕДУКЦИЯ КАРТОТЕКИ ДИВЕРСАНТА ════╗", "╔════ SPECIAL DEPT: SABOTEUR DOSSIER DEDUCTION ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1..4 / Вверх / Вниз] Выбор подозреваемого, [ENTER] Указать цель. Ориентировка: город вне СССР, серверная ночью.", "[1..4 / Up / Down] Select suspect, [ENTER] Identify target. Intel: foreign city outside USSR, server room late night.");
                 dossierSelectedIndex = 0;
-                btnActionText.text = "[УКАЗАТЬ ПОДОЗРЕВАЕМОГО]";
+                btnActionText.text = LocalizationManager.T("[УКАЗАТЬ ПОДОЗРЕВАЕМОГО]", "[IDENTIFY SUSPECT]");
                 UpdateDossierDeductionDisplay();
                 break;
 
             case GameType.RotorCipher:
-                gameTitleText.text = "╔════ ШИФРАТОР М-125 «ФИАЛКА»: РОТОРНЫЙ КЛЮЧ ════╗";
-                gameDescriptionText.text = "[1/2/3] Выбор ротора, [Вверх/Вниз] поворот барабана. Выставите ключ дня из блокнота: IV - II - VII.";
+                gameTitleText.text = LocalizationManager.T("╔════ ШИФРАТОР М-125 «ФИАЛКА»: РОТОРНЫЙ КЛЮЧ ════╗", "╔════ M-125 «FIALKA» CIPHER MACHINE: ROTOR KEY ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1/2/3] Выбор ротора, [Вверх/Вниз] поворот барабана. Выставите ключ дня из блокнота: IV - II - VII.", "[1/2/3] Select rotor, [Up/Down] Rotate drum. Set day key from notebook: IV - II - VII.");
                 rotor1 = 1; rotor2 = 6; rotor3 = 3;
-                btnActionText.text = "[ПРОВОРОТ РОТОРОВ]";
+                btnActionText.text = LocalizationManager.T("[ПРОВОРОТ РОТОРОВ]", "[SPIN ROTORS]");
                 UpdateRotorDisplay();
                 break;
 
             case GameType.OmegaMasterProtocol:
-                gameTitleText.text = "╔════ МАСТЕР-ПРОТОКОЛ «ОМЕГА»: СНЯТИЕ ГЛАВНОГО ШИФРА ════╗";
-                gameDescriptionText.text = "[1-4 / Вверх / Вниз] — Выбор канала, [← / → / Пробел] — Калибровка, [ENTER] — Снятие шифра.";
+                gameTitleText.text = LocalizationManager.T("╔════ МАСТЕР-ПРОТОКОЛ «ОМЕГА»: СНЯТИЕ ГЛАВНОГО ШИФРА ════╗", "╔════ MASTER PROTOCOL «OMEGA»: FINAL CIPHER OVERRIDE ════╗");
+                gameDescriptionText.text = LocalizationManager.T("[1-4 / Вверх / Вниз] — Выбор канала, [← / → / Пробел] — Калибровка, [ENTER] — Снятие шифра.", "[1-4 / Up / Down] — Select channel, [← / → / Space] — Calibrate, [ENTER] — Crack cipher.");
                 omegaSelectedChannel = 0;
                 omegaCh1Index = 1;
                 omegaCh2Shift = 3;
                 omegaCh3Index = 0;
                 omegaCh4Index = 0;
-                btnActionText.text = "[ ВЗЛОМАТЬ АРХИВ «ОМЕГА» [ENTER] ]";
+                btnActionText.text = LocalizationManager.T("[ ВЗЛОМАТЬ АРХИВ «ОМЕГА» [ENTER] ]", "[ CRACK «OMEGA» VAULT [ENTER] ]");
                 UpdateOmegaDisplay();
                 break;
         }
 
         if (statusFeedbackText != null)
         {
-            statusFeedbackText.text = "<color=#00FFAA>[СИСТЕМА ГОТОВА К ВВОДУ КЛЮЧА]</color>";
+            statusFeedbackText.text = LocalizationManager.T("<color=#00FFAA>[СИСТЕМА ГОТОВА К ВВОДУ КЛЮЧА]</color>", "<color=#00FFAA>[SYSTEM READY FOR KEY INPUT]</color>");
         }
     }
 

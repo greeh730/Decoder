@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
@@ -59,6 +59,16 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         GenerateAudioClips();
     }
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += UpdateStatusLines;
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= UpdateStatusLines;
+    }
+
     private void Start()
     {
         UpdateStatusLines();
@@ -106,20 +116,23 @@ public class SpyDecryptionStartScreen : MonoBehaviour
     private void UpdateStatusLines()
     {
         string cursor = cursorVisible ? "_" : " ";
+        string sysReady = LocalizationManager.T("СИСТЕМА: ГОТОВА", "SYSTEM: READY");
+        string verStr = LocalizationManager.T("ВЕРСИЯ: 2.1", "VERSION: 2.1");
 
         if (statusLine1 != null)
         {
-            statusLine1.text = "■■■■■■■■■■■■■■■■■■■■■■■■■■■■   СИСТЕМА: ГОТОВА   ■■■■■■■■■■■■■■■■■■■■■■■■■■■■";
+            statusLine1.text = $"■■■■■■■■■■■■■■■■■■■■■■■■■■■■   {sysReady}   ■■■■■■■■■■■■■■■■■■■■■■■■■■■■";
         }
 
         if (statusLine2 != null)
         {
-            statusLine2.text = $"■■■■■■■■■■■■■■■■■■■■■■■■■■■■   ВЕРСИЯ: 2.1   ■■■■■■■■■■■■■■■■■■■■■■■■ {cursor}";
+            statusLine2.text = $"■■■■■■■■■■■■■■■■■■■■■■■■■■■■   {verStr}   ■■■■■■■■■■■■■■■■■■■■■■■■ {cursor}";
         }
 
         if (promptActionText != null)
         {
-            promptActionText.text = $"[ НАЖМИТЕ ЛЮБУЮ КЛАВИШУ ДЛЯ ВХОДА В СИСТЕМУ {cursor} ]";
+            promptActionText.text = LocalizationManager.T($"[ НАЖМИТЕ ЛЮБУЮ КЛАВИШУ ДЛЯ ВХОДА В СИСТЕМУ {cursor} ]",
+                                                          $"[ PRESS ANY KEY TO ENTER SYSTEM {cursor} ]");
         }
     }
 
@@ -132,7 +145,8 @@ public class SpyDecryptionStartScreen : MonoBehaviour
         if (MonitorTerminal.Instance != null) MonitorTerminal.Instance.SetLoggedIn(true);
 
         MainframeBootQuest.Instance?.ShowNotification(
-            "<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка «ВЕКТОР-КОМАНДИР» v2.1...");
+            LocalizationManager.T("<color=#00FFAA>[ВЕКТОР-ОС]</color> Загрузка «ВЕКТОР-КОМАНДИР» v2.1...",
+                                   "<color=#00FFAA>[VECTOR-OS]</color> Loading VECTOR COMMANDER v2.1..."));
 
         if (VectorCommander.Instance != null)
         {

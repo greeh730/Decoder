@@ -1,4 +1,4 @@
-﻿﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -40,6 +40,8 @@ public class GuardPatrolSystem : MonoBehaviour
     public List<PatrolRoute> Routes => routes;
 
     public static void TriggerTimeExpiredAssault() => GuardPawn.TriggerTimeExpiredAssault();
+    public static void TriggerScheduledInspection() => GuardPawn.TriggerScheduledInspection();
+    public static bool IsGameOver => GuardPawn.IsGameOver;
 
     private readonly List<GuardPawn> activeGuards = new List<GuardPawn>();
 
@@ -807,6 +809,24 @@ public class GuardPawn : MonoBehaviour
             if (d < minD) { minD = d; best = g; }
         }
         return best;
+    }
+
+    public static void TriggerScheduledInspection()
+    {
+        if (IsGameOver || GameVictorySystem.IsGameWon) return;
+        var guard = GetClosestGuardToDoor();
+        if (guard != null)
+        {
+            guard.StartTerminalInspection("Плановый обход машинного зала по графику комендатуры");
+        }
+        else
+        {
+            var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+            if (guards != null && guards.Length > 0)
+            {
+                guards[0].StartTerminalInspection("Плановый обход машинного зала по графику комендатуры");
+            }
+        }
     }
 
     public static void TriggerTimeExpiredAssault()
@@ -1809,11 +1829,14 @@ public class GuardPawn : MonoBehaviour
                 {
                     // Deceit & Stealth SUCCESS!
                     Debug.Log($"<color=#00FFAA><b>[AGGRO: СКРЫТНОСТЬ УСПЕШНА]</b></color> <b>{name}</b> осмотрел тёмный зал: никого нет, аппаратура обесточена. Ложная тревога.");
-                    MainframeBootQuest.Instance?.ShowNotification("<color=#00FFAA>[ОХРАНА УШЛА]</color> «Хм... зал обесточен, никого. Видимо, скачок напряжения». Включите рубильник [E]!");
+                    MainframeBootQuest.Instance?.ShowNotification(
+                        LocalizationManager.T("<color=#00FFAA>[ОХРАНА УШЛА]</color> «Хм... зал обесточен, никого. Видимо, скачок напряжения». Включите рубильник [E]!",
+                                               "<color=#00FFAA>[GUARD LEFT]</color> \"Hmm... hall is unpowered, nobody here. Must be a power surge.\" Turn on breaker [E]!"));
 
                     if (animator != null) animator.SetTrigger("StealthSuccess");
 
                     SpyMiniGames.Instance?.OnDeceitSuccess();
+                    PocketWatchController.Instance?.RestartCountdown();
 
                     currentState = GuardState.ClosingDoorReturning;
                     returnPath.Clear();
@@ -1915,7 +1938,18 @@ public class GuardPawn : MonoBehaviour
                     }
                     else
                     {
-                        MoveTowards(pPos, walkSpeed * 1.25f);
+                        Vector3 chaseTarget = pPos;
+                        // If guard is in corridor (Z < -0.2f) and player is inside machine hall (Z >= -0.2f), path through doorway!
+                        if (transform.position.z < -0.2f && pPos.z >= -0.2f)
+                        {
+                            Vector3 toThreshold = doorwayThresholdPos - transform.position;
+                            toThreshold.y = 0f;
+                            if (toThreshold.magnitude > 0.4f)
+                            {
+                                chaseTarget = doorwayThresholdPos;
+                            }
+                        }
+                        MoveTowards(chaseTarget, walkSpeed * 1.25f);
                     }
                 }
                 break;
@@ -2108,7 +2142,39 @@ public class GuardPawn : MonoBehaviour
         {
             Quaternion targetRot = Quaternion.LookRotation(dir.normalized);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
-            transform.position += transform.forward * (speed * Time.deltaTime);
+
+            float stepDist = speed * Time.deltaTime;
+            Vector3 stepMove = transform.forward * stepDist;
+
+            // Wall and obstacle collision check: prevent passing through walls
+            Vector3 castOrigin = transform.position + Vector3.up * 0.85f;
+            float guardRadius = 0.30f;
+
+            if (Physics.SphereCast(castOrigin, guardRadius, transform.forward, out RaycastHit hit, stepDist + 0.12f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                bool isIgnoredObstacle = hit.collider.CompareTag("Player") ||
+                                         hit.collider.name.Contains("MetalDoor") ||
+                                         hit.collider.name.Contains("Door");
+                if (!isIgnoredObstacle)
+                {
+                    // Slide along wall surface
+                    Vector3 normal = hit.normal;
+                    normal.y = 0f;
+                    Vector3 slideDir = Vector3.ProjectOnPlane(transform.forward, normal).normalized;
+                    if (slideDir.sqrMagnitude > 0.01f && !Physics.SphereCast(castOrigin, guardRadius, slideDir, out _, stepDist + 0.05f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        transform.position += slideDir * stepDist;
+                    }
+                }
+                else
+                {
+                    transform.position += stepMove;
+                }
+            }
+            else
+            {
+                transform.position += stepMove;
+            }
 
             if (animator != null) animator.SetBool("IsMoving", true);
             UpdateFootstepSounds(speed);

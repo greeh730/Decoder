@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -44,27 +44,29 @@ public class VectorCommander : MonoBehaviour
 
         public string GetFormattedSize()
         {
-            if (isDirectory) return "<ПАПКА>";
-            if (sizeBytes < 1024) return $"{sizeBytes} Б";
-            return $"{sizeBytes / 1024} КБ";
+            if (isDirectory) return LocalizationManager.T("<ПАПКА>", "<DIR>");
+            if (sizeBytes < 1024) return LocalizationManager.T($"{sizeBytes} Б", $"{sizeBytes} B");
+            return LocalizationManager.T($"{sizeBytes / 1024} КБ", $"{sizeBytes / 1024} KB");
         }
 
         public string GetStatusBadge(VectorCommander vc = null)
         {
-            if (isDirectory) return "<color=#88CCAA>ГОТОВ </color>";
+            if (isDirectory) return LocalizationManager.T("<color=#88CCAA>ГОТОВ </color>", "<color=#88CCAA>READY </color>");
             if (isFinalObjective)
             {
-                if (isDecrypted) return "<color=#00FFAA>ПОБЕДА </color>";
+                if (isDecrypted) return LocalizationManager.T("<color=#00FFAA>ПОБЕДА </color>", "<color=#00FFAA>VICTORY</color>");
                 if (vc == null) vc = VectorCommander.Instance != null ? VectorCommander.Instance : UnityEngine.Object.FindAnyObjectByType<VectorCommander>(UnityEngine.FindObjectsInactive.Include);
                 if (vc != null && !vc.IsFinalFileUnlocked())
                 {
                     int cur = vc.GetDecryptedRegularFilesCount();
                     int req = Mathf.CeilToInt(vc.GetTotalRegularFilesCount() * 0.8f);
-                    return $"<color=#FF4444>БЛОК {cur}/{req}</color>";
+                    return LocalizationManager.T($"<color=#FF4444>БЛОК {cur}/{req}</color>", $"<color=#FF4444>LOCK {cur}/{req}</color>");
                 }
-                return "<color=#FFFF00>МАСТЕР </color>";
+                return LocalizationManager.T("<color=#FFFF00>МАСТЕР </color>", "<color=#FFFF00>MASTER </color>");
             }
-            return isDecrypted ? "<color=#00FFAA>РАСШИФР</color>" : "<color=#FFCC00>ЗАШИФР </color>";
+            return isDecrypted 
+                ? LocalizationManager.T("<color=#00FFAA>РАСШИФР</color>", "<color=#00FFAA>DECRYPT</color>") 
+                : LocalizationManager.T("<color=#FFCC00>ЗАШИФР </color>", "<color=#FFCC00>ENCRYPT</color>");
         }
     }
 
@@ -141,9 +143,28 @@ public class VectorCommander : MonoBehaviour
         InitializeVirtualFiles();
     }
 
+    private void OnEnable()
+    {
+        LocalizationManager.OnLanguageChanged += OnLanguageChanged;
+        UpdateFunctionKeys();
+        UpdateAllVisuals();
+    }
+
+    private void OnDisable()
+    {
+        LocalizationManager.OnLanguageChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        UpdateFunctionKeys();
+        UpdateAllVisuals();
+    }
+
     private void Start()
     {
         SetupButtonListeners();
+        UpdateFunctionKeys();
         UpdateAllVisuals();
     }
 
@@ -293,8 +314,24 @@ public class VectorCommander : MonoBehaviour
         return GetDecryptionPercentage() >= 0.799f;
     }
 
+    public void UpdateFunctionKeys()
+    {
+        if (headerTitleText != null)
+        {
+            headerTitleText.text = LocalizationManager.T("ВЕКТОР-КОМАНДИР v2.4", "VECTOR COMMANDER v2.4");
+        }
+        if (btnF1 != null) { var t = btnF1.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("1 Помощь", "1 Help"); }
+        if (btnF2 != null) { var t = btnF2.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("2 Статус", "2 Status"); }
+        if (btnF3 != null) { var t = btnF3.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("3 Чтение", "3 View"); }
+        if (btnF4 != null) { var t = btnF4.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("4 Дешифр", "4 Decrypt"); }
+        if (btnF5 != null) { var t = btnF5.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("5 Копия", "5 Copy"); }
+        if (btnF8 != null) { var t = btnF8.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("8 Охлажд", "8 Cool"); }
+        if (btnF10 != null) { var t = btnF10.GetComponentInChildren<Text>(); if (t != null) t.text = LocalizationManager.T("10 Выход", "10 Exit"); }
+    }
+
     private void SetupButtonListeners()
     {
+        UpdateFunctionKeys();
         if (btnF1 != null) { btnF1.onClick.RemoveAllListeners(); btnF1.onClick.AddListener(ShowHelp); }
         if (btnF2 != null) { btnF2.onClick.RemoveAllListeners(); btnF2.onClick.AddListener(ShowStatus); }
         if (btnF3 != null) { btnF3.onClick.RemoveAllListeners(); btnF3.onClick.AddListener(ViewSelectedFile); }
@@ -496,14 +533,18 @@ public class VectorCommander : MonoBehaviour
     {
         if (leftPanelTitleText != null)
         {
-            string marker = isLeftPanelActive ? "◄ АКТИВНА" : "         ";
-            leftPanelTitleText.text = $"╔═══ C:\\СЕКРЕТНО {marker} ═════════════════════════════════════╗";
+            string marker = isLeftPanelActive 
+                ? LocalizationManager.T("◄ АКТИВНА", "◄ ACTIVE") 
+                : "         ";
+            string folder = LocalizationManager.T("C:\\СЕКРЕТНО", "C:\\SECRET");
+            leftPanelTitleText.text = $"╔═══ {folder} {marker} ═════════════════════════════════════╗";
         }
 
         if (leftPanelContentText != null)
         {
             var lines = new List<string>();
-            lines.Add("<color=#66CCAA>  ИМЯ ФАЙЛА           РАЗМЕР   СТАТУС </color>");
+            lines.Add(LocalizationManager.T("<color=#66CCAA>  ИМЯ ФАЙЛА           РАЗМЕР   СТАТУС </color>",
+                                            "<color=#66CCAA>  FILE NAME           SIZE     STATUS </color>"));
             lines.Add("<color=#00AA77>  ────────────────────────────────────</color>");
 
             for (int i = 0; i < leftFiles.Count; i++)
@@ -534,8 +575,11 @@ public class VectorCommander : MonoBehaviour
             int totalReg = GetTotalRegularFilesCount();
             int req80 = Mathf.CeilToInt(totalReg * 0.8f);
             int pct = Mathf.RoundToInt(GetDecryptionPercentage() * 100f);
-            string masterStatus = IsFinalFileUnlocked() ? "<color=#00FFAA>[ФИНАЛ: ДОСТУПЕН]</color>" : $"<color=#FF6666>[ФИНАЛ: {curDec}/{req80} (80%)]</color>";
-            leftPanelFooterText.text = $"╚══ ВЗЛОМАНО: {curDec}/{totalReg} ({pct}%) │ {masterStatus} ══════════════════╝";
+            string masterStatus = IsFinalFileUnlocked() 
+                ? LocalizationManager.T("<color=#00FFAA>[ФИНАЛ: ДОСТУПЕН]</color>", "<color=#00FFAA>[FINAL: UNLOCKED]</color>") 
+                : LocalizationManager.T($"<color=#FF6666>[ФИНАЛ: {curDec}/{req80} (80%)]</color>", $"<color=#FF6666>[FINAL: {curDec}/{req80} (80%)]</color>");
+            string crackedLabel = LocalizationManager.T("ВЗЛОМАНО", "CRACKED");
+            leftPanelFooterText.text = $"╚══ {crackedLabel}: {curDec}/{totalReg} ({pct}%) │ {masterStatus} ══════════════════╝";
         }
     }
 
@@ -548,33 +592,46 @@ public class VectorCommander : MonoBehaviour
 
         if (rightPanelTitleText != null)
         {
-            string marker = !isLeftPanelActive ? "◄ АКТИВНА" : "         ";
-            string slotStatus = isCartridgeLocked ? $"[В СЛОТЕ: КАРТРИДЖ #{cartridgeId}]" : "[СЛОТ ПУСТ / ИЗВЛЕЧЕН]";
-            rightPanelTitleText.text = $"╔═══ A:\\КАРТРИДЖ {slotStatus} {marker} ═══════════════╗";
+            string marker = !isLeftPanelActive 
+                ? LocalizationManager.T("◄ АКТИВНА", "◄ ACTIVE") 
+                : "         ";
+            string slotStatus = isCartridgeLocked 
+                ? LocalizationManager.T($"[В СЛОТЕ: КАРТРИДЖ #{cartridgeId}]", $"[IN SLOT: CARTRIDGE #{cartridgeId}]") 
+                : LocalizationManager.T("[СЛОТ ПУСТ / ИЗВЛЕЧЕН]", "[SLOT EMPTY / EXTRACTED]");
+            string cartFolder = LocalizationManager.T("A:\\КАРТРИДЖ", "A:\\CARTRIDGE");
+            rightPanelTitleText.text = $"╔═══ {cartFolder} {slotStatus} {marker} ═══════════════╗";
         }
 
         if (rightPanelContentText != null)
         {
             var lines = new List<string>();
-            lines.Add("<color=#66CCAA>  ИМЯ ФАЙЛА                РАЗМЕР      СТАТУС </color>");
+            lines.Add(LocalizationManager.T("<color=#66CCAA>  ИМЯ ФАЙЛА                РАЗМЕР      СТАТУС </color>",
+                                            "<color=#66CCAA>  FILE NAME                SIZE        STATUS </color>"));
             lines.Add("<color=#00AA77>  ───────────────────────────────────────────</color>");
 
             if (!isCartridgeLocked)
             {
                 lines.Add("");
                 lines.Add("  <color=#FFCC00>═══════════════════════════════════════════</color>");
-                lines.Add("  <color=#FFFF66><b>[ ВНИМАНИЕ: СЛОТ ДИСКА НЕ АКТИВЕН ]</b></color>");
-                lines.Add("  <color=#99FFCC>Накопитель извлечён или остановлен тормозом.</color>");
-                lines.Add("  <color=#99FFCC>Вставьте охлажденный картридж в корзину.</color>");
+                lines.Add(LocalizationManager.T("  <color=#FFFF66><b>[ ВНИМАНИЕ: СЛОТ ДИСКА НЕ АКТИВЕН ]</b></color>",
+                                                "  <color=#FFFF66><b>[ WARNING: DISK SLOT NOT ACTIVE ]</b></color>"));
+                lines.Add(LocalizationManager.T("  <color=#99FFCC>Накопитель извлечён или остановлен тормозом.</color>",
+                                                "  <color=#99FFCC>Drive bay extracted or halted by brake.</color>"));
+                lines.Add(LocalizationManager.T("  <color=#99FFCC>Вставьте охлажденный картридж в корзину.</color>",
+                                                "  <color=#99FFCC>Insert cooled cartridge into bay.</color>"));
                 lines.Add("  <color=#FFCC00>═══════════════════════════════════════════</color>");
             }
             else if (rightFiles.Count == 0 && !isCopying)
             {
                 lines.Add("");
-                lines.Add("  <color=#558866>..                       <ВВЕРХ>     ГОТОВ  </color>");
+                string readyStr = LocalizationManager.T("ГОТОВ", "READY");
+                string upStr = LocalizationManager.T("<ВВЕРХ>", "<UP>  ");
+                lines.Add($"  <color=#558866>..                       {upStr}     {readyStr}  </color>");
                 lines.Add("");
-                lines.Add("  <color=#88CCAA><i>(Накопитель пуст. Выберите файл слева</i></color>");
-                lines.Add("  <color=#88CCAA><i>и нажмите [5] Копия для записи данных)</i></color>");
+                lines.Add(LocalizationManager.T("  <color=#88CCAA><i>(Накопитель пуст. Выберите файл слева</i></color>",
+                                                "  <color=#88CCAA><i>(Cartridge empty. Select file on left</i></color>"));
+                lines.Add(LocalizationManager.T("  <color=#88CCAA><i>и нажмите [5] Копия для записи данных)</i></color>",
+                                                "  <color=#88CCAA><i>and press [5] Copy to write data)</i></color>"));
             }
             else
             {
@@ -584,7 +641,7 @@ public class VectorCommander : MonoBehaviour
                     bool isSel = !isLeftPanelActive && (i == rightSelectedIndex);
                     string nameFormatted = f.name.PadRight(22);
                     string sizeFormatted = f.GetFormattedSize().PadLeft(9);
-                    string statusFormatted = "СКОПИРОВАН".PadLeft(10);
+                    string statusFormatted = LocalizationManager.T("СКОПИРОВАН", "COPIED").PadLeft(10);
 
                     if (isSel)
                     {
@@ -599,7 +656,8 @@ public class VectorCommander : MonoBehaviour
                 if (isCopying)
                 {
                     lines.Add("");
-                    lines.Add($"  <color=#FFFF00>► {copyingFileName.PadRight(20)} [ЗАПИСЬ {Mathf.RoundToInt(copyProgress * 100f)}%]</color>");
+                    string writeLabel = LocalizationManager.T("ЗАПИСЬ", "WRITING");
+                    lines.Add($"  <color=#FFFF00>► {copyingFileName.PadRight(20)} [{writeLabel} {Mathf.RoundToInt(copyProgress * 100f)}%]</color>");
                 }
             }
 
@@ -611,18 +669,24 @@ public class VectorCommander : MonoBehaviour
             int usedBytes = 0;
             foreach (var f in rightFiles) usedBytes += f.sizeBytes;
             int freeBytes = Mathf.Max(0, CARTRIDGE_CAPACITY_BYTES - usedBytes);
-            rightPanelFooterText.text = $"╚══ ЗАПИСАНО: {usedBytes / 1024} КБ │ СВОБОДНО: {freeBytes / 1024} / 512 КБ ══════════════╝";
+            string writtenLabel = LocalizationManager.T("ЗАПИСАНО", "WRITTEN");
+            string freeLabel = LocalizationManager.T("СВОБОДНО", "FREE");
+            string kb = LocalizationManager.T("КБ", "KB");
+            rightPanelFooterText.text = $"╚══ {writtenLabel}: {usedBytes / 1024} {kb} │ {freeLabel}: {freeBytes / 1024} / 512 {kb} ══════════════╝";
         }
     }
 
     private void UpdateCommandLinePrompt()
     {
         string cursor = cursorVisible ? "_" : " ";
+        string pathPrompt = LocalizationManager.T("C:\\СЕКРЕТНО>", "C:\\SECRET>");
+
         if (commandLineText != null)
         {
             if (isCopying)
             {
-                commandLineText.text = $"C:\\СЕКРЕТНО> КОПИРОВАНИЕ {copyingFileName} НА A:\\ {cursor}";
+                string copyStr = LocalizationManager.T($"КОПИРОВАНИЕ {copyingFileName} НА A:\\", $"COPYING {copyingFileName} TO A:\\");
+                commandLineText.text = $"{pathPrompt} {copyStr} {cursor}";
             }
             else
             {
@@ -631,23 +695,27 @@ public class VectorCommander : MonoBehaviour
                 {
                     if (sel.isDecrypted)
                     {
-                        commandLineText.text = $"C:\\СЕКРЕТНО> ФИНАЛЬНЫЙ АРХИВ ВЗЛОМАН! ОПЕРАЦИЯ ВЫПОЛНЕНА {cursor}";
+                        commandLineText.text = $"{pathPrompt} " + LocalizationManager.T($"ФИНАЛЬНЫЙ АРХИВ ВЗЛОМАН! ОПЕРАЦИЯ ВЫПОЛНЕНА {cursor}",
+                                                                                        $"FINAL ARCHIVE CRACKED! OPERATION SUCCESSFUL {cursor}");
                     }
                     else if (IsFinalFileUnlocked())
                     {
-                        commandLineText.text = $"C:\\СЕКРЕТНО> [ДОСТУП ОТКРЫТ] НАЖМИТЕ [4] ДЕШИФР ДЛЯ ФИНАЛЬНОГО ВЗЛОМА! {cursor}";
+                        commandLineText.text = $"{pathPrompt} " + LocalizationManager.T($"[ДОСТУП ОТКРЫТ] НАЖМИТЕ [4] ДЕШИФР ДЛЯ ФИНАЛЬНОГО ВЗЛОМА! {cursor}",
+                                                                                        $"[ACCESS GRANTED] PRESS [4] DECRYPT FOR FINAL CRACK! {cursor}");
                     }
                     else
                     {
                         int cur = GetDecryptedRegularFilesCount();
                         int req = Mathf.CeilToInt(GetTotalRegularFilesCount() * 0.8f);
-                        commandLineText.text = $"C:\\СЕКРЕТНО> [БЛОКИРОВКА 80%] РАСШИФРОВАНО {cur}/{req} ФАЙЛОВ {cursor}";
+                        commandLineText.text = $"{pathPrompt} " + LocalizationManager.T($"[БЛОКИРОВКА 80%] РАСШИФРОВАНО {cur}/{req} ФАЙЛОВ {cursor}",
+                                                                                        $"[80% LOCK] DECRYPTED {cur}/{req} FILES {cursor}");
                     }
                 }
                 else
                 {
                     string target = sel != null ? sel.name : "";
-                    commandLineText.text = $"C:\\СЕКРЕТНО> ВЫБРАН: {target} {cursor}";
+                    string selStr = LocalizationManager.T($"ВЫБРАН: {target}", $"SELECTED: {target}");
+                    commandLineText.text = $"{pathPrompt} {selStr} {cursor}";
                 }
             }
         }
@@ -659,11 +727,14 @@ public class VectorCommander : MonoBehaviour
                 int blocks = 24;
                 int filled = Mathf.RoundToInt(copyProgress * blocks);
                 string bar = new string('█', filled) + new string('░', blocks - filled);
-                progressBarText.text = $"[ПЕРЕКАЧКА] [{bar}] {Mathf.RoundToInt(copyProgress * 100f)}% (14.2 КБ/с)";
+                string transferLabel = LocalizationManager.T("ПЕРЕКАЧКА", "TRANSFER");
+                string rate = LocalizationManager.T("14.2 КБ/с", "14.2 KB/s");
+                progressBarText.text = $"[{transferLabel}] [{bar}] {Mathf.RoundToInt(copyProgress * 100f)}% ({rate})";
             }
             else
             {
-                progressBarText.text = "[РЕЖИМ ГОТОВНОСТИ] Нажмите [5] Копия для записи на картридж";
+                progressBarText.text = LocalizationManager.T("[РЕЖИМ ГОТОВНОСТИ] Нажмите [5] Копия для записи на картридж",
+                                                             "[READY MODE] Press [5] Copy to write to cartridge");
             }
         }
     }
@@ -674,7 +745,8 @@ public class VectorCommander : MonoBehaviour
 
         if (DiskDriveBay.Instance == null)
         {
-            thermalAlertText.text = "<color=#00FF88>ТЕМПЕРАТУРА КАРТРИДЖА: 35°C [НОРМА]</color>";
+            thermalAlertText.text = LocalizationManager.T("<color=#00FF88>ТЕМПЕРАТУРА КАРТРИДЖА: 35°C [НОРМА]</color>",
+                                                          "<color=#00FF88>CARTRIDGE TEMPERATURE: 35°C [NORMAL]</color>");
             return;
         }
 
@@ -684,15 +756,21 @@ public class VectorCommander : MonoBehaviour
         if (temp >= 90f)
         {
             string blink = cursorVisible ? "▲▲▲" : "   ";
-            thermalAlertText.text = $"<b><color=#FF3333>[КРИТИЧЕСКИЙ ПЕРЕГРЕВ: {tempStr}] ИЗВЛЕКИТЕ ДИСК ДЛЯ ОХЛАЖДЕНИЯ! {blink}</color></b>";
+            thermalAlertText.text = LocalizationManager.T(
+                $"<b><color=#FF3333>[КРИТИЧЕСКИЙ ПЕРЕГРЕВ: {tempStr}] ИЗВЛЕКИТЕ ДИСК ДЛЯ ОХЛАЖДЕНИЯ! {blink}</color></b>",
+                $"<b><color=#FF3333>[CRITICAL OVERHEAT: {tempStr}] EXTRACT DISK FOR COOLING! {blink}</color></b>");
         }
         else if (temp >= 75f)
         {
-            thermalAlertText.text = $"<color=#FFCC00>[ВНИМАНИЕ: НАГРЕВ КАРТРИДЖА: {tempStr}] Подготовьте резервную корзину</color>";
+            thermalAlertText.text = LocalizationManager.T(
+                $"<color=#FFCC00>[ВНИМАНИЕ: НАГРЕВ КАРТРИДЖА: {tempStr}] Подготовьте резервную корзину</color>",
+                $"<color=#FFCC00>[WARNING: CARTRIDGE HEATING: {tempStr}] Prepare backup cooling pack</color>");
         }
         else
         {
-            thermalAlertText.text = $"<color=#00FF88>ТЕМПЕРАТУРА КАРТРИДЖА: {tempStr} [НОРМАЛЬНАЯ РАБОТА]</color>";
+            thermalAlertText.text = LocalizationManager.T(
+                $"<color=#00FF88>ТЕМПЕРАТУРА КАРТРИДЖА: {tempStr} [НОРМАЛЬНАЯ РАБОТА]</color>",
+                $"<color=#00FF88>CARTRIDGE TEMPERATURE: {tempStr} [NORMAL OPERATION]</color>");
         }
     }
 
@@ -718,7 +796,8 @@ public class VectorCommander : MonoBehaviour
         if (isCopying)
         {
             PlayErrorBuzz();
-            MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>Перекачка данных уже выполняется!</color>");
+            MainframeBootQuest.Instance?.ShowNotification(LocalizationManager.T("<color=#FFCC00>Перекачка данных уже выполняется!</color>",
+                                                                                "<color=#FFCC00>Data transfer already in progress!</color>"));
             return;
         }
 
@@ -726,7 +805,8 @@ public class VectorCommander : MonoBehaviour
         if (file == null || file.isDirectory)
         {
             PlayErrorBuzz();
-            MainframeBootQuest.Instance?.ShowNotification("<color=#FFCC00>Невозможно скопировать каталог!</color>");
+            MainframeBootQuest.Instance?.ShowNotification(LocalizationManager.T("<color=#FFCC00>Невозможно скопировать каталог!</color>",
+                                                                                "<color=#FFCC00>Cannot copy a directory!</color>"));
             return;
         }
 
@@ -735,7 +815,8 @@ public class VectorCommander : MonoBehaviour
         {
             PlayErrorBuzz();
             MainframeBootQuest.Instance?.ShowNotification(
-                $"<color=#FF3333>[ЗАЩИТА]</color> Файл {file.name} зашифрован! Нажмите [4] Дешифр или [ENTER]!");
+                LocalizationManager.T($"<color=#FF3333>[ЗАЩИТА]</color> Файл {file.name} зашифрован! Нажмите [4] Дешифр или [ENTER]!",
+                                      $"<color=#FF3333>[PROTECTED]</color> File {file.name} is encrypted! Press [4] Decrypt or [ENTER]!"));
             return;
         }
 
@@ -743,7 +824,9 @@ public class VectorCommander : MonoBehaviour
         if (rightFiles.Exists(f => f.name == file.name))
         {
             PlayErrorBuzz();
-            MainframeBootQuest.Instance?.ShowNotification($"<color=#FFCC00>Файл {file.name} уже записан на картридж!</color>");
+            MainframeBootQuest.Instance?.ShowNotification(
+                LocalizationManager.T($"<color=#FFCC00>Файл {file.name} уже записан на картридж!</color>",
+                                      $"<color=#FFCC00>File {file.name} already written to cartridge!</color>"));
             return;
         }
 
@@ -754,7 +837,8 @@ public class VectorCommander : MonoBehaviour
             {
                 PlayErrorBuzz();
                 MainframeBootQuest.Instance?.ShowNotification(
-                    "<color=#FF4444>[ОШИБКА I/O]</color> Картридж не зафиксирован в корзине дисковода!");
+                    LocalizationManager.T("<color=#FF4444>[ОШИБКА I/O]</color> Картридж не зафиксирован в корзине дисковода!",
+                                          "<color=#FF4444>[I/O ERROR]</color> Cartridge not locked into drive bay!"));
                 return;
             }
 
@@ -762,7 +846,8 @@ public class VectorCommander : MonoBehaviour
             {
                 PlayErrorBuzz();
                 MainframeBootQuest.Instance?.ShowNotification(
-                    "<color=#FF2222>[ОТКАЗ ПРИВОДА]</color> Температура превышает 90°C! Охладите диск!");
+                    LocalizationManager.T("<color=#FF2222>[ОТКАЗ ПРИВОДА]</color> Температура превышает 90°C! Охладите диск!",
+                                          "<color=#FF2222>[DRIVE OVERHEAT]</color> Temperature exceeds 90°C! Cool cartridge!"));
                 return;
             }
         }
@@ -780,7 +865,8 @@ public class VectorCommander : MonoBehaviour
 
         PlaySeekSound();
         MainframeBootQuest.Instance?.ShowNotification(
-            $"<color=#00FFAA>[ЗАПИСЬ]</color> Начата перекачка {file.name} на сменный картридж...");
+            LocalizationManager.T($"<color=#00FFAA>[ЗАПИСЬ]</color> Начата перекачка {file.name} на сменный картридж...",
+                                  $"<color=#00FFAA>[WRITING]</color> Initiated transfer of {file.name} to cartridge..."));
 
         float totalDuration = Mathf.Clamp(file.sizeBytes / 14000f, 2.5f, 6.5f);
         float elapsed = 0f;
@@ -803,7 +889,8 @@ public class VectorCommander : MonoBehaviour
                 isCopying = false;
                 PlayErrorBuzz();
                 MainframeBootQuest.Instance?.ShowNotification(
-                    "<color=#FF4444>[ОБРЫВ ЗАПИСИ]</color> Картридж извлечен! Перекачка аварийно прервана.");
+                    LocalizationManager.T("<color=#FF4444>[ОБРЫВ ЗАПИСИ]</color> Картридж извлечен! Перекачка аварийно прервана.",
+                                          "<color=#FF4444>[WRITE ABORT]</color> Cartridge extracted! Transfer aborted."));
                 UpdateAllVisuals();
                 yield break;
             }
@@ -817,14 +904,16 @@ public class VectorCommander : MonoBehaviour
         PlaySuccessSound();
 
         MainframeBootQuest.Instance?.ShowNotification(
-            $"<color=#00FF88>[УСПЕХ]</color> Файл {file.name} ({file.GetFormattedSize()}) успешно перекачан на картридж!");
+            LocalizationManager.T($"<color=#00FF88>[УСПЕХ]</color> Файл {file.name} ({file.GetFormattedSize()}) успешно перекачан на картридж!",
+                                  $"<color=#00FF88>[SUCCESS]</color> File {file.name} ({file.GetFormattedSize()}) transferred to cartridge!"));
 
         // If main objective was copied
         if (file.isFinalObjective)
         {
             MainframeBootQuest.Instance?.ShowNotification(
-                "<color=#00FFFF><b>★ [ПОБЕДА] СВЕРХСЕКРЕТНЫЙ АРХИВ «ОМЕГА» ЗАПИСАН НА КАРТРИДЖ! ЗАДАНИЕ ВЫПОЛНЕНО! ★</b></color>");
-            GameVictorySystem.TriggerVictory("АРХИВ СКОПИРОВАН НА СМЕННЫЙ КАРТРИДЖ");
+                LocalizationManager.T("<color=#00FFFF><b>★ [ПОБЕДА] СВЕРХСЕКРЕТНЫЙ АРХИВ «ОМЕГА» ЗАПИСАН НА КАРТРИДЖ! ЗАДАНИЕ ВЫПОЛНЕНО! ★</b></color>",
+                                      "<color=#00FFFF><b>★ [VICTORY] TOP SECRET ARCHIVE \"OMEGA\" COPIED TO CARTRIDGE! MISSION COMPLETE! ★</b></color>"));
+            GameVictorySystem.TriggerVictory(LocalizationManager.T("АРХИВ СКОПИРОВАН НА СМЕННЫЙ КАРТРИДЖ", "ARCHIVE COPIED TO CARTRIDGE"));
         }
 
         UpdateAllVisuals();
@@ -841,7 +930,7 @@ public class VectorCommander : MonoBehaviour
             viewerModal.SetActive(true);
             if (viewerTitleText != null)
             {
-                viewerTitleText.text = $"┌─── ПРОСМОТР ФАЙЛА: {file.name} ─── [ESC - ВЫХОД] ───┐";
+                viewerTitleText.text = $"┌─── " + LocalizationManager.T($"ПРОСМОТР ФАЙЛА: {file.name} ─── [ESC / F10 - ВЫХОД]", $"VIEWING FILE: {file.name} ─── [ESC / F10 - EXIT]") + " ───┐";
             }
             if (viewerBodyText != null)
             {
@@ -851,20 +940,32 @@ public class VectorCommander : MonoBehaviour
                     int req = Mathf.CeilToInt(GetTotalRegularFilesCount() * 0.8f);
                     int pct = Mathf.RoundToInt(GetDecryptionPercentage() * 100f);
                     string statusMsg = IsFinalFileUnlocked()
-                        ? "<color=#FFFF00>[ДОСТУП ОТКРЫТ] 80% архива расшифровано! Нажмите [4] ДЕШИФР для запуска взлома.</color>"
-                        : $"<color=#FF4444>[ДОСТУП ЗАБЛОКИРОВАН] Требуется расшифровать не менее 80% базы данных ({cur}/{req} файлов, сейчас {pct}%).\nРасшифруйте остальные файлы архива C:\\ для разблокировки мастер-ключа.</color>";
+                        ? LocalizationManager.T("<color=#FFFF00>[ДОСТУП ОТКРЫТ] 80% архива расшифровано! Нажмите [4] ДЕШИФР для запуска взлома.</color>",
+                                                "<color=#FFFF00>[ACCESS UNLOCKED] 80% archive decrypted! Press [4] DECRYPT to start final crack.</color>")
+                        : LocalizationManager.T($"<color=#FF4444>[ДОСТУП ЗАБЛОКИРОВАН] Требуется расшифровать не менее 80% базы данных ({cur}/{req} файлов, сейчас {pct}%).\nРасшифруйте остальные файлы архива C:\\ для разблокировки мастер-ключа.</color>",
+                                                $"<color=#FF4444>[ACCESS LOCKED] Requires at least 80% database decrypted ({cur}/{req} files, currently {pct}%).\nDecrypt remaining files on drive C:\\ to unlock master key.</color>");
 
-                    viewerBodyText.text =
-                        "╔═══════════════════════════════════════════════════════════════════════════╗\n" +
-                        "║              ЦК КПСС // СПЕЦИАЛЬНЫЙ СЕКТОР БЕЗОПАСНОСТИ                   ║\n" +
-                        "║         СВЕРХСЕКРЕТНЫЙ СТРАТЕГИЧЕСКИЙ АРХИВ «ОМЕГА-ВЕКТОР»                ║\n" +
-                        "╚═══════════════════════════════════════════════════════════════════════════╝\n\n" +
-                        $"СТАТУС КРИПТОЗАЩИТЫ:\n{statusMsg}\n\n" +
-                        "ОПИСАНИЕ ОБЪЕКТА:\n" +
-                        "Финальный консолидированный архив государственной важности.\n" +
-                        "Содержит полную документацию проекта «Вектор», алгоритмы шифрования\n" +
-                        "и директивы управления закрытыми объектами связи.\n\n" +
-                        "Взлом данного архива является решающей целью операции.";
+                    viewerBodyText.text = LocalizationManager.IsEnglish
+                        ? "╔═══════════════════════════════════════════════════════════════════════════╗\n" +
+                          "║              CENTRAL COMMITTEE // SPECIAL SECURITY DIRECTORATE            ║\n" +
+                          "║            TOP SECRET STRATEGIC ARCHIVE \"OMEGA-VECTOR\"                    ║\n" +
+                          "╚═══════════════════════════════════════════════════════════════════════════╝\n\n" +
+                          $"CRYPTOGRAPHIC STATUS:\n{statusMsg}\n\n" +
+                          "RECORD DESCRIPTION:\n" +
+                          "Final consolidated state security archive.\n" +
+                          "Contains complete technical specifications of project \"Vector\", encryption keys\n" +
+                          "and command protocols for classified telecom installations.\n\n" +
+                          "Cracking this archive is the definitive mission objective."
+                        : "╔═══════════════════════════════════════════════════════════════════════════╗\n" +
+                          "║              ЦК КПСС // СПЕЦИАЛЬНЫЙ СЕКТОР БЕЗОПАСНОСТИ                   ║\n" +
+                          "║         СВЕРХСЕКРЕТНЫЙ СТРАТЕГИЧЕСКИЙ АРХИВ «ОМЕГА-ВЕКТОР»                ║\n" +
+                          "╚═══════════════════════════════════════════════════════════════════════════╝\n\n" +
+                          $"СТАТУС КРИПТОЗАЩИТЫ:\n{statusMsg}\n\n" +
+                          "ОПИСАНИЕ ОБЪЕКТА:\n" +
+                          "Финальный консолидированный архив государственной важности.\n" +
+                          "Содержит полную документацию проекта «Вектор», алгоритмы шифрования\n" +
+                          "и директивы управления закрытыми объектами связи.\n\n" +
+                          "Взлом данного архива является решающей целью операции.";
                 }
                 else
                 {
@@ -895,7 +996,8 @@ public class VectorCommander : MonoBehaviour
         string temp = DiskDriveBay.Instance != null ? $"{Mathf.RoundToInt(DiskDriveBay.Instance.Temperature)}°C" : "36°C";
         string state = DiskDriveBay.Instance != null ? DiskDriveBay.Instance.State.ToString() : "В СЕТИ";
         MainframeBootQuest.Instance?.ShowNotification(
-            $"<color=#00FFFF>[СТАТУС]</color> Мейнфрейм: ОНЛАЙН | Накопитель: {state} | Темп: {temp}");
+            LocalizationManager.T($"<color=#00FFFF>[СТАТУС]</color> Мейнфрейм: ОНЛАЙН | Накопитель: {state} | Темп: {temp}",
+                                   $"<color=#00FFFF>[STATUS]</color> Mainframe: ONLINE | Drive bay: {state} | Temp: {temp}"));
     }
 
     public void ShowDecryptorMode()

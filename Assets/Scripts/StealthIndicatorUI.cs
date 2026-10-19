@@ -48,21 +48,21 @@ public static class StealthIndicatorUI
 
         if (PlayerController.Instance == null)
         {
-            reasonIfNotHidden = "Игрок не найден";
+            reasonIfNotHidden = LocalizationManager.T("Игрок не найден", "Player not found");
             return false;
         }
 
         // 1. Sitting in the operator chair in full view
         if (PlayerController.Instance.IsSitting)
         {
-            reasonIfNotHidden = "В кресле оператора";
+            reasonIfNotHidden = LocalizationManager.T("В кресле оператора", "In operator chair");
             return false;
         }
 
         // 2. Running produces footstep noise and movement
         if (PlayerController.Instance.IsRunning)
         {
-            reasonIfNotHidden = "Бег / шум шагов";
+            reasonIfNotHidden = LocalizationManager.T("Бег / шум шагов", "Running / Footstep noise");
             return false;
         }
 
@@ -92,7 +92,7 @@ public static class StealthIndicatorUI
         float distToGuard = Vector3.Distance(guardEye, pPos);
         if (distToGuard < 2.20f)
         {
-            reasonIfNotHidden = "Слишком близко к двери!";
+            reasonIfNotHidden = LocalizationManager.T("Слишком близко к двери!", "Too close to doorway!");
             return false;
         }
 
@@ -106,11 +106,11 @@ public static class StealthIndicatorUI
 
         if (chestVisible || headVisible)
         {
-            reasonIfNotHidden = "На линии взгляда охраны";
+            reasonIfNotHidden = LocalizationManager.T("На линии взгляда охраны", "In guard's line of sight");
             return false;
         }
 
-        reasonIfNotHidden = "Вне видимости охраны";
+        reasonIfNotHidden = LocalizationManager.T("Вне видимости охраны", "Out of guard's sight");
         return true;
     }
 
@@ -126,7 +126,7 @@ public static class StealthIndicatorUI
         if (GuardPawn.IsCheatPeaceMode)
         {
             highestSuspicion = 1.0f;
-            stateTitle = "ТЕСТ МАСКИРОВКИ (ЧИТ: GreeH)";
+            stateTitle = LocalizationManager.T("ТЕСТ МАСКИРОВКИ (ЧИТ: GreeH)", "STEALTH TEST (CHEAT: GreeH)");
             return true;
         }
 
@@ -143,32 +143,32 @@ public static class StealthIndicatorUI
 
             if (g.CurrentState == GuardPawn.GuardState.InspectingRoomDoorway)
             {
-                stateTitle = "ОХРАННИК ОСМАТРИВАЕТ ЗАЛ В ДВЕРЯХ!";
+                stateTitle = LocalizationManager.T("ОХРАННИК ОСМАТРИВАЕТ ЗАЛ В ДВЕРЯХ!", "GUARD INSPECTING ROOM AT DOORWAY!");
                 return true;
             }
             if (g.CurrentState == GuardPawn.GuardState.BreachOpeningDoor || g.CurrentState == GuardPawn.GuardState.BreachEnteringRoom)
             {
-                stateTitle = "ОХРАНА ВЗЛАМЫВАЕТ ДВЕРЬ!";
+                stateTitle = LocalizationManager.T("ОХРАНА ВЗЛАМЫВАЕТ ДВЕРЬ!", "GUARDS BREACHING DOORWAY!");
                 return true;
             }
             if (g.CurrentState == GuardPawn.GuardState.BreachMovingToDoor)
             {
-                stateTitle = "ОХРАНА ПОДХОДИТ К ДВЕРИ (РЕЙД)!";
+                stateTitle = LocalizationManager.T("ОХРАНА ПОДХОДИТ К ДВЕРИ (РЕЙД)!", "GUARDS APPROACHING DOOR (RAID)!");
                 return true;
             }
             if (g.CurrentState == GuardPawn.GuardState.ClosingDoorReturning)
             {
-                stateTitle = "ОХРАНА УХОДИТ (МАСКИРОВКА УСПЕШНА)";
+                stateTitle = LocalizationManager.T("ОХРАНА УХОДИТ (МАСКИРОВКА УСПЕШНА)", "GUARDS LEAVING (STEALTH SUCCESS)");
                 return true;
             }
             if (g.IsTerminalInspectionActive)
             {
-                stateTitle = "ТРЕВОГА ТЕРМИНАЛА: ОХРАНА ИДЁТ С ПРОВЕРКОЙ!";
+                stateTitle = LocalizationManager.T("ТРЕВОГА ТЕРМИНАЛА: ОХРАНА ИДЁТ С ПРОВЕРКОЙ!", "TERMINAL ALERT: GUARD EN ROUTE TO INSPECT!");
                 return true;
             }
             if (g.Suspicion >= 0.35f)
             {
-                stateTitle = $"ОХРАНА ВСТРЕВОЖЕНА (ТРЕВОГА {(g.Suspicion * 100f):F0}%)";
+                stateTitle = LocalizationManager.T($"ОХРАНА ВСТРЕВОЖЕНА (ТРЕВОГА {(g.Suspicion * 100f):F0}%)", $"GUARDS ON ALERT (SUSPICION {(g.Suspicion * 100f):F0}%)");
                 return true;
             }
         }
@@ -248,8 +248,12 @@ public static class StealthIndicatorUI
         };
 
         float leftTextX = leftX + iconSize + 8f;
-        string lampTitle = lightSafe ? "<color=#00FFAA>СВЕТ: ВЫКЛЮЧЕН</color>" : "<color=#FF3333>СВЕТ: ВКЛЮЧЕН !</color>";
-        string lampSub = lightSafe ? "<size=10><color=#AADDCC>Сеть обесточена [РУБИЛЬНИК]</color></size>" : "<size=10><color=#FFAAAA>Опустите рубильник [E]!</color></size>";
+        string lampTitle = lightSafe 
+            ? LocalizationManager.T("<color=#00FFAA>СВЕТ: ВЫКЛЮЧЕН</color>", "<color=#00FFAA>LIGHT: OFF</color>") 
+            : LocalizationManager.T("<color=#FF3333>СВЕТ: ВКЛЮЧЕН !</color>", "<color=#FF3333>LIGHT: ON !</color>");
+        string lampSub = lightSafe 
+            ? LocalizationManager.T("<size=10><color=#AADDCC>Сеть обесточена [РУБИЛЬНИК]</color></size>", "<size=10><color=#AADDCC>Power cut [BREAKER]</color></size>") 
+            : LocalizationManager.T("<size=10><color=#FFAAAA>Опустите рубильник [E]!</color></size>", "<size=10><color=#FFAAAA>Turn off breaker [E]!</color></size>");
         GUI.Label(new Rect(leftTextX, iconY - 2f, 140f, 20f), lampTitle, labelStyle);
         GUI.Label(new Rect(leftTextX, iconY + 16f, 140f, 22f), lampSub, labelStyle);
 
@@ -267,9 +271,11 @@ public static class StealthIndicatorUI
         }
 
         float rightTextX = rightX + iconSize + 8f;
-        string eyeTitle = playerHidden ? "<color=#00FFAA>ОБЗОР: В УКРЫТИИ</color>" : "<color=#FF3333>ОБЗОР: ВИДЕН !</color>";
+        string eyeTitle = playerHidden 
+            ? LocalizationManager.T("<color=#00FFAA>ОБЗОР: В УКРЫТИИ</color>", "<color=#00FFAA>LOS: IN COVER</color>") 
+            : LocalizationManager.T("<color=#FF3333>ОБЗОР: ВИДЕН !</color>", "<color=#FF3333>LOS: EXPOSED !</color>");
         string eyeSub = playerHidden 
-            ? "<size=10><color=#AADDCC>Вне поля зрения [ЗА СТОЙКОЙ]</color></size>" 
+            ? LocalizationManager.T("<size=10><color=#AADDCC>Вне поля зрения [ЗА СТОЙКОЙ]</color></size>", "<size=10><color=#AADDCC>Out of sight [BEHIND RACK]</color></size>") 
             : $"<size=10><color=#FFAAAA>{hiddenFailReason}</color></size>";
         GUI.Label(new Rect(rightTextX, iconY - 2f, 160f, 20f), eyeTitle, labelStyle);
         GUI.Label(new Rect(rightTextX, iconY + 16f, 160f, 22f), eyeSub, labelStyle);
@@ -282,8 +288,8 @@ public static class StealthIndicatorUI
             alignment = TextAnchor.MiddleCenter
         };
         string footerMsg = allSafe 
-            ? "<color=#00FFAA>✔ МАСКИРОВКА НАДЁЖНА — НЕ ШЕВЕЛИТЕСЬ В УКРЫТИИ</color>" 
-            : "<color=#FFDD44>⚠ ВЫКЛЮЧИТЕ РУБИЛЬНИК [E] И СПРЯЧЬТЕСЬ ЗА СТОЙКУ ЭВМ!</color>";
+            ? LocalizationManager.T("<color=#00FFAA>✔ МАСКИРОВКА НАДЁЖНА — НЕ ШЕВЕЛИТЕСЬ В УКРЫТИИ</color>", "<color=#00FFAA>✔ STEALTH SECURE — STAY STILL IN COVER</color>") 
+            : LocalizationManager.T("<color=#FFDD44>⚠ ВЫКЛЮЧИТЕ РУБИЛЬНИК [E] И СПРЯЧЬТЕСЬ ЗА СТОЙКУ ЭВМ!</color>", "<color=#FFDD44>⚠ CUT BREAKER [E] AND HIDE BEHIND MAINFRAME!</color>");
         GUI.Label(new Rect(panelX, panelY + panelH - 20f, panelW, 18f), footerMsg, footerStyle);
     }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -128,7 +128,10 @@ public class DiskDriveBay : MonoBehaviour
     private void Start()
     {
         temperature = 35f;
-        state = DriveBayState.Running;
+        bool serverOnline = MainframeBootQuest.Instance != null &&
+                            MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline &&
+                            !MainframeBootQuest.Instance.IsPowerCutByBreaker;
+        state = serverOnline ? DriveBayState.Running : DriveBayState.Off;
 
         if (hotCartridge != null)
         {
@@ -164,9 +167,29 @@ public class DiskDriveBay : MonoBehaviour
 
     private void Update()
     {
-        // 1. Thermal simulation during server operation
-        bool isServerOnline = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline;
+        bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        bool isServerOnline = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline && !powerCut;
 
+        if (powerCut)
+        {
+            if (state == DriveBayState.Running || state == DriveBayState.Braking)
+            {
+                StopSpindleHum();
+                state = DriveBayState.Off;
+                UpdateLamps();
+            }
+        }
+        else if (isServerOnline)
+        {
+            if (state == DriveBayState.Off && hotCartridge != null && hotCartridge.gameObject.activeSelf && !hotCartridge.IsCompleted)
+            {
+                state = DriveBayState.Running;
+                StartSpindleHum();
+                UpdateLamps();
+            }
+        }
+
+        // 1. Thermal simulation during server operation
         if (isServerOnline && state == DriveBayState.Running)
         {
             temperature += heatRatePerSec * Time.deltaTime;
