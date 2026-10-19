@@ -306,7 +306,6 @@ public class PlayerController : MonoBehaviour
                         (DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Running || DiskDriveBay.Instance.State == DiskDriveBay.DriveBayState.Braking))
                     {
                         DiskDriveBay.Instance.AttemptPullPrematurely();
-                        ApplyStun(3.5f);
                         return;
                     }
 
@@ -1325,6 +1324,8 @@ public class PlayerController : MonoBehaviour
                 if (kbCurrent.digit2Key.wasPressedThisFrame || kbCurrent.numpad2Key.wasPressedThisFrame) GuardPawn.TriggerCheatDoorwayInspect();
                 if (kbCurrent.digit3Key.wasPressedThisFrame || kbCurrent.numpad3Key.wasPressedThisFrame) GuardPawn.TriggerCheatStealthSuccess();
                 if (kbCurrent.digit4Key.wasPressedThisFrame || kbCurrent.numpad4Key.wasPressedThisFrame) GuardPawn.TriggerCheatAlertChase();
+                if (kbCurrent.digit5Key.wasPressedThisFrame || kbCurrent.numpad5Key.wasPressedThisFrame) GuardPawn.TriggerTimeExpiredAssault();
+                if (kbCurrent.digit6Key.wasPressedThisFrame || kbCurrent.numpad6Key.wasPressedThisFrame) PocketWatchController.Instance?.SetTimeRemainingDebug(3.0f);
                 if (kbCurrent.digit0Key.wasPressedThisFrame || kbCurrent.numpad0Key.wasPressedThisFrame) GuardPawn.ResetAllToPatrol();
             }
 #else
@@ -1332,6 +1333,8 @@ public class PlayerController : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) GuardPawn.TriggerCheatDoorwayInspect();
             if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) GuardPawn.TriggerCheatStealthSuccess();
             if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) GuardPawn.TriggerCheatAlertChase();
+            if (Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5)) GuardPawn.TriggerTimeExpiredAssault();
+            if (Input.GetKeyDown(KeyCode.Alpha6) || Input.GetKeyDown(KeyCode.Keypad6)) PocketWatchController.Instance?.SetTimeRemainingDebug(3.0f);
             if (Input.GetKeyDown(KeyCode.Alpha0) || Input.GetKeyDown(KeyCode.Keypad0)) GuardPawn.ResetAllToPatrol();
 #endif
         }

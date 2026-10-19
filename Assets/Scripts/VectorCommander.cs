@@ -233,9 +233,6 @@ public class VectorCommander : MonoBehaviour
             "Требуется дедуктивный анализ ориентировки и вычисление диверсанта.", false));
 
         // Мастер-модули института:
-        leftFiles.Add(new VirtualFile("ДЕКОДЕР_V2.BIN", 64 * 1024, "18.10.84", false,
-            "Исполняемое ядро криптоалгоритма «Вектор-70».\n" +
-            "Защищено контрольной суммой перфоленты. Требуется Машина Тьюринга.", false));
 
         leftFiles.Add(new VirtualFile("ДИРЕКТИВА_42.DOC", 16 * 1024, "10.10.84", false,
             "СЕКРЕТНАЯ ДИРЕКТИВА УПРАВЛЕНИЯ №42-Б\n" +
@@ -829,11 +826,6 @@ public class VectorCommander : MonoBehaviour
                 "<color=#00FFFF><b>★ [ПОБЕДА] СВЕРХСЕКРЕТНЫЙ АРХИВ «ОМЕГА» ЗАПИСАН НА КАРТРИДЖ! ЗАДАНИЕ ВЫПОЛНЕНО! ★</b></color>");
             GameVictorySystem.TriggerVictory("АРХИВ СКОПИРОВАН НА СМЕННЫЙ КАРТРИДЖ");
         }
-        else if (file.name == "ДЕКОДЕР_V2.BIN")
-        {
-            MainframeBootQuest.Instance?.ShowNotification(
-                "<color=#00FFFF><b>[МИССИЯ] СЕКРЕТНОЕ ЯДРО ДЕШИФРАТОРА ЗАХВАЧЕНО! ОХЛАДИТЕ ДИСК И ЭВАКУИРУЙТЕСЬ!</b></color>");
-        }
 
         UpdateAllVisuals();
     }
@@ -1049,6 +1041,15 @@ public class VectorCommander : MonoBehaviour
 
     private void GenerateAudioClips()
     {
+        var resSuccess = Resources.Load<AudioClip>("Sound/CipherSuccess");
+        if (resSuccess != null) copySuccessClip = resSuccess;
+
+        var resError = Resources.Load<AudioClip>("Sound/ErrorAlarm");
+        if (resError != null) errorBuzzClip = resError;
+
+        var resClick = Resources.Load<AudioClip>("Sound/MouseClick");
+        if (resClick != null) keyTickClip = resClick;
+
         int sr = 44100;
 
         // 1. Key Tick

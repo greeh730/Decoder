@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -60,10 +60,11 @@ public class GameVictorySystem : MonoBehaviour
 
         victoryAudioSource = gameObject.AddComponent<AudioSource>();
         victoryAudioSource.spatialBlend = 0f; // 2D stereo sound
-        victoryAudioSource.volume = 1.0f;
+        victoryAudioSource.volume = 0.85f;
         victoryAudioSource.playOnAwake = false;
 
-        GenerateSovietFanfareClip();
+        fanfareClip = Resources.Load<AudioClip>("Sound/SpyJazz");
+        if (fanfareClip == null) GenerateSovietFanfareClip();
     }
 
     private void Update()
@@ -135,7 +136,9 @@ public class GameVictorySystem : MonoBehaviour
         if (victoryAudioSource != null && fanfareClip != null)
         {
             victoryAudioSource.Stop();
-            victoryAudioSource.PlayOneShot(fanfareClip, 1.0f);
+            victoryAudioSource.clip = fanfareClip;
+            victoryAudioSource.loop = true;
+            victoryAudioSource.Play();
         }
     }
 

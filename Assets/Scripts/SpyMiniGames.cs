@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -1863,44 +1863,66 @@ public class SpyMiniGames : MonoBehaviour
 
     private void GenerateAudioClips()
     {
+        // 1. Load authentic recorded audio from Sound folder
+        var loadedClick = Resources.Load<AudioClip>("Sound/MouseClick");
+        var loadedRelay = Resources.Load<AudioClip>("Sound/MinigameSound");
+        var loadedSuccess = Resources.Load<AudioClip>("Sound/CipherSuccess");
+        var loadedBonk = Resources.Load<AudioClip>("Sound/Bonk");
+        var loadedAlarm = Resources.Load<AudioClip>("Sound/ErrorAlarm");
+
+        if (loadedClick != null) clickClip = loadedClick;
+        if (loadedRelay != null) relayTickClip = loadedRelay;
+        if (loadedSuccess != null) successClip = loadedSuccess;
+        if (loadedBonk != null) failClip = loadedBonk;
+        else if (loadedAlarm != null) failClip = loadedAlarm;
+
         int sr = 44100;
 
-        // 1. Click
-        int n1 = (int)(sr * 0.025f);
-        float[] d1 = new float[n1];
-        for (int i = 0; i < n1; i++) d1[i] = Mathf.Sin(2f * Mathf.PI * 1600f * (float)i / sr) * (1f - (float)i / n1);
-        clickClip = AudioClip.Create("MG_Click", n1, 1, sr, false);
-        clickClip.SetData(d1, 0);
-
-        // 2. Success chime
-        int n2 = (int)(sr * 0.35f);
-        float[] d2 = new float[n2];
-        for (int i = 0; i < n2; i++)
+        // Fallbacks if not found
+        if (clickClip == null)
         {
-            float t = (float)i / sr;
-            float freq = t < 0.15f ? 880f : 1760f;
-            d2[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * Mathf.Sin(Mathf.PI * (t / 0.35f)) * 0.5f;
+            int n1 = (int)(sr * 0.025f);
+            float[] d1 = new float[n1];
+            for (int i = 0; i < n1; i++) d1[i] = Mathf.Sin(2f * Mathf.PI * 1600f * (float)i / sr) * (1f - (float)i / n1);
+            clickClip = AudioClip.Create("MG_Click", n1, 1, sr, false);
+            clickClip.SetData(d1, 0);
         }
-        successClip = AudioClip.Create("MG_Success", n2, 1, sr, false);
-        successClip.SetData(d2, 0);
 
-        // 3. Fail buzz
-        int n3 = (int)(sr * 0.25f);
-        float[] d3 = new float[n3];
-        for (int i = 0; i < n3; i++) d3[i] = Mathf.Sin(2f * Mathf.PI * 140f * (float)i / sr) * (1f - (float)i / n3) * 0.6f;
-        failClip = AudioClip.Create("MG_Fail", n3, 1, sr, false);
-        failClip.SetData(d3, 0);
-
-        // 4. Relay clack
-        int n4 = (int)(sr * 0.045f);
-        float[] d4 = new float[n4];
-        for (int i = 0; i < n4; i++)
+        if (successClip == null)
         {
-            float t = (float)i / n4;
-            d4[i] = (Mathf.Sin(2f * Mathf.PI * 520f * (float)i / sr) + (UnityEngine.Random.value * 2f - 1f) * 0.3f) * (1f - t);
+            int n2 = (int)(sr * 0.35f);
+            float[] d2 = new float[n2];
+            for (int i = 0; i < n2; i++)
+            {
+                float t = (float)i / sr;
+                float freq = t < 0.15f ? 880f : 1760f;
+                d2[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * Mathf.Sin(Mathf.PI * (t / 0.35f)) * 0.5f;
+            }
+            successClip = AudioClip.Create("MG_Success", n2, 1, sr, false);
+            successClip.SetData(d2, 0);
         }
-        relayTickClip = AudioClip.Create("MG_Relay", n4, 1, sr, false);
-        relayTickClip.SetData(d4, 0);
+
+        if (failClip == null)
+        {
+            int n3 = (int)(sr * 0.25f);
+            float[] d3 = new float[n3];
+            for (int i = 0; i < n3; i++) d3[i] = Mathf.Sin(2f * Mathf.PI * 140f * (float)i / sr) * (1f - (float)i / n3) * 0.6f;
+            failClip = AudioClip.Create("MG_Fail", n3, 1, sr, false);
+            failClip.SetData(d3, 0);
+        }
+
+        if (relayTickClip == null)
+        {
+            int n4 = (int)(sr * 0.045f);
+            float[] d4 = new float[n4];
+            for (int i = 0; i < n4; i++)
+            {
+                float t = (float)i / n4;
+                d4[i] = (Mathf.Sin(2f * Mathf.PI * 520f * (float)i / sr) + (UnityEngine.Random.value * 2f - 1f) * 0.3f) * (1f - t);
+            }
+            relayTickClip = AudioClip.Create("MG_Relay", n4, 1, sr, false);
+            relayTickClip.SetData(d4, 0);
+        }
     }
 
     private void PlayClick()

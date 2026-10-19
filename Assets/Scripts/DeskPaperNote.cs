@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -78,7 +78,7 @@ public class DeskPaperNote : MonoBehaviour
             case SpyMiniGames.GameType.NetworkRestoration:
                 return "Включите каналы I, IV, VI. Каналы II, III, V аварийные — не включать!";
             case SpyMiniGames.GameType.TuringTape:
-                return "Тьюринг: двоичный инкремент 1011 + 1 = 1100";
+                return "Бинарный сумматор: двоичный инкремент 1011 + 1 = 1100";
             case SpyMiniGames.GameType.FrequencyAnalysis:
                 return "Частоты: совместите главные пики с буквами О, Е, А";
             case SpyMiniGames.GameType.DatabaseFilter:

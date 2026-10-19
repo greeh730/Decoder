@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -38,6 +38,8 @@ public class GuardPatrolSystem : MonoBehaviour
     [SerializeField] private float waypointRadius = 0.35f;
 
     public List<PatrolRoute> Routes => routes;
+
+    public static void TriggerTimeExpiredAssault() => GuardPawn.TriggerTimeExpiredAssault();
 
     private readonly List<GuardPawn> activeGuards = new List<GuardPawn>();
 
@@ -807,6 +809,112 @@ public class GuardPawn : MonoBehaviour
         return best;
     }
 
+    public static void TriggerTimeExpiredAssault()
+    {
+        if (IsGameOver || GameVictorySystem.IsGameWon) return;
+        IsCheatPeaceMode = false;
+
+        if (PlayerController.Instance != null)
+        {
+            PlayerController.Instance.ExitMonitor();
+            PlayerController.Instance.ApplyStun(6.0f);
+        }
+
+        var guard = GetClosestGuardToDoor();
+        if (guard != null)
+        {
+            guard.StartCoroutine(guard.TimeExpiredBreachSequence());
+        }
+        else
+        {
+            TriggerGameOverStatic(
+                "ВРЕМЯ ИСТЕКЛО! ОБЪЕКТ ЗАБЛОКИРОВАН",
+                "СЕКРЕТНЫЙ ОБЪЕКТ «ВЕКТОР-74» — ШТУРМ КОМЕНДАТУРЫ",
+                "Время на карманных часах подошло к концу (00:00).\n\n" +
+                "Дежурный караул комендатуры выбил служебную дверь машинного зала и заблокировал объект.\n" +
+                "Агент нейтрализован на рабочем месте, материалы шифрования изъяты.\n" +
+                "Операция полностью провалена."
+            );
+        }
+    }
+
+    public IEnumerator TimeExpiredBreachSequence()
+    {
+        FindDoorHingePivot();
+        transform.position = outsideDoorPos;
+        transform.rotation = Quaternion.LookRotation(Vector3.forward);
+        currentState = GuardState.BreachOpeningDoor;
+        doorOpenProgress = 0f;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsMoving", false);
+            animator.SetTrigger("OpenDoor");
+        }
+
+        if (sfxAudioSource != null && doorCreakClip != null)
+        {
+            sfxAudioSource.PlayOneShot(doorCreakClip, 1f);
+        }
+        MainframeBootQuest.Instance?.ShowNotification("<color=#FF2222>[ВРЕМЯ ИСТЕКЛО!]</color> Охранники выбивают дверь!");
+
+        float elapsed = 0f;
+        float duration = 0.22f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            if (doorHingePivot != null)
+            {
+                doorHingePivot.localRotation = Quaternion.Euler(0f, Mathf.Lerp(0f, -95f, t), 0f);
+            }
+            yield return null;
+        }
+        if (doorHingePivot != null)
+        {
+            doorHingePivot.localRotation = Quaternion.Euler(0f, -95f, 0f);
+        }
+
+        if (sfxAudioSource != null && alertStingClip != null)
+        {
+            sfxAudioSource.PlayOneShot(alertStingClip, 1f);
+        }
+
+        if (animator != null)
+        {
+            animator.SetBool("IsMoving", true);
+            animator.SetTrigger("Alert");
+        }
+
+        Vector3 targetPos = doorwayThresholdPos;
+        float stormElapsed = 0f;
+        Vector3 startP = transform.position;
+        while (stormElapsed < 0.6f)
+        {
+            stormElapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(stormElapsed / 0.6f);
+            transform.position = Vector3.Lerp(startP, targetPos, t);
+            if (PlayerController.Instance != null)
+            {
+                Vector3 lookDir = PlayerController.Instance.transform.position - transform.position;
+                lookDir.y = 0f;
+                if (lookDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(lookDir);
+            }
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(0.6f);
+
+        TriggerGameOverStatic(
+            "ВРЕМЯ ИСТЕКЛО! ОБЪЕКТ ЗАБЛОКИРОВАН",
+            "СЕКРЕТНЫЙ ОБЪЕКТ «ВЕКТОР-74» — ШТУРМ КОМЕНДАТУРЫ",
+            "Время на карманных часах подошло к концу (00:00).\n\n" +
+            "Дежурный караул комендатуры выбил служебную дверь машинного зала и заблокировал объект.\n" +
+            "Агент нейтрализован на рабочем месте, материалы шифрования изъяты.\n" +
+            "Операция полностью провалена."
+        );
+    }
+
     public static void TriggerCheatBreach()
     {
         var guard = GetClosestGuardToDoor();
@@ -954,6 +1062,7 @@ public class GuardPawn : MonoBehaviour
     private AudioClip footstepRightClip;
     private AudioClip doorCreakClip;
     private AudioClip alertStingClip;
+    private bool isUsingLoopingSteps = false;
 
     public float Suspicion => suspicion;
     public bool IsInvestigating => suspicion > 0.35f;
@@ -1143,6 +1252,20 @@ public class GuardPawn : MonoBehaviour
 
     private void CreateFootstepClips()
     {
+        var loadedSteps = Resources.Load<AudioClip>("Sound/GuardFootsteps");
+        if (loadedSteps != null)
+        {
+            isUsingLoopingSteps = true;
+            footstepLeftClip = loadedSteps;
+            footstepRightClip = loadedSteps;
+            if (footstepAudioSource != null)
+            {
+                footstepAudioSource.clip = loadedSteps;
+                footstepAudioSource.loop = true;
+            }
+            return;
+        }
+
         int sampleRate = 44100;
 
         // Clip 1: Left boot heel strike & concrete tap (crisp heel transient + firm sole impact)
@@ -1196,6 +1319,13 @@ public class GuardPawn : MonoBehaviour
 
     private void CreateDoorCreakClip()
     {
+        var loadedDoor = Resources.Load<AudioClip>("Sound/DoorOpen");
+        if (loadedDoor != null)
+        {
+            doorCreakClip = loadedDoor;
+            return;
+        }
+
         int sampleRate = 44100;
         int len = (int)(sampleRate * 1.10f);
         float[] d = new float[len];
@@ -1986,11 +2116,32 @@ public class GuardPawn : MonoBehaviour
         else
         {
             if (animator != null) animator.SetBool("IsMoving", false);
+            StopFootstepSound();
         }
     }
 
     private void UpdateFootstepSounds(float currentSpeed)
     {
+        if (isUsingLoopingSteps)
+        {
+            if (currentSpeed > 0.08f && !isWaiting && currentState != GuardState.GameOver && currentState != GuardState.InspectingRoomDoorway)
+            {
+                if (footstepAudioSource != null)
+                {
+                    if (!footstepAudioSource.isPlaying)
+                    {
+                        footstepAudioSource.Play();
+                    }
+                    footstepAudioSource.pitch = Mathf.Clamp(currentSpeed / walkSpeed, 0.85f, 1.25f);
+                }
+            }
+            else
+            {
+                StopFootstepSound();
+            }
+            return;
+        }
+
         stepTimer += Time.deltaTime * (currentSpeed / walkSpeed);
         if (stepTimer >= 0.52f)
         {
@@ -2005,6 +2156,14 @@ public class GuardPawn : MonoBehaviour
         }
     }
 
+    private void StopFootstepSound()
+    {
+        if (footstepAudioSource != null && footstepAudioSource.isPlaying)
+        {
+            footstepAudioSource.Pause();
+        }
+    }
+
     private void AdvanceToNextWaypoint()
     {
         if (currentWaypointIndex < route.waypoints.Count - 1)
@@ -2016,6 +2175,13 @@ public class GuardPawn : MonoBehaviour
             currentWaypointIndex = 0;
         }
     }
+
+    public static string GameOverTitle = "ЗАДЕРЖАН СЛУЖБОЙ БЕЗОПАСНОСТИ";
+    public static string GameOverSub = "СЕКРЕТНЫЙ ОБЪЕКТ «ВЕКТОР-74» — НАРУШЕНИЕ РЕЖИМА";
+    public static string GameOverMessage =
+        "Дежурный патруль вошёл в вычислительный зал через служебную дверь и задержал вас на месте преступления.\n\n" +
+        "Несанкционированный шум аппаратуры ЭВМ и взлом шифра были зафиксированы комендатурой.\n" +
+        "Вся аппаратура опечатана. Смена сорвана.";
 
     public void TriggerGameOver()
     {
@@ -2032,9 +2198,43 @@ public class GuardPawn : MonoBehaviour
         Cursor.visible = true;
     }
 
+    public static void TriggerGameOverStatic(string title = null, string sub = null, string message = null)
+    {
+        if (IsGameOver || GameVictorySystem.IsGameWon) return;
+        if (!string.IsNullOrEmpty(title)) GameOverTitle = title;
+        if (!string.IsNullOrEmpty(sub)) GameOverSub = sub;
+        if (!string.IsNullOrEmpty(message)) GameOverMessage = message;
+
+        IsGameOver = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        var guards = FindObjectsByType<GuardPawn>(FindObjectsInactive.Exclude);
+        if (guards != null)
+        {
+            foreach (var g in guards)
+            {
+                if (g != null)
+                {
+                    g.currentState = GuardState.GameOver;
+                    if (g.sfxAudioSource != null && g.alertStingClip != null)
+                    {
+                        g.sfxAudioSource.PlayOneShot(g.alertStingClip, 1.0f);
+                    }
+                }
+            }
+        }
+    }
+
     public static void RestartGame()
     {
         IsGameOver = false;
+        GameOverTitle = "ЗАДЕРЖАН СЛУЖБОЙ БЕЗОПАСНОСТИ";
+        GameOverSub = "СЕКРЕТНЫЙ ОБЪЕКТ «ВЕКТОР-74» — НАРУШЕНИЕ РЕЖИМА";
+        GameOverMessage =
+            "Дежурный патруль вошёл в вычислительный зал через служебную дверь и задержал вас на месте преступления.\n\n" +
+            "Несанкционированный шум аппаратуры ЭВМ и взлом шифра были зафиксированы комендатурой.\n" +
+            "Вся аппаратура опечатана. Смена сорвана.";
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
@@ -2098,6 +2298,13 @@ public class GuardPawn : MonoBehaviour
             }
             currentY += btnH + btnSpacing;
 
+            // Button 5: Time expired breach assault
+            if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[5] Время вышло (Штурм двери)", testBtnStyle))
+            {
+                TriggerTimeExpiredAssault();
+            }
+            currentY += btnH + btnSpacing;
+
             // Button 5: Reset back to corridor patrol
             if (GUI.Button(new Rect(panelX, currentY, panelW, btnH), "[0] Сброс на патруль", testBtnStyle))
             {
@@ -2154,17 +2361,12 @@ public class GuardPawn : MonoBehaviour
         };
         bodyStyle.normal.textColor = new Color(0.92f, 0.92f, 0.92f);
 
-        GUILayout.Label("ЗАДЕРЖАН СЛУЖБОЙ БЕЗОПАСНОСТИ", titleStyle);
+        GUILayout.Label(GameOverTitle, titleStyle);
         GUILayout.Space(6f);
-        GUILayout.Label("СЕКРЕТНЫЙ ОБЪЕКТ «ВЕКТОР-74» — НАРУШЕНИЕ РЕЖИМА", subStyle);
+        GUILayout.Label(GameOverSub, subStyle);
         GUILayout.Space(18f);
 
-        GUILayout.Label(
-            "Дежурный патруль вошёл в вычислительный зал через служебную дверь и задержал вас на месте преступления.\n\n" +
-            "Несанкционированный шум аппаратуры ЭВМ и взлом шифра были зафиксированы комендатурой.\n" +
-            "Вся аппаратура опечатана. Смена сорвана.",
-            bodyStyle
-        );
+        GUILayout.Label(GameOverMessage, bodyStyle);
 
         GUILayout.FlexibleSpace();
 

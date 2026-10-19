@@ -60,9 +60,12 @@ public class DiskDriveBay : MonoBehaviour
     private AudioClip spindleHumClip;
     private AudioClip brakeWhineClip;
     private AudioClip electricShockClip;
+    private AudioClip diskOverheatClip;
+    private AudioClip errorAlarmClip;
     private AudioClip alarmBeepClip;
     private AudioClip headCrashClip;
     private AudioClip turbineSpinupClip;
+    private AudioClip diskInsertClip;
 
     [Header("Materials (Lamps)")]
     private Material ledRedMat;
@@ -192,8 +195,22 @@ public class DiskDriveBay : MonoBehaviour
                     }
                 }
 
-                // Alarm beeping
-                if (alarmAudio != null && alarmBeepClip != null && !alarmAudio.isPlaying)
+                // Authentic continuous DiskOverheat sound loop while overheating!
+                if (alarmAudio != null && diskOverheatClip != null)
+                {
+                    if (!alarmAudio.isPlaying)
+                    {
+                        alarmAudio.clip = diskOverheatClip;
+                        alarmAudio.loop = true;
+                        alarmAudio.volume = (temperature >= redAlarmTemp) ? 0.95f : 0.65f;
+                        alarmAudio.Play();
+                    }
+                    else
+                    {
+                        alarmAudio.volume = (temperature >= redAlarmTemp) ? 0.95f : 0.65f;
+                    }
+                }
+                else if (alarmAudio != null && alarmBeepClip != null && !alarmAudio.isPlaying)
                 {
                     alarmAudio.PlayOneShot(alarmBeepClip, 0.65f);
                 }
@@ -286,6 +303,13 @@ public class DiskDriveBay : MonoBehaviour
     /// </summary>
     public void AttemptPullPrematurely()
     {
+        // Task 11: Electric shock must NOT occur when server is powered off / breaker cut.
+        bool isShockHazard = MainframeBootQuest.Instance != null &&
+                             !MainframeBootQuest.Instance.IsPowerCutByBreaker &&
+                             MainframeBootQuest.Instance.CurrentStage >= BootStage.HighVoltageOn;
+
+        if (!isShockHazard) return;
+
         if (state == DriveBayState.Running || state == DriveBayState.Braking)
         {
             TriggerElectricShock();
@@ -319,10 +343,11 @@ public class DiskDriveBay : MonoBehaviour
             {
                 if (g != null)
                 {
-                    g.AddSuspicion(0.45f, "Электрическая дуга / срыв замка накопителя под напряжением 380В");
+                    g.AddSuspicion(0.70f, "Электрическая дуга / срыв замка накопителя под напряжением 380В");
                 }
             }
         }
+        GuardPawn.DispatchGuardForTerminalInspection("Громкий электрический разряд 380В / авария в серверной");
     }
 
     private IEnumerator CrashNoiseRoutine(float duration)
@@ -348,7 +373,33 @@ public class DiskDriveBay : MonoBehaviour
 
         UpdateLamps();
 
-        if (MainframeBootQuest.Instance != null)
+        // Task 10: Pulling out disk while PC is running must crash/halt PC / mainframe!
+        if (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline)
+        {
+            if (MonitorTerminal.Instance != null)
+            {
+                MonitorTerminal.Instance.AddLog("<color=#FF0000><b>[I/O FAULT 0x1A: PACK DISMOUNTED]</b></color>");
+                MonitorTerminal.Instance.AddLog("<color=#FF6666>[HARDWARE] Системный пакет магнитных дисков извлечен из накопителя!</color>");
+                MonitorTerminal.Instance.AddLog("<color=#FFCC00>Терминал заблокирован. Установите охлажденный пакет дисков для возобновления работы.</color>");
+                MonitorTerminal.Instance.SetMainframeOnline(false);
+            }
+
+            if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+            {
+                PlayerController.Instance.ExitMonitor();
+            }
+
+            SpyMiniGames.Instance?.CancelMiniGame();
+            if (VectorCommander.Instance != null)
+            {
+                VectorCommander.Instance.CloseHelp();
+                VectorCommander.Instance.CloseViewer();
+            }
+
+            MainframeBootQuest.Instance.ShowNotification(
+                $"<color=#FF5555><b>[ОТКАЗ ВВОДА-ВЫВОДА]</b></color> Диск №{extractedCartridgeId} извлечен! Терминал остановлен. Положите горячий пакет на полку.");
+        }
+        else if (MainframeBootQuest.Instance != null)
         {
             MainframeBootQuest.Instance.ShowNotification(
                 $"<color=#FFFF66>[КАРТРИДЖ ИЗВЛЕЧЕН]</color> Положите горячий пакет №{extractedCartridgeId} на полку охлаждения.");
@@ -422,6 +473,7 @@ public class DiskDriveBay : MonoBehaviour
         currentCartridgeId = cartridgeId;
         extractedCartridgeId = 0;
         state = DriveBayState.InsertingCold;
+        PlayDiskInsertSound();
 
         if (coldCartridgeInSlot != null)
         {
@@ -480,11 +532,18 @@ public class DiskDriveBay : MonoBehaviour
         }
 
         UpdateLamps();
+        PlayDiskInsertSound();
         PlayTurbineSpinup();
         StartSpindleHum();
 
         if (MonitorTerminal.Instance != null)
         {
+            bool mainframeOnline = MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.CurrentStage == BootStage.SystemOnline && !MainframeBootQuest.Instance.IsPowerCutByBreaker;
+            if (mainframeOnline)
+            {
+                MonitorTerminal.Instance.SetMainframeOnline(true);
+                MonitorTerminal.Instance.AddLog("<color=#00FFFF>[I/O RESTORED] Системный накопитель смонтирован. Доступ к данным возобновлен.</color>");
+            }
             MonitorTerminal.Instance.AddLog(
                 $"<color=#00FF88>[ДИСКОВОД ЕС-5061]</color> Пакет дисков №{currentCartridgeId} смонтирован. Температура: 31°C. ДАННЫЕ В БЕЗОПАСНОСТИ.");
         }
@@ -619,10 +678,17 @@ public class DiskDriveBay : MonoBehaviour
 
     private void PlayElectricShock()
     {
-        if (driveAudio != null && electricShockClip != null)
+        if (electricShockClip != null)
         {
-            driveAudio.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
-            driveAudio.PlayOneShot(electricShockClip, 0.90f);
+            if (driveAudio != null)
+            {
+                driveAudio.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
+                driveAudio.PlayOneShot(electricShockClip, 0.95f);
+            }
+            // Also play directly at player camera for immediate high-voltage impact!
+            var cam = Camera.main;
+            Vector3 pos = cam != null ? cam.transform.position : transform.position;
+            AudioSource.PlayClipAtPoint(electricShockClip, pos, 1.0f);
         }
     }
 
@@ -634,8 +700,37 @@ public class DiskDriveBay : MonoBehaviour
         }
     }
 
+    private void PlayDiskInsertSound()
+    {
+        if (driveAudio != null && diskInsertClip != null)
+        {
+            driveAudio.pitch = UnityEngine.Random.Range(0.96f, 1.04f);
+            driveAudio.PlayOneShot(diskInsertClip, 0.90f);
+        }
+    }
+
     private void GenerateAudioClips()
     {
+        var resShock = Resources.Load<AudioClip>("Sound/ElectricShock");
+        if (resShock != null) electricShockClip = resShock;
+
+        var resInsert = Resources.Load<AudioClip>("Sound/DiskInsert");
+        if (resInsert != null) diskInsertClip = resInsert;
+
+        var resOverheat = Resources.Load<AudioClip>("Sound/DiskOverheat");
+        if (resOverheat != null)
+        {
+            diskOverheatClip = resOverheat;
+            headCrashClip = resOverheat;
+        }
+
+        var resAlarm = Resources.Load<AudioClip>("Sound/ErrorAlarm");
+        if (resAlarm != null)
+        {
+            errorAlarmClip = resAlarm;
+            alarmBeepClip = resAlarm;
+        }
+
         int sampleRate = 44100;
 
         // 1. Spindle hum (high-RPM balanced disk rotation)
@@ -666,44 +761,53 @@ public class DiskDriveBay : MonoBehaviour
         brakeWhineClip = AudioClip.Create("SpindleBrakeWhine", brakeSamples, 1, sampleRate, false);
         brakeWhineClip.SetData(brakeData, 0);
 
-        // 3. Electric Shock Arc (380V violent electrical discharge crack)
-        int shockSamples = (int)(sampleRate * 0.28f);
-        float[] shockData = new float[shockSamples];
-        for (int i = 0; i < shockSamples; i++)
+        // 3. Electric Shock Arc fallback
+        if (electricShockClip == null)
         {
-            float t = (float)i / shockSamples;
-            float crack = (UnityEngine.Random.value * 2f - 1f) * Mathf.Exp(-t * 22f);
-            float hum = Mathf.Sin(2f * Mathf.PI * 50f * ((float)i / sampleRate)) * 0.6f * Mathf.Exp(-t * 8f);
-            shockData[i] = crack + hum;
+            int shockSamples = (int)(sampleRate * 0.28f);
+            float[] shockData = new float[shockSamples];
+            for (int i = 0; i < shockSamples; i++)
+            {
+                float t = (float)i / shockSamples;
+                float crack = (UnityEngine.Random.value * 2f - 1f) * Mathf.Exp(-t * 22f);
+                float hum = Mathf.Sin(2f * Mathf.PI * 50f * ((float)i / sampleRate)) * 0.6f * Mathf.Exp(-t * 8f);
+                shockData[i] = crack + hum;
+            }
+            electricShockClip = AudioClip.Create("ElectricShock380V", shockSamples, 1, sampleRate, false);
+            electricShockClip.SetData(shockData, 0);
         }
-        electricShockClip = AudioClip.Create("ElectricShock380V", shockSamples, 1, sampleRate, false);
-        electricShockClip.SetData(shockData, 0);
 
-        // 4. Alarm Beep (high-pitched urgency beep)
-        int beepSamples = (int)(sampleRate * 0.18f);
-        float[] beepData = new float[beepSamples];
-        for (int i = 0; i < beepSamples; i++)
+        // 4. Alarm Beep fallback
+        if (alarmBeepClip == null)
         {
-            float t = (float)i / sampleRate;
-            float sine = Mathf.Sin(2f * Mathf.PI * 1850f * t) * 0.6f;
-            float env = Mathf.Sin(Mathf.PI * (t / 0.18f));
-            beepData[i] = sine * env;
+            int beepSamples = (int)(sampleRate * 0.18f);
+            float[] beepData = new float[beepSamples];
+            for (int i = 0; i < beepSamples; i++)
+            {
+                float t = (float)i / sampleRate;
+                float sine = Mathf.Sin(2f * Mathf.PI * 1850f * t) * 0.6f;
+                float env = Mathf.Sin(Mathf.PI * (t / 0.18f));
+                beepData[i] = sine * env;
+            }
+            alarmBeepClip = AudioClip.Create("DiskOverheatAlarmBeep", beepSamples, 1, sampleRate, false);
+            alarmBeepClip.SetData(beepData, 0);
         }
-        alarmBeepClip = AudioClip.Create("DiskOverheatAlarmBeep", beepSamples, 1, sampleRate, false);
-        alarmBeepClip.SetData(beepData, 0);
 
-        // 5. Head Crash (terrible metallic gouging screech)
-        int crashSamples = (int)(sampleRate * 1.2f);
-        float[] crashData = new float[crashSamples];
-        for (int i = 0; i < crashSamples; i++)
+        // 5. Head Crash fallback
+        if (headCrashClip == null)
         {
-            float t = (float)i / crashSamples;
-            float screech = Mathf.Sin(2f * Mathf.PI * UnityEngine.Random.Range(1800f, 3200f) * ((float)i / sampleRate)) * 0.7f;
-            float noise = (UnityEngine.Random.value * 2f - 1f) * 0.5f;
-            crashData[i] = (screech + noise) * (1f - t);
+            int crashSamples = (int)(sampleRate * 1.2f);
+            float[] crashData = new float[crashSamples];
+            for (int i = 0; i < crashSamples; i++)
+            {
+                float t = (float)i / crashSamples;
+                float screech = Mathf.Sin(2f * Mathf.PI * UnityEngine.Random.Range(1800f, 3200f) * ((float)i / sampleRate)) * 0.7f;
+                float noise = (UnityEngine.Random.value * 2f - 1f) * 0.5f;
+                crashData[i] = (screech + noise) * (1f - t);
+            }
+            headCrashClip = AudioClip.Create("DiskHeadCrash", crashSamples, 1, sampleRate, false);
+            headCrashClip.SetData(crashData, 0);
         }
-        headCrashClip = AudioClip.Create("DiskHeadCrash", crashSamples, 1, sampleRate, false);
-        headCrashClip.SetData(crashData, 0);
 
         // 6. Turbine spinup (ascending whine on fresh cartridge lock)
         int spinSamples = (int)(sampleRate * 1.8f);

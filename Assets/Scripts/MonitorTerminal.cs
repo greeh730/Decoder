@@ -53,6 +53,7 @@ public class MonitorTerminal : MonoBehaviour
 
     // Procedural sound clips
     private AudioClip crtStartupClip;
+    private AudioClip pcShutdownClip;
     private AudioClip keyClickClip;
     private AudioClip alertClip;
     private AudioClip potentiometerClickClip;
@@ -121,6 +122,7 @@ public class MonitorTerminal : MonoBehaviour
         }
 
         GenerateAudioClips();
+        pcShutdownClip = Resources.Load<AudioClip>("Sound/PcShutdown");
         SetupWipButtons();
         ApplyBrightnessVisuals();
     }
@@ -249,6 +251,7 @@ public class MonitorTerminal : MonoBehaviour
 
     public void SetMainframeOnline(bool online)
     {
+        bool wasOnline = isMainframeOnline;
         isMainframeOnline = online;
         ApplyBrightnessVisuals();
 
@@ -305,12 +308,27 @@ public class MonitorTerminal : MonoBehaviour
         else
         {
             // Server is OFFLINE: computer screen is completely unpowered
+            if (wasOnline && terminalAudio != null && pcShutdownClip != null)
+            {
+                terminalAudio.PlayOneShot(pcShutdownClip, 0.75f);
+            }
+
             if (offScreenPanel != null) offScreenPanel.SetActive(true);
             if (screenGlowLight != null) screenGlowLight.enabled = false;
             if (headerPanel != null) headerPanel.SetActive(false);
             if (startScreenPanel != null) startScreenPanel.SetActive(false);
             if (idleScreenPanel != null) idleScreenPanel.SetActive(false);
             if (activeScreenPanel != null) activeScreenPanel.SetActive(false);
+
+            if (VectorCommander.Instance != null && VectorCommander.Instance.gameObject.activeSelf)
+            {
+                VectorCommander.Instance.gameObject.SetActive(false);
+            }
+            if (SpyMiniGames.Instance != null && SpyMiniGames.Instance.IsMiniGameActive)
+            {
+                SpyMiniGames.Instance.CancelMiniGame();
+            }
+            hasLoggedIn = false;
         }
     }
 
@@ -414,9 +432,12 @@ public class MonitorTerminal : MonoBehaviour
 
     public void ApplyBrightnessVisuals()
     {
+        bool powerCut = (MainframeBootQuest.Instance != null && MainframeBootQuest.Instance.IsPowerCutByBreaker);
+        bool effectivelyOnline = isMainframeOnline && !powerCut;
+
         if (screenCanvasGroup != null)
         {
-            if (!isMainframeOnline)
+            if (!effectivelyOnline)
             {
                 // Unpowered CRT: Dark glass remains visible with OffScreenPanel!
                 screenCanvasGroup.alpha = 1.0f;
@@ -435,7 +456,7 @@ public class MonitorTerminal : MonoBehaviour
 
         if (screenGlowLight != null)
         {
-            bool lightActive = isMainframeOnline && !isStandby && brightnessLevel > 0.05f;
+            bool lightActive = effectivelyOnline && !isStandby && brightnessLevel > 0.05f;
             screenGlowLight.enabled = lightActive;
             screenGlowLight.intensity = 0.85f * brightnessLevel;
         }
@@ -444,6 +465,11 @@ public class MonitorTerminal : MonoBehaviour
         {
             float angle = Mathf.Lerp(-65f, 65f, brightnessLevel);
             brightnessKnob.localRotation = Quaternion.Euler(0f, angle, 0f);
+        }
+
+        if (!effectivelyOnline && offScreenPanel != null)
+        {
+            offScreenPanel.SetActive(true);
         }
     }
 

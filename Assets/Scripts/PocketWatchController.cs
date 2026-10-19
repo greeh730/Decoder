@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -108,6 +108,17 @@ public class PocketWatchController : MonoBehaviour
     public bool IsMapMode => isMapMode;
     public float TimeRemaining => timeRemaining;
 
+    private bool hasTriggeredTimeout = false;
+
+    public void SetTimeRemainingDebug(float seconds)
+    {
+        timeRemaining = seconds;
+        isTicking = true;
+        hasTriggeredTimeout = false;
+        UpdateWatchHands(timeRemaining);
+        MainframeBootQuest.Instance?.ShowNotification($"[ТАЙМЕР УСТАНОВЛЕН] Осталось: {seconds:F1} сек. При 00:00 охрана выбивает дверь!");
+    }
+
     private void Awake()
     {
         Instance = this;
@@ -205,18 +216,26 @@ public class PocketWatchController : MonoBehaviour
     private void Update()
     {
         // 1. Handle countdown timer
-        if (isTicking && timeRemaining > 0f)
+        if (isTicking)
         {
-            timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
-
-            int currentSecond = Mathf.FloorToInt(timeRemaining);
-            if (currentSecond != lastReportedSecond)
+            if (timeRemaining > 0f)
             {
-                lastReportedSecond = currentSecond;
-                PlayTickSound();
-            }
+                timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
 
-            UpdateWatchHands(timeRemaining);
+                int currentSecond = Mathf.FloorToInt(timeRemaining);
+                if (currentSecond != lastReportedSecond)
+                {
+                    lastReportedSecond = currentSecond;
+                    PlayTickSound();
+                }
+
+                UpdateWatchHands(timeRemaining);
+
+                if (timeRemaining <= 0f)
+                {
+                    OnCountdownExpired();
+                }
+            }
         }
 
         // 2. Hide watch if in 3rd person or inspecting monitor
@@ -291,6 +310,23 @@ public class PocketWatchController : MonoBehaviour
             float swayY = Mathf.Cos(Time.time * 2.1f) * 0.0016f;
             watchRig.localPosition = raisedLocalPos + new Vector3(swayX, swayY, 0f);
         }
+    }
+
+    private void OnCountdownExpired()
+    {
+        if (hasTriggeredTimeout) return;
+        hasTriggeredTimeout = true;
+        isTicking = false;
+        timeRemaining = 0f;
+
+        if (countdownText != null)
+        {
+            countdownText.text = "00:00";
+            countdownText.color = Color.red;
+        }
+
+        // Trigger violent door kick assault and Game Over through GuardPatrolSystem!
+        GuardPatrolSystem.TriggerTimeExpiredAssault();
     }
 
     public void ToggleWatch(bool raise)

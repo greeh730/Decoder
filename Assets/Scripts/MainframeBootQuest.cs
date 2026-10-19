@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -173,8 +173,17 @@ public class MainframeBootQuest : MonoBehaviour
     }
 
     private AudioSource humAudioSource;
+    private AudioSource breakerAudioSource;
     private AudioClip humLoopClip;
     private AudioClip relayClackClip;
+    private AudioClip breakerSwitchClip;
+    private AudioClip lampPowerClip;
+    private AudioClip switchClick1Clip;
+    private AudioClip switchClick2Clip;
+    private AudioClip tapeInsertClip;
+    private AudioClip errorAlarmClip;
+
+    private float manualCooldownTimer = 0f;
 
     private void Awake()
     {
@@ -250,6 +259,11 @@ public class MainframeBootQuest : MonoBehaviour
 
     private void Update()
     {
+        if (manualCooldownTimer > 0f)
+        {
+            manualCooldownTimer -= Time.deltaTime;
+        }
+
         if (notificationTimer > 0f)
         {
             notificationTimer -= Time.deltaTime;
@@ -305,6 +319,8 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleBreaker()
     {
+        PlayBreakerSound();
+
         if (currentStage == BootStage.PowerOff)
         {
             currentStage = BootStage.BreakerOn;
@@ -328,6 +344,11 @@ public class MainframeBootQuest : MonoBehaviour
                 StopTransformerHum();
                 ShowNotification("<color=#FFFF00>[СИЛОВАЯ СЕТЬ ОБЕСТОЧЕНА]</color> Рубильник опущен! ЭВМ выключена, терминал погас. Быстро прячьтесь за стойку!");
 
+                if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+                {
+                    PlayerController.Instance.ExitMonitor();
+                }
+
                 if (MonitorTerminal.Instance != null)
                 {
                     MonitorTerminal.Instance.SetStandbyState(true);
@@ -338,14 +359,17 @@ public class MainframeBootQuest : MonoBehaviour
             {
                 // Raising breaker restores power!
                 isPowerCutByBreaker = false;
-                currentStage = (stageBeforeBreakerCut != BootStage.PowerOff) ? stageBeforeBreakerCut : BootStage.SystemOnline;
-                StartTransformerHum();
-                ShowNotification("<color=#00FFAA>[ПИТАНИЕ ВОССТАНОВЛЕНО]</color> Рубильник поднят! ЭВМ запущена. Терминал готов к работе.");
+                currentStage = (stageBeforeBreakerCut != BootStage.PowerOff) ? stageBeforeBreakerCut : BootStage.BreakerOn;
+                if (currentStage >= BootStage.HighVoltageOn && currentStage != BootStage.HotStandby)
+                {
+                    StartTransformerHum();
+                }
+                ShowNotification("<color=#00FFAA>[ПИТАНИЕ ВОССТАНОВЛЕНО]</color> Рубильник поднят! Электросеть активна.");
 
                 if (MonitorTerminal.Instance != null)
                 {
                     MonitorTerminal.Instance.SetStandbyState(false);
-                    MonitorTerminal.Instance.SetMainframeOnline(true);
+                    MonitorTerminal.Instance.SetMainframeOnline(currentStage == BootStage.SystemOnline);
                 }
             }
         }
@@ -355,14 +379,17 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleFilament()
     {
-        if (currentStage < BootStage.BreakerOn)
+        if (currentStage < BootStage.BreakerOn || isPowerCutByBreaker)
         {
             ShowNotification("[ОТКАЗ] Нет питания в электросети! Сначала включите рубильник на щитке.");
             return;
         }
 
+        PlaySwitchClickSound(0);
+
         if (currentStage == BootStage.BreakerOn)
         {
+            PlayLampPowerSound();
             currentStage = BootStage.FilamentWarming;
             if (warmupCoroutine != null) StopCoroutine(warmupCoroutine);
             warmupCoroutine = StartCoroutine(WarmupFilamentRoutine());
@@ -408,6 +435,8 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ToggleHighVoltage()
     {
+        PlayBreakerSound();
+
         if (currentStage == BootStage.SystemOnline)
         {
             // Enter Hot Standby: Cut HV, cut hum, keep filaments warm!
@@ -483,6 +512,7 @@ public class MainframeBootQuest : MonoBehaviour
 
         hasTapeInInventory = false;
         isTapeInserted = true;
+        PlayTapeInsertSound();
         if (serverTapeProp != null) serverTapeProp.SetActive(true);
         if (tapeInsertInteractable != null)
         {
@@ -497,17 +527,64 @@ public class MainframeBootQuest : MonoBehaviour
         if (index < 0 || index >= addressSwitches.Length) return;
 
         addressSwitches[index] = !addressSwitches[index];
+        PlaySwitchClickSound(index);
+
         string stateStr = addressSwitches[index] ? "ВКЛ [1]" : "ВЫКЛ [0]";
         ShowNotification($"Тумблер шины #{index + 1}: {stateStr}");
 
         UpdateFrontPanelSwitches();
+
+        // If server & PC are already online, tampering with the bus switches causes a bus parity fault / crash!
+        if (currentStage == BootStage.SystemOnline)
+        {
+            TriggerBusAddressFault();
+        }
+    }
+
+    public void TriggerBusAddressFault()
+    {
+        PlayErrorAlarmSound();
+        currentStage = BootStage.HighVoltageOn;
+
+        if (registerBlinkCoroutine != null)
+        {
+            StopCoroutine(registerBlinkCoroutine);
+            registerBlinkCoroutine = null;
+        }
+        if (registerLeds != null)
+        {
+            foreach (var r in registerLeds)
+            {
+                if (r != null) r.sharedMaterial = ledOffMat;
+            }
+        }
+
+        if (monitorTerminal != null)
+        {
+            monitorTerminal.SetMainframeOnline(false);
+            monitorTerminal.AddLog("<color=#FF0000><b>[BUS PARITY ERROR 0x07: KERNEL PANIC]</b></color>");
+            monitorTerminal.AddLog("<color=#FF6666>[HARDWARE FAULT] Нарушена адресация шины во время исполнения!</color>");
+            monitorTerminal.AddLog("<color=#FFCC00>Восстановите тумблеры шины адреса (1-0-1-1) и повторно нажмите [START IPL].</color>");
+        }
+
+        if (PlayerController.Instance != null && PlayerController.Instance.IsInspectingMonitor)
+        {
+            PlayerController.Instance.ExitMonitor();
+        }
+
+        ShowNotification("<color=#FF3333><b>[АВАРИЯ: СБОЙ ШИНЫ АДРЕСА]</b></color> Сбита адресация ЭВМ на ходу! Терминал отключен. Верните 1-0-1-1 и нажмите [START IPL].");
+        UpdateAllVisuals();
     }
 
     public void ToggleAddressSwitch0() => ToggleAddressSwitch(0);
     public void ToggleAddressSwitch1() => ToggleAddressSwitch(1);
     public void ToggleAddressSwitch2() => ToggleAddressSwitch(2);
     public void ToggleAddressSwitch3() => ToggleAddressSwitch(3);
-    public void OpenManual() => ToggleManual(true);
+    public void OpenManual()
+    {
+        if (manualCooldownTimer > 0f) return;
+        ToggleManual(true);
+    }
 
     public void PressIPL()
     {
@@ -607,6 +684,7 @@ public class MainframeBootQuest : MonoBehaviour
         }
         else
         {
+            manualCooldownTimer = 0.45f;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -844,9 +922,8 @@ public class MainframeBootQuest : MonoBehaviour
             "   После завершения считывания ядра занять место оператора за столом и начать работу.\n\n" +
             "<b>6. ДЕШИФРАЦИЯ ДАННЫХ (КРИПТОАНАЛИЗ):</b>\n" +
             "   В терминале откройте файл C:\\СЕКРЕТНО\\ИНСТРУКЦИЯ_ЭВМ.TXT.\n" +
-            "   Для Машины Тьюринга (.BIN) используйте сложение в столбик:\n" +
-            "   • на '1' пишите 0 и шаг влево в q1; на '0' пишите 1, СТОП и переход в HALT.\n" +
-            "   <i>В любой момент мини-игры нажимайте [H] для вызова служебной шпаргалки.</i>";
+            "   Изучайте служебные записки на столе [N] и встроенную справку [H].\n" +
+            "   Следите за температурой накопителя ЕС-5061 и шагами патруля охраны за дверью.";
 
         GUILayout.Label(manualText, bodyStyle);
         GUILayout.Space(15);
@@ -938,6 +1015,26 @@ public class MainframeBootQuest : MonoBehaviour
 
         humLoopClip = CreateTransformerHumClip();
         relayClackClip = CreateRelayClackClip();
+
+        breakerSwitchClip = Resources.Load<AudioClip>("Sound/BreakerSwitch");
+        lampPowerClip = Resources.Load<AudioClip>("Sound/LampPower");
+        tapeInsertClip = Resources.Load<AudioClip>("Sound/DiskInsert");
+        switchClick1Clip = Resources.Load<AudioClip>("Sound/SwitchClick1");
+        switchClick2Clip = Resources.Load<AudioClip>("Sound/SwitchClick2");
+        errorAlarmClip = Resources.Load<AudioClip>("Sound/ErrorAlarm");
+
+        // Breaker 3D audio emitter on wall panel (Cube.009)
+        var breakerObj = GameObject.Find("Cube.009");
+        if (breakerObj != null)
+        {
+            breakerAudioSource = breakerObj.GetComponent<AudioSource>();
+            if (breakerAudioSource == null) breakerAudioSource = breakerObj.AddComponent<AudioSource>();
+            breakerAudioSource.spatialBlend = 1.0f;
+            breakerAudioSource.rolloffMode = AudioRolloffMode.Custom;
+            breakerAudioSource.minDistance = 1.0f;
+            breakerAudioSource.maxDistance = 10.0f;
+            breakerAudioSource.playOnAwake = false;
+        }
     }
 
     private void StartTransformerHum()
@@ -962,6 +1059,61 @@ public class MainframeBootQuest : MonoBehaviour
         if (questAudioSource != null && relayClackClip != null)
         {
             questAudioSource.PlayOneShot(relayClackClip, 0.75f);
+        }
+    }
+
+    private void PlayBreakerSound()
+    {
+        if (breakerAudioSource != null && breakerSwitchClip != null)
+        {
+            breakerAudioSource.pitch = UnityEngine.Random.Range(0.97f, 1.03f);
+            breakerAudioSource.PlayOneShot(breakerSwitchClip, 0.95f);
+        }
+        else if (questAudioSource != null && breakerSwitchClip != null)
+        {
+            questAudioSource.pitch = UnityEngine.Random.Range(0.97f, 1.03f);
+            questAudioSource.PlayOneShot(breakerSwitchClip, 0.95f);
+        }
+    }
+
+    private void PlayLampPowerSound()
+    {
+        if (questAudioSource != null && lampPowerClip != null)
+        {
+            questAudioSource.pitch = 1.0f;
+            questAudioSource.PlayOneShot(lampPowerClip, 0.90f);
+        }
+    }
+
+    private void PlayTapeInsertSound()
+    {
+        if (questAudioSource != null && tapeInsertClip != null)
+        {
+            questAudioSource.pitch = UnityEngine.Random.Range(0.95f, 1.05f);
+            questAudioSource.PlayOneShot(tapeInsertClip, 0.85f);
+        }
+    }
+
+    private void PlaySwitchClickSound(int index)
+    {
+        if (questAudioSource != null)
+        {
+            var clip = (index % 2 == 0) ? switchClick1Clip : switchClick2Clip;
+            if (clip == null) clip = switchClick1Clip ?? switchClick2Clip;
+            if (clip != null)
+            {
+                questAudioSource.pitch = UnityEngine.Random.Range(0.94f, 1.06f);
+                questAudioSource.PlayOneShot(clip, 0.90f);
+            }
+        }
+    }
+
+    private void PlayErrorAlarmSound()
+    {
+        if (questAudioSource != null && errorAlarmClip != null)
+        {
+            questAudioSource.pitch = 1.0f;
+            questAudioSource.PlayOneShot(errorAlarmClip, 0.85f);
         }
     }
 
