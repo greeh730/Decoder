@@ -69,8 +69,10 @@ public class MainframeBootQuest : MonoBehaviour
     [SerializeField] private MonitorTerminal monitorTerminal;
     [SerializeField] private AudioSource questAudioSource;
 
-    [Header("UI Overlay - Engineer Manual")]
+    [Header("UI Overlay - Engineer Manual & Notifications")]
     [SerializeField] private bool isReadingManual = false;
+    [Tooltip("Показывать ли всплывающий текстовый баннер сверху экрана")]
+    [SerializeField] private bool showTopBannerNotifications = false;
 
     // Materials cache for LEDs
     private Material ledRedMat;
@@ -83,6 +85,34 @@ public class MainframeBootQuest : MonoBehaviour
     private Coroutine registerBlinkCoroutine;
     private string onScreenNotification = "";
     private float notificationTimer = 0f;
+
+    private Vector3 filamentBaseRot = new Vector3(0f, 134.13f, 0f);
+    private Vector3 hvBaseRot = new Vector3(0f, 143.29f, 0f);
+    private Vector3 filamentBasePos = Vector3.zero;
+    private Vector3 hvBasePos = Vector3.zero;
+    private bool basesCached = false;
+
+    private void EnsureSwitchBases()
+    {
+        if (basesCached) return;
+        if (filamentSwitch != null)
+        {
+            filamentBasePos = filamentSwitch.localPosition;
+            if (filamentSwitch.localEulerAngles.y > 10f)
+            {
+                filamentBaseRot = new Vector3(0f, filamentSwitch.localEulerAngles.y, 0f);
+            }
+        }
+        if (hvSwitch != null)
+        {
+            hvBasePos = hvSwitch.localPosition;
+            if (hvSwitch.localEulerAngles.y > 10f)
+            {
+                hvBaseRot = new Vector3(0f, hvSwitch.localEulerAngles.y, 0f);
+            }
+        }
+        basesCached = true;
+    }
 
     public BootStage CurrentStage => currentStage;
     public bool IsReadingManual => isReadingManual;
@@ -106,6 +136,7 @@ public class MainframeBootQuest : MonoBehaviour
 
         CreateMaterials();
         SetupAudio();
+        EnsureSwitchBases();
     }
 
     private void Start()
@@ -212,9 +243,9 @@ public class MainframeBootQuest : MonoBehaviour
         ledOffMat.SetColor("_BaseColor", new Color(0.12f, 0.12f, 0.12f));
 
         tubeGlowMat = new Material(urpLit);
-        tubeGlowMat.SetColor("_BaseColor", new Color(1f, 0.45f, 0.05f));
-        tubeGlowMat.SetColor("_EmissionColor", new Color(1f, 0.4f, 0.05f) * 0f);
-        tubeGlowMat.EnableKeyword("_EMISSION");
+        tubeGlowMat.SetColor("_BaseColor", new Color(0.35f, 0.35f, 0.38f));
+        tubeGlowMat.SetColor("_EmissionColor", Color.black);
+        tubeGlowMat.DisableKeyword("_EMISSION");
     }
 
     // ==========================================
@@ -282,6 +313,8 @@ public class MainframeBootQuest : MonoBehaviour
 
             if (tubeGlowMat != null)
             {
+                tubeGlowMat.EnableKeyword("_EMISSION");
+                tubeGlowMat.SetColor("_BaseColor", Color.Lerp(new Color(0.35f, 0.35f, 0.38f), new Color(1f, 0.55f, 0.15f), t));
                 tubeGlowMat.SetColor("_EmissionColor", new Color(1f, 0.45f, 0.08f) * (t * 2.8f));
             }
 
@@ -500,6 +533,7 @@ public class MainframeBootQuest : MonoBehaviour
 
     public void ShowNotification(string msg)
     {
+        if (!showTopBannerNotifications) return;
         onScreenNotification = msg;
         notificationTimer = 4.0f;
     }
@@ -520,10 +554,20 @@ public class MainframeBootQuest : MonoBehaviour
             breakerLed.sharedMaterial = currentStage >= BootStage.BreakerOn ? ledGreenMat : ledRedMat;
         }
 
-        // 2. Filament
+        EnsureSwitchBases();
+
+        // 2. Filament switch (Cube.099)
+        bool filamentOn = currentStage >= BootStage.FilamentWarming;
         if (filamentSwitch != null)
         {
-            filamentSwitch.localRotation = Quaternion.Euler(currentStage >= BootStage.FilamentWarming ? -35f : 35f, 0f, 0f);
+            float pitch = filamentOn ? -22f : 0f;
+            filamentSwitch.localRotation = Quaternion.Euler(pitch, filamentBaseRot.y, filamentBaseRot.z);
+            if (filamentBasePos != Vector3.zero)
+            {
+                var pos = filamentBasePos;
+                if (filamentOn) pos.y += 0.005f;
+                filamentSwitch.localPosition = pos;
+            }
         }
         if (filamentStatusLed != null)
         {
@@ -531,15 +575,18 @@ public class MainframeBootQuest : MonoBehaviour
                                                (currentStage == BootStage.FilamentWarming ? ledYellowMat : ledOffMat);
         }
 
-        // 3. High Voltage
+        // 3. High Voltage switch (Cube.101)
         bool hvActive = (currentStage >= BootStage.HighVoltageOn && currentStage != BootStage.HotStandby);
         if (hvSwitch != null)
         {
-            hvSwitch.localRotation = Quaternion.Euler(hvActive ? -35f : 35f, 0f, 0f);
-        }
-        if (hvStatusLed != null)
-        {
-            hvStatusLed.sharedMaterial = hvActive ? ledGreenMat : (currentStage == BootStage.HotStandby ? ledYellowMat : ledOffMat);
+            float pitch = hvActive ? -22f : 0f;
+            hvSwitch.localRotation = Quaternion.Euler(pitch, hvBaseRot.y, hvBaseRot.z);
+            if (hvBasePos != Vector3.zero)
+            {
+                var pos = hvBasePos;
+                if (hvActive) pos.y += 0.005f;
+                hvSwitch.localPosition = pos;
+            }
         }
         if (hvInteractable != null)
         {
@@ -554,13 +601,29 @@ public class MainframeBootQuest : MonoBehaviour
         }
 
         // 4. Tube glow
+        bool isWarm = currentStage >= BootStage.FilamentReady;
+        bool isWarming = currentStage == BootStage.FilamentWarming;
         if (filamentPointLight != null)
         {
-            filamentPointLight.enabled = currentStage >= BootStage.FilamentWarming;
-            if (currentStage >= BootStage.FilamentReady) filamentPointLight.intensity = 2.2f;
+            filamentPointLight.enabled = isWarm || isWarming;
+            if (isWarm) filamentPointLight.intensity = 2.2f;
         }
         if (tubeRenderers != null && tubeGlowMat != null)
         {
+            if (isWarm)
+            {
+                tubeGlowMat.SetColor("_BaseColor", new Color(1f, 0.55f, 0.15f));
+                tubeGlowMat.SetColor("_EmissionColor", new Color(1f, 0.45f, 0.08f) * 2.8f);
+                tubeGlowMat.EnableKeyword("_EMISSION");
+            }
+            else if (!isWarming)
+            {
+                // Cold filament / unpowered: cold tungsten metal, NO emission, NOT orange
+                tubeGlowMat.SetColor("_BaseColor", new Color(0.35f, 0.35f, 0.38f));
+                tubeGlowMat.SetColor("_EmissionColor", Color.black);
+                tubeGlowMat.DisableKeyword("_EMISSION");
+            }
+
             foreach (var tr in tubeRenderers)
             {
                 if (tr != null) tr.sharedMaterial = tubeGlowMat;
@@ -611,7 +674,7 @@ public class MainframeBootQuest : MonoBehaviour
 
         // Notification banner (only in room view, not when zoomed into monitor)
         bool isZoomedOnMonitor = MonitorTerminal.Instance != null && MonitorTerminal.Instance.IsZoomedIn;
-        if (!string.IsNullOrEmpty(onScreenNotification) && !isReadingManual && !isZoomedOnMonitor)
+        if (showTopBannerNotifications && !string.IsNullOrEmpty(onScreenNotification) && !isReadingManual && !isZoomedOnMonitor)
         {
             var notifStyle = new GUIStyle(GUI.skin.box)
             {

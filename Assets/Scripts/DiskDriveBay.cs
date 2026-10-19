@@ -80,6 +80,8 @@ public class DiskDriveBay : MonoBehaviour
         Instance = this;
         CreateMaterials();
         GenerateAudioClips();
+        if (driveAudio == null) driveAudio = GetComponent<AudioSource>();
+        if (alarmAudio == null) alarmAudio = driveAudio;
         if (driveAudio != null)
         {
             driveAudio.playOnAwake = false;
@@ -308,17 +310,62 @@ public class DiskDriveBay : MonoBehaviour
         }
     }
 
+    private bool hasCarriedCartridge = false;
+    private int carriedCartridgeId = 0;
+    private float carriedCartridgeTemp = 30f;
+
+    public bool HasCarriedCartridge => hasCarriedCartridge;
+    public int CarriedCartridgeId => carriedCartridgeId;
+
     /// <summary>
     /// Called when player places the hot cartridge into a cradle on the cooling rack.
     /// </summary>
     public void NotifyCartridgePlacedOnRack()
     {
-        int otherId = (extractedCartridgeId == 1) ? 2 : 1;
-        if (MainframeBootQuest.Instance != null)
+        if (hasCarriedCartridge)
         {
-            MainframeBootQuest.Instance.ShowNotification(
+            MountColdCartridge(carriedCartridgeId, carriedCartridgeTemp);
+            hasCarriedCartridge = false;
+            carriedCartridgeId = 0;
+            MainframeBootQuest.Instance?.ShowNotification(
+                $"<color=#00FFAA>[КАРТРИДЖ НА РЕЛЬСАХ]</color> Пакет №{currentCartridgeId} установлен на рельсы слота. Задвиньте его мышью.");
+        }
+        else
+        {
+            int otherId = (extractedCartridgeId == 1) ? 2 : 1;
+            MainframeBootQuest.Instance?.ShowNotification(
                 $"<color=#00FFAA>[ПОЛКА ОХЛАЖДЕНИЯ]</color> Теперь возьмите охлажденный пакет №{otherId} с полки.");
         }
+    }
+
+    /// <summary>
+    /// Player picks up a cold cartridge from the rack (can be done before or after hot cartridge extraction).
+    /// </summary>
+    public void PickUpColdCartridge(int cartridgeId, float temp)
+    {
+        hasCarriedCartridge = true;
+        carriedCartridgeId = cartridgeId;
+        carriedCartridgeTemp = temp;
+
+        if (state == DriveBayState.CartridgeExtracted)
+        {
+            MountColdCartridge(carriedCartridgeId, carriedCartridgeTemp);
+            hasCarriedCartridge = false;
+            carriedCartridgeId = 0;
+            MainframeBootQuest.Instance?.ShowNotification(
+                $"<color=#00FFAA>[КАРТРИДЖ НА РЕЛЬСАХ]</color> Пакет №{currentCartridgeId} установлен на рельсы слота. Задвиньте его мышью.");
+        }
+        else
+        {
+            MainframeBootQuest.Instance?.ShowNotification(
+                $"<color=#00FFAA>[КАРТРИДЖ В РУКАХ]</color> Вы взяли охлажденный пакет №{cartridgeId}. Теперь остановите шпиндель [Cube.107] и вытяните горячий диск из сервера.");
+        }
+    }
+
+    public void ReturnCarriedCartridgeToRack()
+    {
+        hasCarriedCartridge = false;
+        carriedCartridgeId = 0;
     }
 
     /// <summary>

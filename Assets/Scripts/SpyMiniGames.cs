@@ -36,7 +36,8 @@ public class SpyMiniGames : MonoBehaviour
         HammingParity,      // .PAR
         DiskSectorTiming,   // .DSK
         StackOverflow,      // .STK
-        RotorCipher         // .ROT
+        RotorCipher,        // .ROT
+        OmegaMasterProtocol // .TOP
     }
 
     [Header("UI Containers")]
@@ -128,6 +129,13 @@ public class SpyMiniGames : MonoBehaviour
     private int rotor1 = 2, rotor2 = 5, rotor3 = 1;
     private readonly int targetR1 = 4, targetR2 = 2, targetR3 = 7;
 
+    // 11. Omega Master Protocol (.TOP)
+    private int omegaSelectedChannel = 0; // 0..3
+    private int omegaCh1Index = 1;        // Target: 3 ("1100")
+    private int omegaCh2Shift = 3;        // Target: 7 ("Δ = +7")
+    private int omegaCh3Index = 0;        // Target: 2 ("0x4F0A")
+    private int omegaCh4Index = 0;        // Target: 1 ("IV - II - VII")
+
     // Common dynamic display text for the active game
     private Text dynamicDisplayText;
 
@@ -200,6 +208,7 @@ public class SpyMiniGames : MonoBehaviour
     public static GameType GetGameTypeForFile(string fileName)
     {
         string upper = fileName.ToUpper();
+        if (upper.EndsWith(".TOP") || upper.EndsWith(".FIN") || upper.EndsWith(".OMG")) return GameType.OmegaMasterProtocol;
         if (upper.EndsWith(".BIN") || upper.EndsWith(".EXE")) return GameType.TuringTape;
         if (upper.EndsWith(".DOC") || upper.EndsWith(".DIR")) return GameType.FrequencyAnalysis;
         if (upper.EndsWith(".TXT") || upper.EndsWith(".LST")) return GameType.DatabaseFilter;
@@ -334,6 +343,18 @@ public class SpyMiniGames : MonoBehaviour
                 rotor1 = 1; rotor2 = 6; rotor3 = 3;
                 btnActionText.text = "[ПРОВОРОТ РОТОРОВ]";
                 UpdateRotorDisplay();
+                break;
+
+            case GameType.OmegaMasterProtocol:
+                gameTitleText.text = "╔════ МАСТЕР-ПРОТОКОЛ «ОМЕГА»: СНЯТИЕ ГЛАВНОГО ШИФРА ════╗";
+                gameDescriptionText.text = "[1-4 / Вверх / Вниз] — Выбор канала, [← / → / Пробел] — Калибровка, [ENTER] — Снятие шифра.";
+                omegaSelectedChannel = 0;
+                omegaCh1Index = 1;
+                omegaCh2Shift = 3;
+                omegaCh3Index = 0;
+                omegaCh4Index = 0;
+                btnActionText.text = "[ ВЗЛОМАТЬ АРХИВ «ОМЕГА» [ENTER] ]";
+                UpdateOmegaDisplay();
                 break;
         }
 
@@ -947,6 +968,54 @@ public class SpyMiniGames : MonoBehaviour
             $"<color=#FFFF66>[1/2/3] Выбор ротора  |  [ВВЕРХ / ВНИЗ] Проворот  |  [ENTER] Пуск  |  [H] Справка</color>";
     }
 
+    // --- Mini-Game 11: Omega Master Protocol (.TOP) ---
+
+    private void UpdateOmegaDisplay()
+    {
+        if (dynamicDisplayText == null) return;
+
+        string[] ch1Options = { "0000 [СБРОС]", "1011 [ИСХОДНЫЙ]", "0101 [ИНВЕРСИЯ]", "1100 [СИНХРОНИЗИРОВАН]" };
+        string[] ch3Options = { "0x0000 [ПУСТО]", "0x1A2F [СБОЙ ОЗУ]", "0x4F0A [СИНХРОНИЗИРОВАН]", "0xFFFF [ТРЕВОГА]" };
+        string[] ch4Options = { "I - I - I [ДЕФОЛТ]", "IV - II - VII [СИНХРОНИЗИРОВАН]", "III - V - I [ВЧ-СВЯЗЬ]", "VII - VII - VII [СБРОС]" };
+
+        bool ch1Ok = (omegaCh1Index == 3);
+        bool ch2Ok = (omegaCh2Shift == 7);
+        bool ch3Ok = (omegaCh3Index == 2);
+        bool ch4Ok = (omegaCh4Index == 1);
+        bool allOk = ch1Ok && ch2Ok && ch3Ok && ch4Ok;
+
+        string ch1Badge = ch1Ok ? "<color=#00FFAA>[● ЗАХВАЧЕН]</color>" : "<color=#FF6666>[○ РАССИНХРОН]</color>";
+        string ch2Badge = ch2Ok ? "<color=#00FFAA>[● ЗАХВАЧЕН]</color>" : "<color=#FF6666>[○ РАССИНХРОН]</color>";
+        string ch3Badge = ch3Ok ? "<color=#00FFAA>[● ЗАХВАЧЕН]</color>" : "<color=#FF6666>[○ РАССИНХРОН]</color>";
+        string ch4Badge = ch4Ok ? "<color=#00FFAA>[● ЗАХВАЧЕН]</color>" : "<color=#FF6666>[○ РАССИНХРОН]</color>";
+
+        string cur1 = (omegaSelectedChannel == 0) ? "<b><color=#FFFF00>► 1. ЯДРО ТЬЮРИНГА (ИНКРЕМЕНТ):</color></b>" : "  1. ЯДРО ТЬЮРИНГА (ИНКРЕМЕНТ):";
+        string cur2 = (omegaSelectedChannel == 1) ? "<b><color=#FFFF00>► 2. ЧАСТОТНЫЙ СПЕКТР (СДВИГ):</color></b>" : "  2. ЧАСТОТНЫЙ СПЕКТР (СДВИГ):";
+        string cur3 = (omegaSelectedChannel == 2) ? "<b><color=#FFFF00>► 3. СТОРОЖЕВОЙ АДРЕС ОЗУ:</color></b>" : "  3. СТОРОЖЕВОЙ АДРЕС ОЗУ:";
+        string cur4 = (omegaSelectedChannel == 3) ? "<b><color=#FFFF00>► 4. РОТОРНЫЙ КЛЮЧ «ФИАЛКА»:</color></b>" : "  4. РОТОРНЫЙ КЛЮЧ «ФИАЛКА»:";
+
+        string val1 = (omegaSelectedChannel == 0) ? $"<b><color=#00FFAA>◄ [ {ch1Options[omegaCh1Index]} ] ►</color></b>" : $"[ {ch1Options[omegaCh1Index]} ]";
+        string val2 = (omegaSelectedChannel == 1) ? $"<b><color=#00FFAA>◄ [ Δ = +{omegaCh2Shift} (ЦЕЗАРЬ) ] ►</color></b>" : $"[ Δ = +{omegaCh2Shift} (ЦЕЗАРЬ) ]";
+        string val3 = (omegaSelectedChannel == 2) ? $"<b><color=#00FFAA>◄ [ {ch3Options[omegaCh3Index]} ] ►</color></b>" : $"[ {ch3Options[omegaCh3Index]} ]";
+        string val4 = (omegaSelectedChannel == 3) ? $"<b><color=#00FFAA>◄ [ {ch4Options[omegaCh4Index]} ] ►</color></b>" : $"[ {ch4Options[omegaCh4Index]} ]";
+
+        string statusLine = allOk
+            ? "<b><color=#00FFAA>★ ВСЕ 4 КРИПТОКАНАЛА СИНХРОНИЗИРОВАНЫ! НАЖМИТЕ [ENTER] ДЛЯ СНЯТИЯ ШИФРА «ОМЕГА»! ★</color></b>"
+            : "<color=#FFCC00>Синхронизируйте все 4 криптоканала мастер-ключа, используя данные из взломанных файлов.</color>";
+
+        dynamicDisplayText.text =
+            "<color=#66CCAA>ГОСКОМИТЕТ СССР // СИСТЕМА СПЕЦИАЛЬНОГО КРИПТОАНАЛИЗА ЭВМ «ВЕКТОР-70»</color>\n" +
+            "<color=#00AA77>═══════════════════════════════════════════════════════════════════════════════════</color>\n\n" +
+            $"{cur1}\n   {val1.PadRight(45)} {ch1Badge}\n\n" +
+            $"{cur2}\n   {val2.PadRight(45)} {ch2Badge}\n\n" +
+            $"{cur3}\n   {val3.PadRight(45)} {ch3Badge}\n\n" +
+            $"{cur4}\n   {val4.PadRight(45)} {ch4Badge}\n\n" +
+            "<color=#00AA77>───────────────────────────────────────────────────────────────────────────────────</color>\n" +
+            $"{statusLine}\n\n" +
+            "<color=#FFFF66>УПРАВЛЕНИЕ: [1..4] Выбор канала │ [← / → / ПРОБЕЛ] Значение │ [ENTER] Взлом архива</color>\n" +
+            "<color=#88CCAA>ПОДСКАЗКА: Ключи из расшифрованных файлов: 1) 1100  2) +7  3) 0x4F0A  4) IV-II-VII</color>";
+    }
+
     // --- In-Game Help Overlay System ---
 
     public void ToggleHelp(bool open)
@@ -1086,6 +1155,22 @@ public class SpyMiniGames : MonoBehaviour
                     "• Из служебного блокнота дежурного: Ключ дня <b>[ IV - II - VII ]</b> (4 - 2 - 7).\n" +
                     "• После установки правильной комбинации нажмите <b>[ENTER]</b>.";
 
+            case GameType.OmegaMasterProtocol:
+                return
+                    "<b><color=#00FFAA>ФИНАЛЬНЫЙ МОДУЛЬ: МАСТЕР-ПРОТОКОЛ «ОМЕГА»</color></b>\n" +
+                    "<color=#66CCAA>──────────────────────────────────────────────────────────────────────────</color>\n" +
+                    "<color=#FFFF88><b>ЗАДАЧА:</b></color> Снять генеральный криптозамок главного архива операции.\n\n" +
+                    "<color=#FFFF88><b>ПРИНЦИП РАБОТЫ:</b></color>\n" +
+                    "Для дешифрации архива «ОМЕГА» требуется объединить 4 ключа, добытых при взломе файлов архива:\n" +
+                    "1. <b>Ядро Тьюринга:</b> Контрольный результат инкремента <b>[ 1 1 0 0 ]</b>.\n" +
+                    "2. <b>Частотный сдвиг Цезаря:</b> Шаг совмещения гласных <b>[ Δ = +7 ]</b>.\n" +
+                    "3. <b>Сторожевой адрес ОЗУ:</b> Адрес нейтрализации тревоги <b>[ 0x4F0A ]</b>.\n" +
+                    "4. <b>Роторы «Фиалка»:</b> Код дня из шифроблокнота <b>[ IV - II - VII ]</b>.\n\n" +
+                    "<color=#FFFF88><b>УПРАВЛЕНИЕ:</b></color>\n" +
+                    "• <b>[1..4] / [ВВЕРХ/ВНИЗ]</b> — переключение между 4 криптоканалами.\n" +
+                    "• <b>[СТРЕЛКИ ВЛЕВО/ВПРАВО] или [ПРОБЕЛ]</b> — калибровка значения канала.\n" +
+                    "• После того, как все 4 канала перейдут в статус [● ЗАХВАЧЕН], нажмите <b>[ENTER]</b>.";
+
             default:
                 return "Служебная инструкция отсутствует.";
         }
@@ -1172,6 +1257,15 @@ public class SpyMiniGames : MonoBehaviour
                 rotor2 = 6;
                 rotor3 = 3;
                 UpdateRotorDisplay();
+                break;
+
+            case GameType.OmegaMasterProtocol:
+                omegaSelectedChannel = 0;
+                omegaCh1Index = 1;
+                omegaCh2Shift = 3;
+                omegaCh3Index = 0;
+                omegaCh4Index = 0;
+                UpdateOmegaDisplay();
                 break;
         }
 
@@ -1378,6 +1472,47 @@ public class SpyMiniGames : MonoBehaviour
                         OnGameFailed("НЕВЕРНАЯ КОМБИНАЦИЯ РОТОРОВ! КЛЮЧ НЕ ПОДОШЕЛ.");
                 }
                 break;
+
+            case GameType.OmegaMasterProtocol:
+                if (IsKey(KeyCode.Alpha1)) { omegaSelectedChannel = 0; PlayClick(); UpdateOmegaDisplay(); }
+                else if (IsKey(KeyCode.Alpha2)) { omegaSelectedChannel = 1; PlayClick(); UpdateOmegaDisplay(); }
+                else if (IsKey(KeyCode.Alpha3)) { omegaSelectedChannel = 2; PlayClick(); UpdateOmegaDisplay(); }
+                else if (IsKey(KeyCode.Alpha4)) { omegaSelectedChannel = 3; PlayClick(); UpdateOmegaDisplay(); }
+                else if (IsKey(KeyCode.UpArrow) || IsKey(KeyCode.W))
+                {
+                    omegaSelectedChannel = (omegaSelectedChannel + 3) % 4;
+                    PlayClick();
+                    UpdateOmegaDisplay();
+                }
+                else if (IsKey(KeyCode.DownArrow) || IsKey(KeyCode.S))
+                {
+                    omegaSelectedChannel = (omegaSelectedChannel + 1) % 4;
+                    PlayClick();
+                    UpdateOmegaDisplay();
+                }
+                else if (IsKey(KeyCode.LeftArrow) || IsKey(KeyCode.A))
+                {
+                    if (omegaSelectedChannel == 0) omegaCh1Index = (omegaCh1Index + 3) % 4;
+                    else if (omegaSelectedChannel == 1) omegaCh2Shift = (omegaCh2Shift + 12) % 13;
+                    else if (omegaSelectedChannel == 2) omegaCh3Index = (omegaCh3Index + 3) % 4;
+                    else if (omegaSelectedChannel == 3) omegaCh4Index = (omegaCh4Index + 3) % 4;
+                    PlayRelay();
+                    UpdateOmegaDisplay();
+                }
+                else if (IsKey(KeyCode.RightArrow) || IsKey(KeyCode.D) || IsKey(KeyCode.Space))
+                {
+                    if (omegaSelectedChannel == 0) omegaCh1Index = (omegaCh1Index + 1) % 4;
+                    else if (omegaSelectedChannel == 1) omegaCh2Shift = (omegaCh2Shift + 1) % 13;
+                    else if (omegaSelectedChannel == 2) omegaCh3Index = (omegaCh3Index + 1) % 4;
+                    else if (omegaSelectedChannel == 3) omegaCh4Index = (omegaCh4Index + 1) % 4;
+                    PlayRelay();
+                    UpdateOmegaDisplay();
+                }
+                else if (IsKey(KeyCode.Return))
+                {
+                    OnMainActionButtonPressed();
+                }
+                break;
         }
     }
 
@@ -1428,6 +1563,21 @@ public class SpyMiniGames : MonoBehaviour
                     OnGameSuccess("МАШИНА «ФИАЛКА» РАСШИФРОВАЛА ПЛАН!");
                 else
                     OnGameFailed("НЕВЕРНАЯ КОМБИНАЦИЯ РОТОРОВ!");
+                break;
+
+            case GameType.OmegaMasterProtocol:
+                bool ch1Ok = (omegaCh1Index == 3);
+                bool ch2Ok = (omegaCh2Shift == 7);
+                bool ch3Ok = (omegaCh3Index == 2);
+                bool ch4Ok = (omegaCh4Index == 1);
+                if (ch1Ok && ch2Ok && ch3Ok && ch4Ok)
+                {
+                    OnGameSuccess("МАСТЕР-АРХИВ «ОМЕГА» ПОЛНОСТЬЮ ДЕШИФРОВАН! ИГРА ПРОЙДЕНА!");
+                }
+                else
+                {
+                    OnGameFailed("НЕ ВСЕ КРИПТОКАНАЛЫ СИНХРОНИЗИРОВАНЫ! ПРОВЕРЬТЕ КЛЮЧИ.");
+                }
                 break;
         }
     }
@@ -1501,6 +1651,7 @@ public class SpyMiniGames : MonoBehaviour
             case KeyCode.Alpha1: return kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame;
             case KeyCode.Alpha2: return kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame;
             case KeyCode.Alpha3: return kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame;
+            case KeyCode.Alpha4: return kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame;
             default: return false;
         }
 #else

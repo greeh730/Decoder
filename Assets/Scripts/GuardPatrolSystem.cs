@@ -930,6 +930,12 @@ public class GuardPawn : MonoBehaviour
                 break;
 
             case GuardState.ChasingPlayer:
+                if (GameVictorySystem.IsGameWon)
+                {
+                    currentState = GuardState.Patrolling;
+                    suspicion = 0f;
+                    break;
+                }
                 var player = PlayerController.Instance != null ? PlayerController.Instance.transform : Camera.main?.transform;
                 if (player != null)
                 {
@@ -1045,7 +1051,7 @@ public class GuardPawn : MonoBehaviour
 
     public void TriggerGameOver()
     {
-        if (IsCheatPeaceMode || IsGameOver) return;
+        if (IsCheatPeaceMode || IsGameOver || GameVictorySystem.IsGameWon) return;
         IsGameOver = true;
         currentState = GuardState.GameOver;
 

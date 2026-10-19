@@ -1056,14 +1056,54 @@ public class PocketWatchController : MonoBehaviour
     // =========================================================================
 
     [ContextMenu("Rebuild Watch Model")]
-    public void EnsureWatchModel()
+    public void RebuildWatchModelContext()
+    {
+        EnsureWatchModel(true);
+    }
+
+    public void EnsureWatchModel(bool forceRebuild = false)
     {
         var cam = GetComponentInChildren<Camera>();
         if (cam == null) cam = Camera.main;
         if (cam == null) return;
 
-        // Clean up previous rig if rebuilding
         var existing = cam.transform.Find("PocketWatchRig");
+        bool hasValidRig = existing != null && existing.GetComponentInChildren<Renderer>(true) != null;
+
+        if (hasValidRig && !forceRebuild)
+        {
+            watchRig = existing;
+            watchRig.localScale = Vector3.one * modelScale;
+            watchRig.localPosition = loweredLocalPos;
+            watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+
+            audioSource = watchRig.GetComponent<AudioSource>();
+            if (audioSource == null) audioSource = watchRig.gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.spatialBlend = 0f;
+
+            var watchChild = watchRig.Find("watch_silver_closed");
+            watchBody = watchChild != null ? watchChild : watchRig;
+
+            ResolveReferences();
+            if (radarTex == null) InitRadarMap();
+            if (radarDisplay != null && radarTex != null)
+            {
+                radarDisplay.texture = radarTex;
+            }
+
+            if (clockFaceGroup != null) clockFaceGroup.gameObject.SetActive(!isMapMode);
+            if (radarGroup != null) radarGroup.gameObject.SetActive(isMapMode);
+            UpdateModeVisuals();
+
+            watchRig.localPosition = loweredLocalPos;
+            watchRig.localRotation = Quaternion.Euler(loweredLocalRot);
+            watchRig.gameObject.SetActive(false);
+            isRaised = false;
+            return;
+        }
+
+        // Clean up previous rig if rebuilding
         if (existing != null)
         {
             DestroyImmediate(existing.gameObject);
@@ -1073,16 +1113,31 @@ public class PocketWatchController : MonoBehaviour
         GameObject modelPrefab = handsWithWatchPrefab;
         if (modelPrefab == null)
         {
-#if UNITY_EDITOR
-            modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/hands with a watch.fbx");
-#endif
+            modelPrefab = Resources.Load<GameObject>("hands_with_watch");
         }
+        if (modelPrefab == null)
+        {
+            modelPrefab = Resources.Load<GameObject>("hands with a watch");
+        }
+#if UNITY_EDITOR
+        if (modelPrefab == null)
+        {
+            modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/hands with a watch.fbx");
+        }
+#endif
 
         GameObject rigObj;
         if (modelPrefab != null)
         {
 #if UNITY_EDITOR
-            rigObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(modelPrefab);
+            if (!Application.isPlaying)
+            {
+                rigObj = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(modelPrefab);
+            }
+            else
+            {
+                rigObj = Instantiate(modelPrefab);
+            }
 #else
             rigObj = Instantiate(modelPrefab);
 #endif
@@ -1090,6 +1145,7 @@ public class PocketWatchController : MonoBehaviour
         }
         else
         {
+            Debug.LogWarning("[PocketWatchController] No hands model prefab found! PocketWatchRig created empty.");
             rigObj = new GameObject("PocketWatchRig");
         }
 
@@ -1105,10 +1161,11 @@ public class PocketWatchController : MonoBehaviour
         audioSource.spatialBlend = 0f;
 
         // Locate the watch mesh
-        var watchChild = watchRig.Find("watch_silver_closed");
-        watchBody = watchChild != null ? watchChild : watchRig;
+        var watchMeshChild = watchRig.Find("watch_silver_closed");
+        watchBody = watchMeshChild != null ? watchMeshChild : watchRig;
 
         var builtinFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (builtinFont == null) builtinFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
         // 2. CLOCK FACE / DIGITAL DISPLAY CONTAINER
         var clockGroupObj = new GameObject("ClockFaceGroup");

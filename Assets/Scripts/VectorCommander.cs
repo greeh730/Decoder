@@ -28,9 +28,10 @@ public class VectorCommander : MonoBehaviour
         public string date;
         public bool isDirectory;
         public bool isDecrypted;
+        public bool isFinalObjective;
         [TextArea(3, 10)] public string content;
 
-        public VirtualFile(string name, int sizeBytes, string date, bool isDirectory, string content = "", bool isDecrypted = false)
+        public VirtualFile(string name, int sizeBytes, string date, bool isDirectory, string content = "", bool isDecrypted = false, bool isFinalObjective = false)
         {
             this.name = name;
             this.sizeBytes = sizeBytes;
@@ -38,6 +39,7 @@ public class VectorCommander : MonoBehaviour
             this.isDirectory = isDirectory;
             this.content = content;
             this.isDecrypted = isDirectory || isDecrypted;
+            this.isFinalObjective = isFinalObjective;
         }
 
         public string GetFormattedSize()
@@ -47,9 +49,21 @@ public class VectorCommander : MonoBehaviour
             return $"{sizeBytes / 1024} КБ";
         }
 
-        public string GetStatusBadge()
+        public string GetStatusBadge(VectorCommander vc = null)
         {
             if (isDirectory) return "<color=#88CCAA>ГОТОВ </color>";
+            if (isFinalObjective)
+            {
+                if (isDecrypted) return "<color=#00FFAA>ПОБЕДА </color>";
+                if (vc == null) vc = VectorCommander.Instance != null ? VectorCommander.Instance : GameObject.FindObjectOfType<VectorCommander>(true);
+                if (vc != null && !vc.IsFinalFileUnlocked())
+                {
+                    int cur = vc.GetDecryptedRegularFilesCount();
+                    int req = Mathf.CeilToInt(vc.GetTotalRegularFilesCount() * 0.8f);
+                    return $"<color=#FF4444>БЛОК {cur}/{req}</color>";
+                }
+                return "<color=#FFFF00>МАСТЕР </color>";
+            }
             return isDecrypted ? "<color=#00FFAA>РАСШИФР</color>" : "<color=#FFCC00>ЗАШИФР </color>";
         }
     }
@@ -234,7 +248,51 @@ public class VectorCommander : MonoBehaviour
             "Векторная схема объекта, зашифрованная машиной «Фиалка-М125».\n" +
             "Требуется установка роторов по ключу дня [ IV - II - VII ].", false));
 
+        // Финальный файл операции (разблокируется после взлома 80% файлов архива)
+        leftFiles.Add(new VirtualFile("АРХИВ_ОМЕГА.TOP", 384 * 1024, "19.10.84", false,
+            ">> СВЕРХСЕКРЕТНЫЙ СТРАТЕГИЧЕСКИЙ АРХИВ «ОМЕГА-ВЕКТОР» <<\n" +
+            "Главная цель миссии. Заблокирован аппаратным шифром.\n" +
+            "Для взлома требуется расшифровать не менее 80% файлов базы данных.", false, true));
+
         leftSelectedIndex = 2; // Initially highlight ДЕКОДЕР_V2.BIN
+    }
+
+    public int GetTotalRegularFilesCount()
+    {
+        int count = 0;
+        foreach (var f in leftFiles)
+        {
+            if (!f.isDirectory && !f.isFinalObjective && f.name != "ИНСТРУКЦИЯ_ЭВМ.TXT")
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int GetDecryptedRegularFilesCount()
+    {
+        int count = 0;
+        foreach (var f in leftFiles)
+        {
+            if (!f.isDirectory && !f.isFinalObjective && f.name != "ИНСТРУКЦИЯ_ЭВМ.TXT" && f.isDecrypted)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public float GetDecryptionPercentage()
+    {
+        int total = GetTotalRegularFilesCount();
+        if (total == 0) return 0f;
+        return (float)GetDecryptedRegularFilesCount() / total;
+    }
+
+    public bool IsFinalFileUnlocked()
+    {
+        return GetDecryptionPercentage() >= 0.799f;
     }
 
     private void SetupButtonListeners()
@@ -454,7 +512,7 @@ public class VectorCommander : MonoBehaviour
                 bool isSel = isLeftPanelActive && (i == leftSelectedIndex);
                 string nameFormatted = f.name.PadRight(18);
                 string sizeFormatted = f.GetFormattedSize().PadLeft(8);
-                string statusFormatted = f.GetStatusBadge();
+                string statusFormatted = f.GetStatusBadge(this);
 
                 if (isSel)
                 {
@@ -472,9 +530,12 @@ public class VectorCommander : MonoBehaviour
 
         if (leftPanelFooterText != null)
         {
-            int totalBytes = 0;
-            foreach (var f in leftFiles) if (!f.isDirectory) totalBytes += f.sizeBytes;
-            leftPanelFooterText.text = $"╚══ ФАЙЛОВ: {leftFiles.Count} ({totalBytes / 1024} КБ) │ СВОБОДНО: 120 МБ ══════════════════╝";
+            int curDec = GetDecryptedRegularFilesCount();
+            int totalReg = GetTotalRegularFilesCount();
+            int req80 = Mathf.CeilToInt(totalReg * 0.8f);
+            int pct = Mathf.RoundToInt(GetDecryptionPercentage() * 100f);
+            string masterStatus = IsFinalFileUnlocked() ? "<color=#00FFAA>[ФИНАЛ: ДОСТУПЕН]</color>" : $"<color=#FF6666>[ФИНАЛ: {curDec}/{req80} (80%)]</color>";
+            leftPanelFooterText.text = $"╚══ ВЗЛОМАНО: {curDec}/{totalReg} ({pct}%) │ {masterStatus} ══════════════════╝";
         }
     }
 
@@ -566,8 +627,28 @@ public class VectorCommander : MonoBehaviour
             else
             {
                 var sel = GetCurrentSelectedFile();
-                string target = sel != null ? sel.name : "";
-                commandLineText.text = $"C:\\СЕКРЕТНО> ВЫБРАН: {target} {cursor}";
+                if (sel != null && sel.isFinalObjective)
+                {
+                    if (sel.isDecrypted)
+                    {
+                        commandLineText.text = $"C:\\СЕКРЕТНО> ФИНАЛЬНЫЙ АРХИВ ВЗЛОМАН! ОПЕРАЦИЯ ВЫПОЛНЕНА {cursor}";
+                    }
+                    else if (IsFinalFileUnlocked())
+                    {
+                        commandLineText.text = $"C:\\СЕКРЕТНО> [ДОСТУП ОТКРЫТ] НАЖМИТЕ [4] ДЕШИФР ДЛЯ ФИНАЛЬНОГО ВЗЛОМА! {cursor}";
+                    }
+                    else
+                    {
+                        int cur = GetDecryptedRegularFilesCount();
+                        int req = Mathf.CeilToInt(GetTotalRegularFilesCount() * 0.8f);
+                        commandLineText.text = $"C:\\СЕКРЕТНО> [БЛОКИРОВКА 80%] РАСШИФРОВАНО {cur}/{req} ФАЙЛОВ {cursor}";
+                    }
+                }
+                else
+                {
+                    string target = sel != null ? sel.name : "";
+                    commandLineText.text = $"C:\\СЕКРЕТНО> ВЫБРАН: {target} {cursor}";
+                }
             }
         }
 
@@ -739,7 +820,13 @@ public class VectorCommander : MonoBehaviour
             $"<color=#00FF88>[УСПЕХ]</color> Файл {file.name} ({file.GetFormattedSize()}) успешно перекачан на картридж!");
 
         // If main objective was copied
-        if (file.name == "ДЕКОДЕР_V2.BIN")
+        if (file.isFinalObjective)
+        {
+            MainframeBootQuest.Instance?.ShowNotification(
+                "<color=#00FFFF><b>★ [ПОБЕДА] СВЕРХСЕКРЕТНЫЙ АРХИВ «ОМЕГА» ЗАПИСАН НА КАРТРИДЖ! ЗАДАНИЕ ВЫПОЛНЕНО! ★</b></color>");
+            GameVictorySystem.TriggerVictory("АРХИВ СКОПИРОВАН НА СМЕННЫЙ КАРТРИДЖ");
+        }
+        else if (file.name == "ДЕКОДЕР_V2.BIN")
         {
             MainframeBootQuest.Instance?.ShowNotification(
                 "<color=#00FFFF><b>[МИССИЯ] СЕКРЕТНОЕ ЯДРО ДЕШИФРАТОРА ЗАХВАЧЕНО! ОХЛАДИТЕ ДИСК И ЭВАКУИРУЙТЕСЬ!</b></color>");
@@ -763,7 +850,31 @@ public class VectorCommander : MonoBehaviour
             }
             if (viewerBodyText != null)
             {
-                viewerBodyText.text = file.content;
+                if (file.isFinalObjective && !file.isDecrypted)
+                {
+                    int cur = GetDecryptedRegularFilesCount();
+                    int req = Mathf.CeilToInt(GetTotalRegularFilesCount() * 0.8f);
+                    int pct = Mathf.RoundToInt(GetDecryptionPercentage() * 100f);
+                    string statusMsg = IsFinalFileUnlocked()
+                        ? "<color=#FFFF00>[ДОСТУП ОТКРЫТ] 80% архива расшифровано! Нажмите [4] ДЕШИФР для запуска взлома.</color>"
+                        : $"<color=#FF4444>[ДОСТУП ЗАБЛОКИРОВАН] Требуется расшифровать не менее 80% базы данных ({cur}/{req} файлов, сейчас {pct}%).\nРасшифруйте остальные файлы архива C:\\ для разблокировки мастер-ключа.</color>";
+
+                    viewerBodyText.text =
+                        "╔═══════════════════════════════════════════════════════════════════════════╗\n" +
+                        "║              ЦК КПСС // СПЕЦИАЛЬНЫЙ СЕКТОР БЕЗОПАСНОСТИ                   ║\n" +
+                        "║         СВЕРХСЕКРЕТНЫЙ СТРАТЕГИЧЕСКИЙ АРХИВ «ОМЕГА-ВЕКТОР»                ║\n" +
+                        "╚═══════════════════════════════════════════════════════════════════════════╝\n\n" +
+                        $"СТАТУС КРИПТОЗАЩИТЫ:\n{statusMsg}\n\n" +
+                        "ОПИСАНИЕ ОБЪЕКТА:\n" +
+                        "Финальный консолидированный архив государственной важности.\n" +
+                        "Содержит полную документацию проекта «Вектор», алгоритмы шифрования\n" +
+                        "и директивы управления закрытыми объектами связи.\n\n" +
+                        "Взлом данного архива является решающей целью операции.";
+                }
+                else
+                {
+                    viewerBodyText.text = file.content;
+                }
             }
         }
     }
@@ -810,6 +921,17 @@ public class VectorCommander : MonoBehaviour
             return;
         }
 
+        // 80% lock check on final objective
+        if (file.isFinalObjective && !IsFinalFileUnlocked())
+        {
+            int cur = GetDecryptedRegularFilesCount();
+            int req = Mathf.CeilToInt(GetTotalRegularFilesCount() * 0.8f);
+            PlayErrorBuzz();
+            MainframeBootQuest.Instance?.ShowNotification(
+                $"<color=#FF3333>[ДОСТУП ЗАБЛОКИРОВАН]</color> Требуется расшифровать 80% архива! (Готово: {cur}/{req})");
+            return;
+        }
+
         var hub = SpyMiniGames.Instance;
         if (hub == null)
         {
@@ -819,6 +941,7 @@ public class VectorCommander : MonoBehaviour
 
         if (hub != null)
         {
+            bool wasUnlockedBefore = IsFinalFileUnlocked();
             gameObject.SetActive(false);
             hub.LaunchMiniGame(file, (success) =>
             {
@@ -827,6 +950,20 @@ public class VectorCommander : MonoBehaviour
                 {
                     file.isDecrypted = true;
                     UpdateAllVisuals();
+
+                    // Check if 80% was just reached by this decryption
+                    if (!wasUnlockedBefore && IsFinalFileUnlocked())
+                    {
+                        PlaySuccessSound();
+                        MainframeBootQuest.Instance?.ShowNotification(
+                            "<color=#00FFFF><b>★ [КРИТИЧЕСКИЙ ПРОРЫВ] Расшифровано 80% базы! ФИНАЛЬНЫЙ АРХИВ «АРХИВ_ОМЕГА.TOP» РАЗБЛОКИРОВАН!</b></color>");
+                    }
+
+                    // If final objective was successfully decrypted: VICTORY!
+                    if (file.isFinalObjective)
+                    {
+                        GameVictorySystem.TriggerVictory("ДЕШИФРОВКА ФИНАЛЬНОГО АРХИВА «АРХИВ_ОМЕГА.TOP»");
+                    }
                 }
             });
         }

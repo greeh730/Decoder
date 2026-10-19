@@ -43,7 +43,11 @@ public class CartridgeDraggable : MonoBehaviour
     public UnityEvent<float> onSlideProgress = new UnityEvent<float>();
     public UnityEvent onCompleted = new UnityEvent();
 
-    private Vector3 initialLocalPos;
+    [Header("Positions")]
+    [Tooltip("Local position inside the slot when progress = 0")]
+    [SerializeField] private Vector3 insideLocalPos = new Vector3(-2.192f, 1.127f, 0.189f);
+    [SerializeField] private bool hasCapturedInsidePos = false;
+
     private bool isDragging = false;
     private bool isCompleted = false;
 
@@ -53,10 +57,16 @@ public class CartridgeDraggable : MonoBehaviour
     public bool IsHot => isHot;
     public string CartridgeName => cartridgeName;
     public SlideMode Mode => mode;
+    public Vector3 InsideLocalPos => insideLocalPos;
 
     private void Awake()
     {
-        initialLocalPos = transform.localPosition;
+        if (!hasCapturedInsidePos)
+        {
+            insideLocalPos = transform.localPosition;
+            hasCapturedInsidePos = true;
+        }
+
         if (audioSource == null)
         {
             audioSource = GetComponent<AudioSource>();
@@ -68,6 +78,13 @@ public class CartridgeDraggable : MonoBehaviour
         audioSource.maxDistance = 6f;
 
         GenerateAudioClips();
+        UpdatePosition();
+    }
+
+    public void SetInsidePosition(Vector3 pos)
+    {
+        insideLocalPos = pos;
+        hasCapturedInsidePos = true;
         UpdatePosition();
     }
 
@@ -139,7 +156,7 @@ public class CartridgeDraggable : MonoBehaviour
 
     private void UpdatePosition()
     {
-        transform.localPosition = initialLocalPos + slideLocalAxis * (progress * travelDistance);
+        transform.localPosition = insideLocalPos + slideLocalAxis * (progress * travelDistance);
     }
 
     private void PlayLockSound()

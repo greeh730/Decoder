@@ -160,6 +160,14 @@ public class PlayerController : MonoBehaviour
     {
         SetCursorLock(true);
         UpdateCameraMode();
+
+        // Ensure chair collider does not wedge player
+        var chairObj = GameObject.Find("Cube.020");
+        if (chairObj != null)
+        {
+            var chairCol = chairObj.GetComponent<Collider>();
+            if (chairCol != null) chairCol.enabled = false;
+        }
     }
 
     private void Update()
@@ -177,6 +185,24 @@ public class PlayerController : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.R) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
             {
                 GuardPawn.RestartGame();
+            }
+#endif
+            return;
+        }
+
+        if (GameVictorySystem.IsGameWon && GameVictorySystem.IsVictoryScreenOpen)
+        {
+            SetCursorLock(false);
+#if ENABLE_INPUT_SYSTEM
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
+            {
+                GameVictorySystem.RestartGame();
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                GameVictorySystem.RestartGame();
             }
 #endif
             return;
@@ -264,6 +290,14 @@ public class PlayerController : MonoBehaviour
             if (cartridge != null && !cartridge.IsCompleted)
             {
                 currentCartridge = cartridge;
+
+                if (WasKeyPressed(KeyCode.E))
+                {
+                    string hint = cartridge.Mode == CartridgeDraggable.SlideMode.PullOut
+                        ? "<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и тяните мышь на себя, чтобы вытащить диск!"
+                        : "<color=#FFFF66>[ТАКТИЛЬНЫЙ ЗАХВАТ]</color> Зажмите [ЛКМ] и ведите мышь вперед, чтобы задвинуть диск в слот!";
+                    MainframeBootQuest.Instance?.ShowNotification(hint);
+                }
 
                 if (IsMouseButtonPressed())
                 {
@@ -521,7 +555,8 @@ public class PlayerController : MonoBehaviour
         if (currentState != PlayerState.Normal) return;
 
         currentState = PlayerState.Sitting;
-        characterController.enabled = false;
+        if (characterController == null) characterController = GetComponent<CharacterController>();
+        if (characterController != null) characterController.enabled = false;
 
         // Position player on chair
         transform.position = chairPosition;
@@ -543,16 +578,21 @@ public class PlayerController : MonoBehaviour
 
         currentState = PlayerState.Normal;
 
-        // Slightly step back or stand at chair
-        transform.position = chairPosition + transform.right * -0.5f;
+        // Clean, fixed stand offset relative to chair orientation (never dependent on mouse look yaw)
+        Vector3 standOffset = Quaternion.Euler(0f, chairLookEuler.y, 0f) * new Vector3(-0.45f, 0f, -0.55f);
+        Vector3 targetPos = chairPosition + standOffset;
+
+        if (characterController != null) characterController.enabled = false;
+        transform.position = targetPos;
+        transform.rotation = Quaternion.Euler(chairLookEuler);
+        if (characterController != null) characterController.enabled = true;
+
         if (cameraHolder != null)
         {
             cameraHolder.localPosition = new Vector3(0f, standingEyeHeight, 0f);
         }
 
-        characterController.enabled = true;
         verticalVelocity = Vector3.zero;
-
         UpdateCameraMode();
     }
 
@@ -1008,14 +1048,21 @@ public class PlayerController : MonoBehaviour
                 }
             }
 
+            string carriedText = "";
+            if (DiskDriveBay.Instance != null && DiskDriveBay.Instance.HasCarriedCartridge)
+            {
+                carriedText = $"• <b>В РУКАХ:</b> <color=#00FFAA>Пакет дисков №{DiskDriveBay.Instance.CarriedCartridgeId} [ХОЛОДНЫЙ]</color>\n";
+            }
+
             string statusText = $"<b>Состояние:</b> <color=#00FFCC>{stateName}</color> | Вид: {viewModeText}\n" +
-                               $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
-                               $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
-                               $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
-                               $"• <b>T</b> — Наручные часы (таймер / радар)\n" +
-                               $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
-                               $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
-                               $"• <b>Esc</b> — Освободить мышь (клик — захват)";
+                                carriedText +
+                                $"• <b>ШУМ ЭВМ:</b> <color={noiseColor}>{noiseText}</color>\n" +
+                                $"• <b>СВЕТ ЭЛТ:</b> <color={lightColor}>{lightText}</color>\n" +
+                                $"• <b>W, A, S, D</b> — Передвижение / Встать\n" +
+                                $"• <b>T</b> — Наручные часы (таймер / радар)\n" +
+                                $"• <b>B</b> — Яркость экрана (100% / 35% / 0%)\n" +
+                                $"• <b>V / C</b> — Вид камеры (1st/3rd person)\n" +
+                                $"• <b>Esc</b> — Освободить мышь (клик — захват)";
 
             GUILayout.Box(statusText, boxStyle);
             GUILayout.EndArea();

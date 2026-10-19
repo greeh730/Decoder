@@ -63,6 +63,17 @@ public class CartridgeCoolingRack : MonoBehaviour
 
     private void Start()
     {
+        if (cradle1.interactable != null)
+        {
+            cradle1.interactable.onInteract.RemoveListener(InteractCradle1);
+            cradle1.interactable.onInteract.AddListener(InteractCradle1);
+        }
+        if (cradle2.interactable != null)
+        {
+            cradle2.interactable.onInteract.RemoveListener(InteractCradle2);
+            cradle2.interactable.onInteract.AddListener(InteractCradle2);
+        }
+
         // Initial setup:
         // Cradle 1 is EMPTY (Cartridge #1 starts inside the server drive bay)
         cradle1.isOccupied = false;
@@ -100,44 +111,42 @@ public class CartridgeCoolingRack : MonoBehaviour
 
         var bay = DiskDriveBay.Instance;
         bool hasExtractedCartridge = bay != null && bay.State == DiskDriveBay.DriveBayState.CartridgeExtracted;
+        bool hasCarriedCartridge = bay != null && bay.HasCarriedCartridge;
         int extractedId = bay != null ? bay.ExtractedCartridgeId : 0;
+        int carriedId = bay != null ? bay.CarriedCartridgeId : 0;
 
         cradle.interactable.IsInteractable = true;
 
         if (!cradle.isOccupied)
         {
-            // Empty cradle: can we place the extracted cartridge here?
-            if (hasExtractedCartridge && extractedId == cradle.cartridgeId)
+            // Empty cradle
+            if (hasExtractedCartridge)
             {
-                cradle.interactable.PromptText = $"[E] Положить горячий пакет №{cradle.cartridgeId} на охлаждение";
+                cradle.interactable.PromptText = $"[E] Положить горячий пакет №{extractedId} на охлаждение";
+            }
+            else if (hasCarriedCartridge)
+            {
+                cradle.interactable.PromptText = $"[E] Вернуть холодный пакет №{carriedId} на полку";
             }
             else
             {
-                cradle.interactable.PromptText = $"[ {cradle.cradleName} пуста — сначала извлеките диск из сервера ]";
+                cradle.interactable.PromptText = $"[ {cradle.cradleName} пуста — сначала извлеките горячий диск ]";
             }
 
             if (cradle.statusLamp != null) cradle.statusLamp.sharedMaterial = lampOffMat;
             if (cradle.labelTextMesh != null)
             {
-                cradle.labelTextMesh.text = $"{cradle.cradleName} [ ПАКЕТ №{cradle.cartridgeId} ]\n<color=#888888>[ ПУСТО ]</color>";
+                cradle.labelTextMesh.text = $"{cradle.cradleName}\n<color=#888888>[ ПУСТО ]</color>";
             }
         }
         else
         {
-            // Occupied cradle: is it hot or cooled?
+            // Occupied cradle
             bool isReady = cradle.currentTemp <= readyTempThreshold;
 
             if (isReady)
             {
-                // Can only take if server slot is empty (CartridgeExtracted)
-                if (hasExtractedCartridge)
-                {
-                    cradle.interactable.PromptText = $"[E] Взять охлажденный пакет №{cradle.cartridgeId} ({cradle.currentTemp:F0}°C)";
-                }
-                else
-                {
-                    cradle.interactable.PromptText = $"[ Пакет №{cradle.cartridgeId} готов ({cradle.currentTemp:F0}°C) — сначала извлеките горячий диск ]";
-                }
+                cradle.interactable.PromptText = $"[E] Взять охлажденный пакет №{cradle.cartridgeId} ({cradle.currentTemp:F0}°C)";
 
                 if (cradle.statusLamp != null) cradle.statusLamp.sharedMaterial = lampGreenMat;
                 if (cradle.labelTextMesh != null)
@@ -183,9 +192,10 @@ public class CartridgeCoolingRack : MonoBehaviour
         if (!cradle.isOccupied)
         {
             // Place extracted cartridge
-            if (bay.State == DiskDriveBay.DriveBayState.CartridgeExtracted && bay.ExtractedCartridgeId == cradle.cartridgeId)
+            if (bay.State == DiskDriveBay.DriveBayState.CartridgeExtracted)
             {
                 cradle.isOccupied = true;
+                cradle.cartridgeId = bay.ExtractedCartridgeId;
                 cradle.currentTemp = bay.Temperature;
                 if (cradle.cartridgeVisual != null) cradle.cartridgeVisual.SetActive(true);
 
@@ -195,10 +205,23 @@ public class CartridgeCoolingRack : MonoBehaviour
                 MainframeBootQuest.Instance?.ShowNotification(
                     $"<color=#FFFF66>[ПОЛКА ОХЛАЖДЕНИЯ]</color> Пакет №{cradle.cartridgeId} установлен на охлаждение ({cradle.currentTemp:F0}°C).");
             }
+            else if (bay.HasCarriedCartridge)
+            {
+                cradle.isOccupied = true;
+                cradle.cartridgeId = bay.CarriedCartridgeId;
+                cradle.currentTemp = 30f;
+                if (cradle.cartridgeVisual != null) cradle.cartridgeVisual.SetActive(true);
+
+                PlayPlaceSound();
+                bay.ReturnCarriedCartridgeToRack();
+
+                MainframeBootQuest.Instance?.ShowNotification(
+                    $"<color=#00FFAA>[ПОЛКА ОХЛАЖДЕНИЯ]</color> Пакет №{cradle.cartridgeId} возвращен на полку.");
+            }
             else
             {
                 MainframeBootQuest.Instance?.ShowNotification(
-                    $"<color=#FFAA00>[ЯЧЕЙКА ПУСТА]</color> Сначала извлеките горячий пакет дисков №{cradle.cartridgeId} из сервера!");
+                    $"<color=#FFAA00>[ЯЧЕЙКА ПУСТА]</color> Сначала нажмите [СТОП] (кнопка Cube.107) и вытяните горячий диск из сервера!");
             }
         }
         else
@@ -206,21 +229,17 @@ public class CartridgeCoolingRack : MonoBehaviour
             // Take cold cartridge
             if (cradle.currentTemp <= readyTempThreshold)
             {
-                if (bay.State == DiskDriveBay.DriveBayState.CartridgeExtracted)
+                if (bay.HasCarriedCartridge)
                 {
-                    cradle.isOccupied = false;
-                    if (cradle.cartridgeVisual != null) cradle.cartridgeVisual.SetActive(false);
-
-                    PlayPickSound();
-                    bay.MountColdCartridge(cradle.cartridgeId, cradle.currentTemp);
-
-                    MainframeBootQuest.Instance?.ShowNotification(
-                        $"<color=#00FFAA>[КАРТРИДЖ НА РЕЛЬСАХ]</color> Пакет №{cradle.cartridgeId} установлен на рельсы слота. Задвиньте его мышью.");
+                    MainframeBootQuest.Instance?.ShowNotification("<color=#FFAA00>[ОТКАЗ]</color> У вас в руках уже есть холодный пакет дисков!");
+                    return;
                 }
-                else
-                {
-                    MainframeBootQuest.Instance?.ShowNotification("Сначала извлеките горячий картридж из сервера!");
-                }
+
+                cradle.isOccupied = false;
+                if (cradle.cartridgeVisual != null) cradle.cartridgeVisual.SetActive(false);
+
+                PlayPickSound();
+                bay.PickUpColdCartridge(cradle.cartridgeId, cradle.currentTemp);
             }
             else
             {
